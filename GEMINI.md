@@ -41,7 +41,8 @@ src/energy_match/
 │   └── trade_normalizer.py # Handles universal cleaning of product names, dates, etc.
 ├── matchers/
 │   ├── exact_matcher.py   # Implements Rule 1: Exact Matching.
-│   └── spread_matcher.py  # Implements Rule 2: Spread Matching.
+│   ├── spread_matcher.py  # Implements Rule 2: Spread Matching.
+│   └── crack_matcher.py   # Implements Rule 3: Crack Matching.
 ├── core/
 │   └── unmatched_pool.py # State manager for all trades, preventing duplicate matches.
 ├── config/
@@ -50,7 +51,8 @@ src/energy_match/
 │   └── display.py   # Rich terminal output and progress display.
 ├── data/
 │   ├── sourceTraders.csv    # Default trader data.
-│   ├── sourceExchange.csv   # Default exchange data.
+│   └── sourceExchange.csv   # Default exchange data.
+│   └── ...                  # Additional data directories for specific dates or test cases.
 └── docs/
     └── rules.md        # The complete 10-rule specification. The primary source for business logic.
 ```
@@ -82,7 +84,7 @@ The system uses a sequential, confidence-based rule system defined in `docs/rule
 
 1.  **Exact Match (Implemented)**: 6 fields (`product_name`, `quantity_mt`, `price`, `contract_month`, `buy_sell`, `broker_group_id`) must match exactly after normalization.
 2.  **Spread Match (Implemented)**: Matches a 2-leg trader spread (where one leg's price is the spread differential and the other is zero) against two separate exchange trades. The logic groups potential legs by `(product, quantity, broker)` for efficiency.
-3.  **Crack Match (Future)**: Matches crack spread trades, handling unit conversions.
+3.  **Crack Match (Implemented)**: Matches crack spread trades, handling unit conversions.
 4.  **Aggregation Match (Future)**: Matches trades that are split or combined across sources.
 5.  ... and so on for more complex scenarios.
 

@@ -63,9 +63,9 @@ The matching engine processes trades in order of confidence level to ensure the 
 1. **Exact Matches** (Confidence: 100%) - Highest certainty, processed first
 2. **Spread Matches** (Confidence: 95%) - Calendar spreads between contract months
 3. **Crack Matches** (Confidence: 90%) - Crack spread trades with unit conversion
-4. **Aggregation Matches** (Confidence: 80%) - Split/combined trade scenarios
+4. **Complex Crack Matches** (Confidence: 80%) - 2-leg crack trades (base product + brent swap)
 5. **Product Spread Matches** (Confidence: 75%) - Product combination spreads (e.g., "marine 0.5%-380cst")
-6. **Complex Crack Matches** (Confidence: 75%) - 2-leg crack trades (base product + brent swap)
+6. **Aggregation Matches** (Confidence: 72%) - Split/combined trade scenarios
 7. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
 8. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
 9. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
@@ -365,107 +365,154 @@ All 6 fields must match exactly (with unit conversion applied where needed):
 - Each crack match removes 1 exchange trade and 1 trader trade from the unmatched pool
 - Prioritize exact unit matches first, then apply conversion matching
 
-## 4. Aggregation Match Rules
+## 4. Complex Crack Match Rules (2-Leg with Brent Swap)
 
 ### Definition
 
-An **aggregation match** occurs when the same trade is represented differently between sources - either split into multiple smaller entries in one source and combined in the other, or vice versa. This handles cases where trade quantities are disaggregated or aggregated between the two data sources.
+A **complex crack match** occurs when a trader executes a crack spread trade that corresponds to a combination of two separate exchange trades: the base product trade and a Brent swap trade. This represents a more sophisticated crack trading strategy where the crack spread is calculated from the differential between the refined product and crude oil (Brent) prices.
 
-**Processing Order**: Aggregation matching is performed AFTER exact matching, spread matching, and crack matching have been completed. This handles remaining unmatched trades that may be split or combined representations of the same underlying trade.
+**Processing Order**: Complex crack matching is performed AFTER other simplier matching types have been completed. This handles more complex scenarios where crack products need to be matched against combinations of base product + Brent swap trades.
 
-### Aggregation Trade Identification
+### Complex Crack Trade Identification
 
-#### Key Characteristics:
+#### Key Relationship:
 
-- **Same fundamental trade details**: Product, contract month, price, broker group, and B/S direction must match
-- **Quantity relationship**: Sum of smaller trades equals the larger single trade
-- **Same brokergroupid**: All trades must be from the same broker group
+- **Crack Product Formula**: `Crack Product = Base Product - Brent Swap`
+- **Universal Application**: This relationship holds for any crack product (e.g., "380cst crack" = "380cst" - "brent swap")
+- **2-Leg Exchange Structure**: Exchange shows two separate trades (base product + brent swap), trader shows single crack trade
 
-**IMPORTANT**: Timestamp matching is NOT strictly required for aggregation matching. Traders may enter aggregated trades at different times due to manual entry processes, system delays, or operational workflows.
+#### Required Exchange Components:
 
-### Types of Aggregation Scenarios
+1. **Base Product Trade**: Trade in the base product (e.g., "380cst")
+2. **Brent Swap Trade**: Trade in "brent swap" or "Brent Swap"
+3. **Opposite B/S Directions**: Base product and Brent swap must have opposite buy/sell directions
+4. **Quantity Relationship**: After unit conversion, quantities must match the trader crack quantity
 
-#### Scenario A: Multiple Trader Entries → Single Exchange Entry
+#### Required Trader Components:
 
-- **sourceTraders**: Multiple entries with identical details except smaller quantities
-- **sourceExchange**: Single entry with quantity equal to sum of trader entries
+1. **Crack Product**: Product name contains "crack" (e.g., "380cst crack")
+2. **Single Trade Entry**: Shows as one consolidated crack trade
+3. **Price Calculation**: Crack price derived from base product and Brent swap price differential
 
-#### Scenario B: Single Trader Entry → Multiple Exchange Entries
+### Required Matching Fields for Complex Cracks
 
-- **sourceTraders**: Single entry with larger quantity
-- **sourceExchange**: Multiple entries with quantities that sum to trader quantity
+1. **Product Relationship**: Trader crack product base name must match exchange base product
 
-### Required Matching Fields for Aggregation
+   - `"380cst crack"` matches with `"380cst"` + `"brent swap"`
+   - `"marine 0.5% crack"` matches with `"marine 0.5%"` + `"brent swap"`
 
-1. **productname** - Must match exactly (after normalization)
-2. **contractmonth** - Contract delivery month must be identical
-3. **price** - Trade execution price must be identical across all entries
-4. **brokergroupid** - Broker group must match for all entries
-5. **b/s** - Buy/Sell indicator must match (after normalization)
-6. **Quantity sum validation** - Sum of split trades must equal aggregated trade
+2. **Contract Month**: All three trades (base product, brent swap, crack) must have identical contract months
 
-### Example: Aggregation Match (Multiple Traders → Single Exchange)
+3. **Quantity Matching**: After unit conversion, quantities must align:
 
-#### Before Normalization:
+   - Exchange base product quantity = trader crack quantity
+   - Exchange brent swap quantity (converted from BBL to MT) ≈ trader crack quantity
 
-**sourceTraders.csv (Split Entries):**
+4. **B/S Direction Logic**:
+
+   - **Sell Crack** = **Sell Base Product** + **Buy Brent Swap**
+   - **Buy Crack** = **Buy Base Product** + **Sell Brent Swap**
+
+5. **Price Calculation**: `(Base Product Price ÷ 6.35) - Brent Swap Price = Crack Price`
+
+6. **Broker Group**: All trades must have matching brokergroupid
+
+### Unit Conversion for Complex Cracks
+
+#### Critical Conversion Rules:
+
+- **Brent Swap Units**: Always in BBL (barrels)
+- **Base Product Units**: Typically in MT (metric tons)
+- **Crack Product Units**: Typically in MT (metric tons)
+- **Conversion Formula**: `BBL ÷ 6.35 = MT`
+- **Price Adjustment**: Base product price must be divided by 6.35 when comparing to Brent price
+
+#### Conversion Process:
+
+1. Convert Brent swap quantity from BBL to MT: `13,000 BBL ÷ 6.35 ≈ 2,047 MT ≈ 2,000 MT`
+2. Verify base product and crack quantities match (both in MT)
+3. Apply price formula with unit conversion factor
+
+### Example: Complex Crack Match
+
+#### Exact Source Data:
+
+**sourceExchange.csv (Two Separate Trades):**
 
 ```
-| teamid | tradedate | tradetime | productname | quantityunits | price | contractmonth | B/S | brokergroupid |
-|--------|-----------|-----------|-------------|---------------|-------|---------------|-----|---------------|
-| 1      | 15/5/2025 | 14:00     | marine 0.5% | 2000          | 473   | Aug-25        | S   | 3             |
-| 1      | 15/5/2025 | 14:00     | marine 0.5% | 2000          | 473   | Aug-25        | S   | 3             |
+| Row | productname | contractmonth | quantityunits | unit | price  | b/s    | brokergroupid |
+|-----|-------------|---------------|---------------|------|--------|--------|---------------|
+| 45  | Brent Swap  | Jun-25        | 13,000        | bbl  | 64.05  | Bought | 3             |
+| 46  | 380cst      | Jun-25        | 2,000         | mt   | 427.99 | Sold   | 3             |
 ```
 
-**sourceExchange.csv (Aggregated Entry):**
+**sourceTraders.csv (Single Crack Trade):**
 
 ```
-| tradetime        | productname | contractmonth | quantityunits | price | b/s  | brokergroupid |
-|------------------|-------------|---------------|---------------|-------|------|---------------|
-| 06:03:43 AM GMT  | marine 0.5% | Aug-25        | 4,000         | 473   | Sold | 3             |
+| Row | productname  | contractmonth | quantityunits | unit | price | b/s  | brokergroupid |
+|-----|--------------|---------------|---------------|------|-------|------|---------------|
+| 47  | 380cst crack | Jun-25        | 2,000         | mt   | 3.35  | Sold | 3             |
 ```
 
-#### After Normalization & Aggregation:
+#### Matching Validation Process:
 
-**Quantity Validation**: `2000 + 2000 = 4000` ✅
+1. **Product Relationship**: ✅
 
-**Normalized Match:**
+   - Trader: "380cst crack" → Base product: "380cst"
+   - Exchange has: "380cst" + "Brent Swap"
 
-```
-| productname | contractmonth | total_quantity | price | b/s  | brokergroupid | trader_entries | exchange_entries |
-|-------------|---------------|----------------|-------|------|---------------|----------------|------------------|
-| marine 0.5% | Aug-25        | 4000           | 473   | Sold | 3             | [idx1, idx2]   | [idx3]          |
-```
+2. **Contract Month**: ✅
 
-**Result:** ✅ **AGGREGATION MATCH**
+   - All trades: Jun-25
 
-### Aggregation-Specific Rules
+3. **Quantity Conversion & Matching**: ✅
 
-#### Quantity Aggregation Logic:
+   - Brent Swap: 13,000 BBL ÷ 6.35 ≈ 2,047 MT ≈ 2,000 MT
+   - Base product: 2,000 MT
+   - Crack: 2,000 MT
+   - All quantities align after conversion
 
-- **Sum validation**: Total quantity of split entries must exactly equal aggregated entry quantity
-- **No partial matches**: All split entries must be included in the aggregation match
-- **Bidirectional matching**: Algorithm must handle both scenarios (many→one and one→many)
+4. **B/S Direction Logic**: ✅
 
-#### Aggregation Processing Logic:
+   - Trader: **Sell** 380cst crack
+   - Exchange: **Sell** 380cst + **Buy** Brent Swap
+   - Pattern matches: Sell Crack = Sell Base + Buy Brent
 
-- **Group by trade characteristics**: Group trades by product, contract, price, brokergroup, and B/S
-- **Validate trade details**: Ensure all fundamental trade characteristics match exactly
-- **Calculate quantity sums**: Verify quantity relationships before confirming match
+5. **Price Calculation**: ✅
 
-#### Processing Priority:
+   - Formula: (427.99 ÷ 6.35) - 64.05 = 67.40 - 64.05 = 3.35
+   - Trader crack price: 3.35
+   - **Perfect match**: 3.35 = 3.35
 
-- **Fundamental match validation**: All non-quantity fields must match exactly after normalization
-- **Quantity conservation**: Total quantities must balance exactly between sources
-- **No time dependency**: Processing does not depend on timestamp matching
+6. **Broker Group**: ✅
+   - All trades: brokergroupid = 3
 
-#### Processing Notes:
+**Result:** ✅ **COMPLEX CRACK MATCH**
 
-- Process aggregation matching only on remaining unmatched trades after all other matching types
-- Each aggregation match removes multiple entries from one source and single/multiple entries from the other
-- Maintain detailed mapping of which specific entries were aggregated together
-- **No overlapping matches**: Aggregated trades cannot be part of other match types
+### Implementation Strategy
+
+#### Processing Approach:
+
+1. **Process After Other Matches**: Handle complex cracks only after exact, spread, simple crack matches are complete
+2. **CHECK** units of the row to know if it is BBL or MT so you know a conversion is required
+3. **Unit Normalization First**: Convert all BBL quantities to MT using ÷6.35 conversion
+4. **Pattern Identification**: Look for unmatched crack products in trader data
+5. **Combination Search**: For each crack, search for matching base product + brent swap pairs in exchange data
+6. **Validation Cascade**: Apply all matching criteria in sequence
+7. **Price Formula Verification**: Apply complex price calculation as final validation
+
+#### Matching Tolerance:
+
+- **Quantity Tolerance**: ±100 MT difference allowed for unit conversion rounding
+- **Price Tolerance**: ±0.01 difference allowed for calculation precision
+- **Product Name Matching**: Case-insensitive, normalized comparison
+
+### Processing Notes
+
+- Each complex crack match removes 2 exchange trades (base product + brent swap) and 1 trader trade from unmatched pool
+- Maintains detailed mapping of which exchange trades combine to form the crack match
 - Apply same universal normalization rules as other matching types
+- Handles sophisticated 2-leg crack trading scenarios
 
 ## 5. Product Spread Match Rules
 
@@ -624,154 +671,107 @@ A **product spread match** occurs when a trader executes a spread trade between 
 - Handles sophisticated product combination trading scenarios
 - Processed before low-confidence matches to catch clear product spread patterns
 
-## 6. Complex Crack Match Rules (2-Leg with Brent Swap)
+## 6. Aggregation Match Rules
 
 ### Definition
 
-A **complex crack match** occurs when a trader executes a crack spread trade that corresponds to a combination of two separate exchange trades: the base product trade and a Brent swap trade. This represents a more sophisticated crack trading strategy where the crack spread is calculated from the differential between the refined product and crude oil (Brent) prices.
+An **aggregation match** occurs when the same trade is represented differently between sources - either split into multiple smaller entries in one source and combined in the other, or vice versa. This handles cases where trade quantities are disaggregated or aggregated between the two data sources.
 
-**Processing Order**: Complex crack matching is performed AFTER other simplier matching types have been completed. This handles more complex scenarios where crack products need to be matched against combinations of base product + Brent swap trades.
+**Processing Order**: Aggregation matching is performed AFTER exact matching, spread matching, and crack matching have been completed. This handles remaining unmatched trades that may be split or combined representations of the same underlying trade.
 
-### Complex Crack Trade Identification
+### Aggregation Trade Identification
 
-#### Key Relationship:
+#### Key Characteristics:
 
-- **Crack Product Formula**: `Crack Product = Base Product - Brent Swap`
-- **Universal Application**: This relationship holds for any crack product (e.g., "380cst crack" = "380cst" - "brent swap")
-- **2-Leg Exchange Structure**: Exchange shows two separate trades (base product + brent swap), trader shows single crack trade
+- **Same fundamental trade details**: Product, contract month, price, broker group, and B/S direction must match
+- **Quantity relationship**: Sum of smaller trades equals the larger single trade
+- **Same brokergroupid**: All trades must be from the same broker group
 
-#### Required Exchange Components:
+**IMPORTANT**: Timestamp matching is NOT strictly required for aggregation matching. Traders may enter aggregated trades at different times due to manual entry processes, system delays, or operational workflows.
 
-1. **Base Product Trade**: Trade in the base product (e.g., "380cst")
-2. **Brent Swap Trade**: Trade in "brent swap" or "Brent Swap"
-3. **Opposite B/S Directions**: Base product and Brent swap must have opposite buy/sell directions
-4. **Quantity Relationship**: After unit conversion, quantities must match the trader crack quantity
+### Types of Aggregation Scenarios
 
-#### Required Trader Components:
+#### Scenario A: Multiple Trader Entries → Single Exchange Entry
 
-1. **Crack Product**: Product name contains "crack" (e.g., "380cst crack")
-2. **Single Trade Entry**: Shows as one consolidated crack trade
-3. **Price Calculation**: Crack price derived from base product and Brent swap price differential
+- **sourceTraders**: Multiple entries with identical details except smaller quantities
+- **sourceExchange**: Single entry with quantity equal to sum of trader entries
 
-### Required Matching Fields for Complex Cracks
+#### Scenario B: Single Trader Entry → Multiple Exchange Entries
 
-1. **Product Relationship**: Trader crack product base name must match exchange base product
+- **sourceTraders**: Single entry with larger quantity
+- **sourceExchange**: Multiple entries with quantities that sum to trader quantity
 
-   - `"380cst crack"` matches with `"380cst"` + `"brent swap"`
-   - `"marine 0.5% crack"` matches with `"marine 0.5%"` + `"brent swap"`
+### Required Matching Fields for Aggregation
 
-2. **Contract Month**: All three trades (base product, brent swap, crack) must have identical contract months
+1. **productname** - Must match exactly (after normalization)
+2. **contractmonth** - Contract delivery month must be identical
+3. **price** - Trade execution price must be identical across all entries
+4. **brokergroupid** - Broker group must match for all entries
+5. **b/s** - Buy/Sell indicator must match (after normalization)
+6. **Quantity sum validation** - Sum of split trades must equal aggregated trade
 
-3. **Quantity Matching**: After unit conversion, quantities must align:
+### Example: Aggregation Match (Multiple Traders → Single Exchange)
 
-   - Exchange base product quantity = trader crack quantity
-   - Exchange brent swap quantity (converted from BBL to MT) ≈ trader crack quantity
+#### Before Normalization:
 
-4. **B/S Direction Logic**:
-
-   - **Sell Crack** = **Sell Base Product** + **Buy Brent Swap**
-   - **Buy Crack** = **Buy Base Product** + **Sell Brent Swap**
-
-5. **Price Calculation**: `(Base Product Price ÷ 6.35) - Brent Swap Price = Crack Price`
-
-6. **Broker Group**: All trades must have matching brokergroupid
-
-### Unit Conversion for Complex Cracks
-
-#### Critical Conversion Rules:
-
-- **Brent Swap Units**: Always in BBL (barrels)
-- **Base Product Units**: Typically in MT (metric tons)
-- **Crack Product Units**: Typically in MT (metric tons)
-- **Conversion Formula**: `BBL ÷ 6.35 = MT`
-- **Price Adjustment**: Base product price must be divided by 6.35 when comparing to Brent price
-
-#### Conversion Process:
-
-1. Convert Brent swap quantity from BBL to MT: `13,000 BBL ÷ 6.35 ≈ 2,047 MT ≈ 2,000 MT`
-2. Verify base product and crack quantities match (both in MT)
-3. Apply price formula with unit conversion factor
-
-### Example: Complex Crack Match
-
-#### Exact Source Data:
-
-**sourceExchange.csv (Two Separate Trades):**
+**sourceTraders.csv (Split Entries):**
 
 ```
-| Row | productname | contractmonth | quantityunits | unit | price  | b/s    | brokergroupid |
-|-----|-------------|---------------|---------------|------|--------|--------|---------------|
-| 45  | Brent Swap  | Jun-25        | 13,000        | bbl  | 64.05  | Bought | 3             |
-| 46  | 380cst      | Jun-25        | 2,000         | mt   | 427.99 | Sold   | 3             |
+| teamid | tradedate | tradetime | productname | quantityunits | price | contractmonth | B/S | brokergroupid |
+|--------|-----------|-----------|-------------|---------------|-------|---------------|-----|---------------|
+| 1      | 15/5/2025 | 14:00     | marine 0.5% | 2000          | 473   | Aug-25        | S   | 3             |
+| 1      | 15/5/2025 | 14:00     | marine 0.5% | 2000          | 473   | Aug-25        | S   | 3             |
 ```
 
-**sourceTraders.csv (Single Crack Trade):**
+**sourceExchange.csv (Aggregated Entry):**
 
 ```
-| Row | productname  | contractmonth | quantityunits | unit | price | b/s  | brokergroupid |
-|-----|--------------|---------------|---------------|------|-------|------|---------------|
-| 47  | 380cst crack | Jun-25        | 2,000         | mt   | 3.35  | Sold | 3             |
+| tradetime        | productname | contractmonth | quantityunits | price | b/s  | brokergroupid |
+|------------------|-------------|---------------|---------------|-------|------|---------------|
+| 06:03:43 AM GMT  | marine 0.5% | Aug-25        | 4,000         | 473   | Sold | 3             |
 ```
 
-#### Matching Validation Process:
+#### After Normalization & Aggregation:
 
-1. **Product Relationship**: ✅
+**Quantity Validation**: `2000 + 2000 = 4000` ✅
 
-   - Trader: "380cst crack" → Base product: "380cst"
-   - Exchange has: "380cst" + "Brent Swap"
+**Normalized Match:**
 
-2. **Contract Month**: ✅
+```
+| productname | contractmonth | total_quantity | price | b/s  | brokergroupid | trader_entries | exchange_entries |
+|-------------|---------------|----------------|-------|------|---------------|----------------|------------------|
+| marine 0.5% | Aug-25        | 4000           | 473   | Sold | 3             | [idx1, idx2]   | [idx3]          |
+```
 
-   - All trades: Jun-25
+**Result:** ✅ **AGGREGATION MATCH**
 
-3. **Quantity Conversion & Matching**: ✅
+### Aggregation-Specific Rules
 
-   - Brent Swap: 13,000 BBL ÷ 6.35 ≈ 2,047 MT ≈ 2,000 MT
-   - Base product: 2,000 MT
-   - Crack: 2,000 MT
-   - All quantities align after conversion
+#### Quantity Aggregation Logic:
 
-4. **B/S Direction Logic**: ✅
+- **Sum validation**: Total quantity of split entries must exactly equal aggregated entry quantity
+- **No partial matches**: All split entries must be included in the aggregation match
+- **Bidirectional matching**: Algorithm must handle both scenarios (many→one and one→many)
 
-   - Trader: **Sell** 380cst crack
-   - Exchange: **Sell** 380cst + **Buy** Brent Swap
-   - Pattern matches: Sell Crack = Sell Base + Buy Brent
+#### Aggregation Processing Logic:
 
-5. **Price Calculation**: ✅
+- **Group by trade characteristics**: Group trades by product, contract, price, brokergroup, and B/S
+- **Validate trade details**: Ensure all fundamental trade characteristics match exactly
+- **Calculate quantity sums**: Verify quantity relationships before confirming match
 
-   - Formula: (427.99 ÷ 6.35) - 64.05 = 67.40 - 64.05 = 3.35
-   - Trader crack price: 3.35
-   - **Perfect match**: 3.35 = 3.35
+#### Processing Priority:
 
-6. **Broker Group**: ✅
-   - All trades: brokergroupid = 3
+- **Fundamental match validation**: All non-quantity fields must match exactly after normalization
+- **Quantity conservation**: Total quantities must balance exactly between sources
+- **No time dependency**: Processing does not depend on timestamp matching
 
-**Result:** ✅ **COMPLEX CRACK MATCH**
+#### Processing Notes:
 
-### Implementation Strategy
-
-#### Processing Approach:
-
-1. **Process After All Other Matches**: Handle complex cracks only after exact, spread, simple crack, and aggregation matches are complete
-2. **CHECK** units of the row to know if it is BBL or MT so you know a conversion is required
-3. **Unit Normalization First**: Convert all BBL quantities to MT using ÷6.35 conversion
-4. **Pattern Identification**: Look for unmatched crack products in trader data
-5. **Combination Search**: For each crack, search for matching base product + brent swap pairs in exchange data
-6. **Validation Cascade**: Apply all matching criteria in sequence
-7. **Price Formula Verification**: Apply complex price calculation as final validation
-
-#### Matching Tolerance:
-
-- **Quantity Tolerance**: ±100 MT difference allowed for unit conversion rounding
-- **Price Tolerance**: ±0.01 difference allowed for calculation precision
-- **Product Name Matching**: Case-insensitive, normalized comparison
-
-### Processing Notes
-
-- Each complex crack match removes 2 exchange trades (base product + brent swap) and 1 trader trade from unmatched pool
-- Maintains detailed mapping of which exchange trades combine to form the crack match
+- Process aggregation matching only on remaining unmatched trades after all other matching types
+- Each aggregation match removes multiple entries from one source and single/multiple entries from the other
+- Maintain detailed mapping of which specific entries were aggregated together
+- **No overlapping matches**: Aggregated trades cannot be part of other match types
 - Apply same universal normalization rules as other matching types
-- Handles sophisticated 2-leg crack trading scenarios
 
 ## 7. Aggregated Complex Crack Match Rules (2-Leg with Split Base Products)
 

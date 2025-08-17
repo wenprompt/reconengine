@@ -126,7 +126,7 @@ class EnergyTradeMatchingEngine:
             with self.displayer.create_progress_context("Finding spread matches...") as progress:
                 task = progress.add_task("Matching...", total=None)
                 
-                spread_matcher = SpreadMatcher(self.config_manager)
+                spread_matcher = SpreadMatcher(self.config_manager, self.normalizer)
                 spread_matches = spread_matcher.find_matches(pool_manager)
                 all_matches.extend(spread_matches)
                 

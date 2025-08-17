@@ -20,7 +20,7 @@ class TradeNormalizer:
     PRODUCT_MAPPINGS = {
         "marine 0.5%": "marine 0.5%",
         "marine 0.5% crack": "marine 0.5% crack", 
-        "marine 0.5%-380cst": "marine 0.5%-380cst",  # Product spread - preserve as-is
+        "marine 0.5%-380cst": "marine 0.5%-380cst",
         "380cst": "380cst",
         "380cst crack": "380cst crack",
         "brent swap": "brent swap"
@@ -52,11 +52,7 @@ class TradeNormalizer:
     }
     
     def __init__(self, config_manager: ConfigManager):
-        """Initialize the normalizer.
-        
-        Args:
-            config_manager: Configuration manager for conversion ratios
-        """
+        """Initialize the normalizer."""
         self.config_manager = config_manager
         self.BBL_TO_MT_RATIO = config_manager.get_conversion_ratio()
     
@@ -72,14 +68,7 @@ class TradeNormalizer:
         return normalized
     
     def _handle_product_variations(self, product_lower: str) -> str:
-        """Handle product name variations using a data-driven map.
-        
-        Args:
-            product_lower: Lowercase product name
-            
-        Returns:
-            Best match normalized product name
-        """
+        """Handle product name variations using a data-driven map."""
         for keywords, normalized_name in self.PRODUCT_VARIATION_MAP.items():
             if all(keyword in product_lower for keyword in keywords):
                 return normalized_name
@@ -117,9 +106,7 @@ class TradeNormalizer:
             return Decimal("0")
         unit_clean = unit.strip().lower()
         if unit_clean == "bbl":
-            result = quantity / self.BBL_TO_MT_RATIO
-            logger.debug(f"Converted {quantity} BBL -> {result} MT")
-            return result
+            return quantity / self.BBL_TO_MT_RATIO
         elif unit_clean == "mt":
             return quantity
         else:
@@ -132,43 +119,18 @@ class TradeNormalizer:
             return Decimal("0")
         unit_clean = unit.strip().lower()
         if unit_clean == "mt":
-            result = quantity * self.BBL_TO_MT_RATIO
-            logger.debug(f"Converted {quantity} MT -> {result} BBL")
-            return result
+            return quantity * self.BBL_TO_MT_RATIO
         elif unit_clean == "bbl":
             return quantity
         else:
             logger.warning(f"Unknown unit '{unit}', treating as BBL")
             return quantity
-    
-    def normalize_all_fields(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Apply all normalizations to trade data dictionary."""
-        normalized = trade_data.copy()
-        if "product_name" in normalized:
-            normalized["product_name"] = self.normalize_product_name(normalized["product_name"])
-        if "contract_month" in normalized:
-            normalized["contract_month"] = self.normalize_contract_month(normalized["contract_month"])
-        if "buy_sell" in normalized:
-            normalized["buy_sell"] = self.normalize_buy_sell(normalized["buy_sell"])
-        return normalized
-    
-    def get_similar_products(self, product_name: str) -> list[str]:
-        """Get list of similar product names for fuzzy matching."""
-        normalized = self.normalize_product_name(product_name)
-        similar = []
-        if "marine" in normalized:
-            similar.extend(["marine 0.5%", "marine 0.5% crack"])
-        if "380cst" in normalized:
-            similar.extend(["380cst", "380cst crack"])
-        if normalized in similar:
-            similar.remove(normalized)
-        return similar
-    
+
     def are_adjacent_months(self, month1: str, month2: str) -> bool:
         """Check if two contract months are adjacent."""
         month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        month1_parts = self._extract_month_year(month1)
-        month2_parts = self._extract_month_year(month2)
+        month1_parts = self.extract_month_year(month1)
+        month2_parts = self.extract_month_year(month2)
         if not month1_parts or not month2_parts:
             return False
         month1_name, year1 = month1_parts
@@ -187,14 +149,34 @@ class TradeNormalizer:
                 return month2_name == "Dec" and month1_name == "Jan"
         return False
     
-    def _extract_month_year(self, contract_month: str) -> Optional[tuple[str, int]]:
+    def extract_month_year(self, contract_month: str) -> Optional[tuple[str, int]]:
         """Extract month name and year from contract month."""
         if not contract_month or contract_month == "Balmo":
             return None
+        # This regex assumes the month is already normalized to MMM-YY
         match = re.match(r'^([A-Za-z]{3})-(\d{2})$', contract_month)
         if match:
             month_name = match.group(1)
             year_short = int(match.group(2))
             year_full = 2000 + year_short
             return month_name, year_full
+        return None
+
+    def get_month_order_tuple(self, contract_month: str) -> Optional[tuple[int, int]]:
+        """Parse contract month into a comparable (year, month_order) tuple."""
+        normalized_month = self.normalize_contract_month(contract_month)
+        month_year_parts = self.extract_month_year(normalized_month)
+        if not month_year_parts:
+            return None
+            
+        month_abbr, year = month_year_parts
+        month_order_map = {
+            'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+            'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+        }
+        month_num = month_order_map.get(month_abbr)
+        
+        if year and month_num:
+            return (year, month_num)
+        
         return None
