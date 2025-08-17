@@ -11,7 +11,7 @@ from .loaders import CSVTradeLoader
 from .normalizers import TradeNormalizer
 from .config import ConfigManager
 from .core import UnmatchedPoolManager
-from .matchers import ExactMatcher
+from .matchers import ExactMatcher, SpreadMatcher
 from .cli import MatchDisplayer
 
 
@@ -107,7 +107,7 @@ class EnergyTradeMatchingEngine:
             self.logger.info("Initializing unmatched pool manager...")
             pool_manager = UnmatchedPoolManager(trader_trades, exchange_trades)
             
-            # Step 4: Apply matching rules in order (currently only Rule 1)
+            # Step 4: Apply matching rules in order (Rules 1 and 2)
             all_matches = []
             
             # Rule 1: Exact matching
@@ -118,6 +118,17 @@ class EnergyTradeMatchingEngine:
                 exact_matcher = ExactMatcher(self.config_manager)
                 exact_matches = exact_matcher.find_matches(pool_manager)
                 all_matches.extend(exact_matches)
+                
+                progress.remove_task(task)
+            
+            # Rule 2: Spread matching
+            self.logger.info("Applying Rule 2: Spread matching...")
+            with self.displayer.create_progress_context("Finding spread matches...") as progress:
+                task = progress.add_task("Matching...", total=None)
+                
+                spread_matcher = SpreadMatcher(self.config_manager)
+                spread_matches = spread_matcher.find_matches(pool_manager)
+                all_matches.extend(spread_matches)
                 
                 progress.remove_task(task)
             

@@ -11,15 +11,16 @@ from .trade import Trade
 class MatchType(str, Enum):
     """Type of matching rule that produced this match."""
     EXACT = "exact"  # Rule 1 - Exact 6-field match
-    PRICE_TOLERANCE = "price_tolerance"  # Rule 2
-    QUANTITY_TOLERANCE = "quantity_tolerance"  # Rule 3
-    BOTH_TOLERANCE = "both_tolerance"  # Rule 4
-    PRODUCT_SIMILAR = "product_similar"  # Rule 5
-    CONTRACT_ADJACENT = "contract_adjacent"  # Rule 6
-    PRODUCT_CONTRACT_TOLERANCES = "product_contract_tolerances"  # Rule 7
-    BROKER_DIFFERENT = "broker_different"  # Rule 8
-    EXCHANGE_DIFFERENT = "exchange_different"  # Rule 9
-    CLEARING_DIFFERENT = "clearing_different"  # Rule 10
+    SPREAD = "spread"  # Rule 2 - Spread matching
+    PRICE_TOLERANCE = "price_tolerance"  # Rule 3
+    QUANTITY_TOLERANCE = "quantity_tolerance"  # Rule 4
+    BOTH_TOLERANCE = "both_tolerance"  # Rule 5
+    PRODUCT_SIMILAR = "product_similar"  # Rule 6
+    CONTRACT_ADJACENT = "contract_adjacent"  # Rule 7
+    PRODUCT_CONTRACT_TOLERANCES = "product_contract_tolerances"  # Rule 8
+    BROKER_DIFFERENT = "broker_different"  # Rule 9
+    EXCHANGE_DIFFERENT = "exchange_different"  # Rule 10
+    CLEARING_DIFFERENT = "clearing_different"  # Rule 11
 
 
 class MatchResult(BaseModel):
@@ -40,8 +41,18 @@ class MatchResult(BaseModel):
     confidence: Decimal = Field(..., ge=0, le=100, description="Match confidence percentage")
     
     # Matched trades
-    trader_trade: Trade = Field(..., description="Trade from trader source")
-    exchange_trade: Trade = Field(..., description="Trade from exchange source")
+    trader_trade: Trade = Field(..., description="Primary trade from trader source")
+    exchange_trade: Trade = Field(..., description="Primary trade from exchange source")
+    
+    # Additional trades for spread matches (Rule 2)
+    additional_trader_trades: List[Trade] = Field(
+        default_factory=list, 
+        description="Additional trader trades for spread matches"
+    )
+    additional_exchange_trades: List[Trade] = Field(
+        default_factory=list, 
+        description="Additional exchange trades for spread matches"
+    )
     
     # Match details
     matched_fields: List[str] = Field(..., description="Fields that matched exactly")
@@ -91,6 +102,24 @@ class MatchResult(BaseModel):
     def is_opposite_sides(self) -> bool:
         """Check if trades are on opposite sides (required for valid match)."""
         return self.trader_trade.buy_sell != self.exchange_trade.buy_sell
+    
+    @property
+    def is_spread_match(self) -> bool:
+        """Check if this is a spread match with multiple trades."""
+        return self.match_type == MatchType.SPREAD and (
+            len(self.additional_trader_trades) > 0 or 
+            len(self.additional_exchange_trades) > 0
+        )
+    
+    @property
+    def all_trader_trades(self) -> List[Trade]:
+        """Get all trader trades (primary + additional)."""
+        return [self.trader_trade] + self.additional_trader_trades
+    
+    @property
+    def all_exchange_trades(self) -> List[Trade]:
+        """Get all exchange trades (primary + additional)."""
+        return [self.exchange_trade] + self.additional_exchange_trades
     
     def get_summary(self) -> dict:
         """Get a summary dictionary of match information.

@@ -4,16 +4,17 @@ This file provides comprehensive guidance to Claude Code when working with this 
 
 ## 🎯 Project Overview
 
-This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1) with plans for 9 additional sophisticated matching rules including spreads, cracks, aggregations, and complex scenarios.
+This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1) and spread matching (Rule 2) with plans for 8 additional sophisticated matching rules including cracks, aggregations, product spreads, and complex scenarios.
 
 ### Key Features
 
-- **Universal Data Normalization**: Handles CSV data from different sources with unified field mapping
-- **Sequential Rule Processing**: Implements rules in priority order (exact matches first)
-- **Non-Duplication Architecture**: Manages unmatched trade pools to prevent duplicate matching
+- **Universal Data Normalization**: TradeNormalizer standardizes product names, contract months, buy/sell indicators, and unit conversions
+- **Configuration Management**: Centralized settings with rule confidence levels, tolerances, and conversion ratios
+- **Sequential Rule Processing**: Implements rules in priority order (exact matches first) with non-duplication
 - **Rich CLI Interface**: Beautiful terminal output with progress indicators and detailed results
-- **Unit Conversion**: Automatic BBL ↔ MT conversion with configurable ratios
+- **Unit Conversion**: Automatic BBL ↔ MT conversion with configurable ratios (default 6.35)
 - **Pydantic v2 Data Models**: Strict validation and type safety for all trade data
+- **Complete Type Safety**: Full mypy compliance with pandas-stubs integration
 
 ## 🏗️ Project Architecture
 
@@ -23,18 +24,19 @@ This is an **Energy Trade Matching System** that matches trades between trader a
 src/energy_match/
 ├── main.py                 # Main application entry point with CLI
 ├── models/                 # Pydantic v2 data models
-│   ├── trade.py           # Core Trade model with validation
+│   ├── trade.py           # Core Trade model with validation and unit conversion
 │   └── match_result.py    # MatchResult model for output
-├── loaders/               # CSV data loading
+├── loaders/               # CSV data loading with normalization integration
 │   └── csv_loader.py     # Handles both trader and exchange CSV files
-├── normalizers/          # Data normalization
-│   └── trade_normalizer.py # Universal field mapping and cleaning
+├── normalizers/          # Data normalization and standardization
+│   └── trade_normalizer.py # Product names, contract months, buy/sell, units
 ├── matchers/            # Matching rule implementations
-│   └── exact_matcher.py # Rule 1: Exact matching (6-field comparison)
+│   ├── exact_matcher.py # Rule 1: Exact matching (6-field comparison)
+│   └── spread_matcher.py # Rule 2: Spread matching (contract month spreads)
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
-│   └── config_manager.py # Centralized settings with validation
+│   └── config_manager.py # Settings, tolerances, rule confidence levels
 ├── cli/              # Rich CLI interface
 │   └── display.py   # Beautiful terminal output and progress
 ├── data/            # Sample data sets
@@ -50,8 +52,53 @@ src/energy_match/
 - **Separation of Concerns**: Each module has a single, clear responsibility
 - **Data Validation**: Pydantic v2 models ensure type safety and validation
 - **Immutable Models**: Trade objects are frozen for thread safety
-- **Universal Normalization**: All data normalized before matching operations
-- **Rule-Based Design**: Sequential rule processing with priority ordering
+- **Universal Normalization**: Standardized field mapping and data cleaning via TradeNormalizer
+- **Configuration-Driven**: Centralized settings with validation and rule confidence management
+- **Rule-Based Design**: Sequential rule processing with priority ordering and non-duplication
+- **Type Safety**: Complete mypy compliance with pandas-stubs integration
+
+## 🔧 Core Components
+
+### TradeNormalizer
+
+The TradeNormalizer ensures consistent data formatting across all trade sources:
+
+- **Product Name Standardization**: Maps variations to canonical forms (e.g., "marine 0.5%", "380cst crack", "marine 0.5%-380cst")
+- **Contract Month Normalization**: Standardizes formats to "MMM-YY" pattern (e.g., "Jan-25", "Feb-25")
+- **Buy/Sell Indicator Mapping**: Converts all variations to "B" or "S"
+- **Unit Conversion**: Handles BBL ↔ MT conversions with configurable ratios
+- **Adjacent Month Detection**: Identifies consecutive contract months for Rule 6
+
+### SpreadMatcher (Rule 2)
+
+The SpreadMatcher implements sophisticated contract month spread matching with high efficiency:
+
+- **Intelligent Grouping**: Pre-groups trades by (product, quantity, broker) to minimize search space
+- **Spread Detection**: Identifies spread indicators (`spread="S"` or `price=0`) in trader data
+- **Price Validation**: Calculates and validates spread price differentials between exchange legs
+- **Contract Month Matching**: Ensures trader and exchange contract months align exactly
+- **Direction Validation**: Verifies B/S directions match per contract month
+- **Non-Duplication**: Triple validation prevents any trade from being matched multiple times
+- **Performance**: O(n+m) grouping plus small combination checks vs. O(n²×m²) brute force
+
+### ConfigManager
+
+Centralized configuration management with Pydantic validation:
+
+- **Rule Confidence Levels**: Predefined confidence percentages for Rules 1-10
+- **Tolerance Settings**: Price and quantity tolerances for fuzzy matching
+- **Conversion Ratios**: BBL to MT conversion factor (default 6.35)
+- **Processing Order**: Sequential rule execution order
+- **Output Settings**: Display options and logging configuration
+
+### CSV Integration
+
+The CSV loader now uses the normalizer for consistent data processing:
+
+- **Automatic Normalization**: All fields normalized during loading
+- **Type Safety**: Proper pandas DataFrame type handling
+- **Error Handling**: Graceful handling of malformed data
+- **Spread Detection**: Identifies spread trades based on tradeid presence
 
 ## 🧱 Code Quality Standards
 
@@ -197,19 +244,22 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 ✅ **Completed & Tested**:
 
-- **Rule 1 (Exact Matching)**: 19 matches found in sample data
-- **CSV Data Loading**: Handles both trader and exchange formats
-- **Pydantic v2 Validation**: Type safety and data validation
-- **Spread Detection**: 22 spread trades identified correctly
-- **Rich CLI Output**: Shows all unmatched trades and detailed results
-- **Universal Normalization**: Field mapping and data cleaning
-- **Type Safety**: Complete mypy compliance with pandas-stubs
+- **Rule 1 (Exact Matching)**: 23 exact matches found in sample data with proper product spread preservation
+- **Rule 2 (Spread Matching)**: 4 spread matches found using intelligent grouped approach with 95% confidence
+- **CSV Data Loading**: Integrated with TradeNormalizer for consistent data processing
+- **Universal Normalization**: Product names, contract months, buy/sell indicators standardized
+- **Product Spread Preservation**: Hyphenated product names (e.g., "marine 0.5%-380cst") correctly preserved for Rule 5
+- **Configuration Management**: Centralized settings with rule confidence levels and tolerances
+- **Pydantic v2 Validation**: Type safety and data validation for all models
+- **Non-Duplication Architecture**: Triple validation ensures no trade matched more than once across rules
+- **Rich CLI Output**: Shows matches by type, unmatched trades, and comprehensive statistics
+- **Type Safety**: Complete mypy compliance with pandas-stubs integration
 
 🔄 **Planned for Implementation**:
 
-- **Rules 2-10**: Spread, crack, aggregation, and complex matching scenarios
-- **Additional Data Sets**: More diverse trading scenarios
-- **Performance Optimization**: Large-scale data processing
+- **Rules 3-10**: Crack spreads, aggregation, product spreads, and complex matching scenarios
+- **Additional Data Sets**: More diverse trading scenarios for comprehensive rule testing
+- **Performance Optimization**: Large-scale data processing capabilities
 
 ## 🚨 Error Handling
 

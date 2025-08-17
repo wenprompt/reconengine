@@ -21,11 +21,10 @@ The system follows a clear, sequential data processing pipeline:
 2.  **Normalize**: The `TradeNormalizer` cleans and standardizes critical fields (`product_name`, `contract_month`, `buy_sell`, etc.) from the raw data. This is a crucial step to ensure consistent comparisons.
 3.  **Instantiate**: Validated and normalized data is used to create immutable `Trade` objects.
 4.  **Pool**: All `Trade` objects are placed into the `UnmatchedPoolManager`, which tracks the state of all matched and unmatched trades.
-5.  **Match**: A sequence of `Matcher` modules are run in order of confidence (as defined in `rules.md`). Each matcher:
-    - Receives the `UnmatchedPoolManager`.
-    - Identifies matches based on its specific rule set.
-    - Returns `MatchResult` objects.
-    - The main engine updates the `UnmatchedPoolManager` by removing newly matched trades, ensuring they are not considered by subsequent, lower-confidence matchers.
+5.  **Match**: A sequence of `Matcher` modules are run in order of confidence (as defined in `rules.md`). Each matcher operates on the trades remaining in the pool.
+    - **Rule 1 (ExactMatcher)**: Finds exact matches.
+    - **Rule 2 (SpreadMatcher)**: Operates on remaining trades to find spread matches.
+    - *(Future matchers will follow this sequence)*
 6.  **Display**: The `MatchDisplayer` presents the results, including matches, unmatched trades, and statistics, in a clear, user-friendly format.
 
 ## 🏗️ Project Architecture
@@ -41,7 +40,8 @@ src/energy_match/
 ├── normalizers/
 │   └── trade_normalizer.py # Handles universal cleaning of product names, dates, etc.
 ├── matchers/
-│   └── exact_matcher.py # Implements Rule 1: Exact Matching. (Future matchers go here).
+│   ├── exact_matcher.py   # Implements Rule 1: Exact Matching.
+│   └── spread_matcher.py  # Implements Rule 2: Spread Matching.
 ├── core/
 │   └── unmatched_pool.py # State manager for all trades, preventing duplicate matches.
 ├── config/
@@ -78,10 +78,10 @@ This project uses `uv` for Python package and environment management.
 
 ## ✅ Matching Rules Summary
 
-The system uses a sequential, confidence-based rule system defined in `docs/rules.md`. Only Rule 1 is currently implemented.
+The system uses a sequential, confidence-based rule system defined in `docs/rules.md`.
 
 1.  **Exact Match (Implemented)**: 6 fields (`product_name`, `quantity_mt`, `price`, `contract_month`, `buy_sell`, `broker_group_id`) must match exactly after normalization.
-2.  **Spread Match (Future)**: Matches spread trades.
+2.  **Spread Match (Implemented)**: Matches a 2-leg trader spread (where one leg's price is the spread differential and the other is zero) against two separate exchange trades. The logic groups potential legs by `(product, quantity, broker)` for efficiency.
 3.  **Crack Match (Future)**: Matches crack spread trades, handling unit conversions.
 4.  **Aggregation Match (Future)**: Matches trades that are split or combined across sources.
 5.  ... and so on for more complex scenarios.

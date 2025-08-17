@@ -20,6 +20,7 @@ class TradeNormalizer:
     PRODUCT_MAPPINGS = {
         "marine 0.5%": "marine 0.5%",
         "marine 0.5% crack": "marine 0.5% crack", 
+        "marine 0.5%-380cst": "marine 0.5%-380cst",  # Product spread - preserve as-is
         "380cst": "380cst",
         "380cst crack": "380cst crack",
         "brent swap": "brent swap"
