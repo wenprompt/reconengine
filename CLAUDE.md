@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with this 
 
 ## 🎯 Project Overview
 
-This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1) and spread matching (Rule 2) with plans for 8 additional sophisticated matching rules including cracks, aggregations, product spreads, and complex scenarios.
+This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1), spread matching (Rule 2), and crack matching (Rule 3) with plans for 7 additional sophisticated matching rules including aggregations, product spreads, and complex scenarios.
 
 ### Key Features
 
@@ -32,7 +32,8 @@ src/energy_match/
 │   └── trade_normalizer.py # Product names, contract months, buy/sell, units
 ├── matchers/            # Matching rule implementations
 │   ├── exact_matcher.py # Rule 1: Exact matching (6-field comparison)
-│   └── spread_matcher.py # Rule 2: Spread matching (contract month spreads)
+│   ├── spread_matcher.py # Rule 2: Spread matching (contract month spreads)
+│   └── crack_matcher.py # Rule 3: Crack matching with unit conversion (optimized)
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -42,7 +43,7 @@ src/energy_match/
 ├── data/            # Sample data sets
 │   ├── sourceTraders.csv    # Default trader data
 │   ├── sourceExchange.csv   # Default exchange data
-│   └── [additional datasets] # Various test scenarios
+│   └── [additional datasets] # Various test scenarios (150525, 160525, etc.)
 └── docs/
     └── rules.md        # Complete 10-rule specification
 ```
@@ -56,6 +57,53 @@ src/energy_match/
 - **Configuration-Driven**: Centralized settings with validation and rule confidence management
 - **Rule-Based Design**: Sequential rule processing with priority ordering and non-duplication
 - **Type Safety**: Complete mypy compliance with pandas-stubs integration
+- **Performance Optimization**: Intelligent algorithms with indexing strategies for scalability
+
+### File Organization & Purpose
+
+#### Why Separate Config and Normalizer Files?
+
+**`config/config_manager.py`** - **Centralized Configuration Hub**
+- **Single Source of Truth**: All system settings, tolerances, and thresholds in one place
+- **Environment Flexibility**: Easy to adjust parameters without code changes
+- **Type Safety**: Pydantic validation ensures configuration integrity
+- **Rule Management**: Confidence levels and processing order for all 10 rules
+- **Business Logic Separation**: Keeps matching algorithms clean from configuration details
+
+**`normalizers/trade_normalizer.py`** - **Data Standardization Engine**
+- **Data Quality**: Ensures consistent formatting across different CSV sources
+- **Business Rule Encoding**: Product name mappings, contract month patterns
+- **Preprocessing Pipeline**: Cleans data before it reaches matching algorithms
+- **Extensibility**: Easy to add new normalization rules for additional data sources
+- **Separation of Concerns**: Keeps data cleaning separate from business logic
+
+#### Core System Components
+
+**`models/`** - **Data Contracts**
+- **trade.py**: Immutable trade objects with validation and unit conversion
+- **match_result.py**: Structured output format for all match types
+- **Type Safety**: Pydantic v2 ensures data integrity throughout the system
+
+**`loaders/`** - **Data Input Layer**  
+- **csv_loader.py**: Handles CSV parsing with automatic normalization integration
+- **Error Handling**: Graceful handling of malformed data and missing fields
+- **Format Flexibility**: Supports different CSV schemas from various exchanges
+
+**`matchers/`** - **Business Logic Engine**
+- **exact_matcher.py**: Rule 1 - Perfect field matching with 100% confidence
+- **spread_matcher.py**: Rule 2 - Complex spread detection with price validation
+- **crack_matcher.py**: Rule 3 - Unit conversion matching with performance optimization
+- **Extensible Design**: Easy to add Rules 4-10 following established patterns
+
+**`core/`** - **System Infrastructure**
+- **unmatched_pool.py**: Non-duplication manager ensuring trades only match once
+- **Thread Safety**: Prevents race conditions in concurrent processing
+- **Audit Trail**: Complete history of all matching decisions
+
+**`cli/`** - **User Interface**
+- **display.py**: Rich terminal output with progress indicators and statistics
+- **User Experience**: Beautiful formatting for complex matching results
+- **Debugging Support**: Detailed logging and error reporting
 
 ## 🔧 Core Components
 
@@ -80,6 +128,18 @@ The SpreadMatcher implements sophisticated contract month spread matching with h
 - **Direction Validation**: Verifies B/S directions match per contract month
 - **Non-Duplication**: Triple validation prevents any trade from being matched multiple times
 - **Performance**: O(n+m) grouping plus small combination checks vs. O(n²×m²) brute force
+
+### CrackMatcher (Rule 3) - **Performance Optimized**
+
+The CrackMatcher implements crack spread matching with unit conversion and advanced optimization:
+
+- **Indexing Strategy**: Optimized from O(N*M) to O(N+M) using dictionary-based lookups
+- **Unit Conversion**: Handles BBL ↔ MT conversions with configurable tolerances (±100 BBL, ±50 MT)
+- **Match Key Optimization**: Groups by (product, contract, price, broker, buy/sell) for O(1) lookups
+- **Configurable Tolerances**: Moved from hardcoded values to centralized configuration management
+- **Duplicate Prevention**: Triple validation with pool manager integration prevents any duplicate matches
+- **Performance**: Scales linearly instead of quadratically with large datasets
+- **Real-World Testing**: Successfully processes 97 trades in 0.05 seconds with 3 crack matches found
 
 ### ConfigManager
 
@@ -244,12 +304,14 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 ✅ **Completed & Tested**:
 
-- **Rule 1 (Exact Matching)**: 23 exact matches found in sample data with proper product spread preservation
-- **Rule 2 (Spread Matching)**: 4 spread matches found using intelligent grouped approach with 95% confidence
+- **Rule 1 (Exact Matching)**: 20 exact matches found in sample data with proper product spread preservation
+- **Rule 2 (Spread Matching)**: 11 spread matches found using intelligent grouped approach with 95% confidence  
+- **Rule 3 (Crack Matching)**: 3 crack matches found with optimized indexing strategy and unit conversion
 - **CSV Data Loading**: Integrated with TradeNormalizer for consistent data processing
 - **Universal Normalization**: Product names, contract months, buy/sell indicators standardized
 - **Product Spread Preservation**: Hyphenated product names (e.g., "marine 0.5%-380cst") correctly preserved for Rule 5
-- **Configuration Management**: Centralized settings with rule confidence levels and tolerances
+- **Configuration Management**: Centralized settings with rule confidence levels and configurable tolerances
+- **Performance Optimization**: CrackMatcher optimized from O(N*M) to O(N+M) using indexing strategy
 - **Pydantic v2 Validation**: Type safety and data validation for all models
 - **Non-Duplication Architecture**: Triple validation ensures no trade matched more than once across rules
 - **Rich CLI Output**: Shows matches by type, unmatched trades, and comprehensive statistics
@@ -257,9 +319,9 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 🔄 **Planned for Implementation**:
 
-- **Rules 3-10**: Crack spreads, aggregation, product spreads, and complex matching scenarios
+- **Rules 4-10**: Aggregation, product spreads, time-based matching, and complex scenarios
 - **Additional Data Sets**: More diverse trading scenarios for comprehensive rule testing
-- **Performance Optimization**: Large-scale data processing capabilities
+- **Scaling Optimization**: Further performance improvements for enterprise-scale datasets
 
 ## 🚨 Error Handling
 

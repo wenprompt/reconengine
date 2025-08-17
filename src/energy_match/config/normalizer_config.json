@@ -1,0 +1,42 @@
+{
+  "product_mappings": {
+    "marine 0.5%": "marine 0.5%",
+    "marine 0.5% crack": "marine 0.5% crack",
+    "marine 0.5%-380cst": "marine 0.5%-380cst",
+    "380cst": "380cst",
+    "380cst crack": "380cst crack",
+    "brent swap": "brent swap",
+    "naphtha japan": "naphtha japan",
+    "naphtha nwe": "naphtha nwe",
+    "naphtha japan crack": "naphtha japan crack",
+    "naphtha nwe crack": "naphtha nwe crack"
+  },
+  "month_patterns": {
+    "^jan\\-?(\\d{2})$": "Jan-\\1",
+    "^feb\\-?(\\d{2})$": "Feb-\\1",
+    "^mar\\-?(\\d{2})$": "Mar-\\1",
+    "^apr\\-?(\\d{2})$": "Apr-\\1",
+    "^may\\-?(\\d{2})$": "May-\\1",
+    "^jun\\-?(\\d{2})$": "Jun-\\1",
+    "^jul\\-?(\\d{2})$": "Jul-\\1",
+    "^aug\\-?(\\d{2})$": "Aug-\\1",
+    "^sep\\-?(\\d{2})$": "Sep-\\1",
+    "^sept\\-?(\\d{2})$": "Sep-\\1",
+    "^oct\\-?(\\d{2})$": "Oct-\\1",
+    "^nov\\-?(\\d{2})$": "Nov-\\1",
+    "^dec\\-?(\\d{2})$": "Dec-\\1",
+    "^balmo$": "Balmo",
+    "bal month": "Balmo"
+  },
+  "product_variation_map": {
+    "marine,0.5,crack": "marine 0.5% crack",
+    "marine,0.5": "marine 0.5%",
+    "380,cst,crack": "380cst crack",
+    "380,cst": "380cst",
+    "brent,swap": "brent swap",
+    "naphtha,japan,crack": "naphtha japan crack",
+    "naphtha,japan": "naphtha japan",
+    "naphtha,nwe,crack": "naphtha nwe crack",
+    "naphtha,nwe": "naphtha nwe"
+  }
+}

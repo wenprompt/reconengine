@@ -4,7 +4,7 @@ from typing import List, Set, Dict, Optional, Tuple, Any
 from collections import defaultdict
 import logging
 
-from ..models import Trade, TradeSource
+from ..models import Trade, TradeSource, MatchResult
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +212,60 @@ class UnmatchedPoolManager:
             },
             "matches_by_rule": dict(match_by_rule)
         }
+    
+    def record_match(self, match_result: MatchResult) -> bool:
+        """Record a match and remove all involved trades from the unmatched pools.
+
+        Args:
+            match_result: The MatchResult object containing all matched trades.
+
+        Returns:
+            True if all trades were successfully removed, False otherwise.
+        """
+        trades_to_remove: List[Trade] = []
+        trades_to_remove.append(match_result.trader_trade)
+        if match_result.additional_trader_trades:
+            trades_to_remove.extend(match_result.additional_trader_trades)
+        trades_to_remove.append(match_result.exchange_trade)
+        if match_result.additional_exchange_trades:
+            trades_to_remove.extend(match_result.additional_exchange_trades)
+
+        success = True
+        for trade in trades_to_remove:
+            trade_id = trade.trade_id
+            if trade.source == TradeSource.TRADER:
+                if trade_id not in self._trader_pool:
+                    logger.warning(f"Trader trade {trade_id} not found in unmatched pool for recording match.")
+                    success = False
+                    continue
+                if trade_id in self._matched_trader_ids:
+                    logger.error(f"Trader trade {trade_id} was already matched when trying to record match!")
+                    success = False
+                    continue
+                del self._trader_pool[trade_id]
+                self._matched_trader_ids.add(trade_id)
+            else: # TradeSource.EXCHANGE
+                if trade_id not in self._exchange_pool:
+                    logger.warning(f"Exchange trade {trade_id} not found in unmatched pool for recording match.")
+                    success = False
+                    continue
+                if trade_id in self._matched_exchange_ids:
+                    logger.error(f"Exchange trade {trade_id} was already matched when trying to record match!")
+                    success = False
+                    continue
+                del self._exchange_pool[trade_id]
+                self._matched_exchange_ids.add(trade_id)
+        
+        # Record in history (using the primary trader and exchange trade for simplicity in history)
+        self._match_history.append((match_result.trader_trade.trade_id, 
+                                    match_result.exchange_trade.trade_id, 
+                                    match_result.match_type.value))
+        
+        logger.debug(f"Recorded match {match_result.match_id}. Removed {len(trades_to_remove)} trades from pools.")
+        logger.debug(f"Remaining unmatched: {len(self._trader_pool)} trader, "
+                    f"{len(self._exchange_pool)} exchange")
+        
+        return success
     
     def reset_to_unmatched(self, trader_trades: List[Trade], exchange_trades: List[Trade]):
         """Reset pools with new unmatched trade lists.

@@ -1,0 +1,89 @@
+﻿tradedate,tradedatetime,cleareddate,dealid,tradeid,productid,productname,productgroupid,contractmonth,quantitylots,quantityunits,b/s,price,strike,put/call,brokergroupid,exchangegroupid,exchclearingacctid,trader,clearingstatus,tradingsession,unit,source
+"June 27, 2025",01:09:42 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,10,"10,000",Bought,414.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:09:42 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Sept-25,10,"10,000",Sold,410,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:13:00 AM GMT,1.90E+13,,,,380cst,380cst Sing Mini,Jul-25,8,800,Sold,416,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:15:56 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Bought,487,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:21:28 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Oct-25,20,"2,000",Bought,482.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:22:04 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Jul-25,30,"3,000",Sold,498.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:38:29 AM GMT,1.90E+13,,,,380cst,380cst Sing,Sept-25,5,"5,000",Sold,410.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:58:11 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Sold,489.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",01:59:12 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Sold,489.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:01:13 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Sold,489,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:01:40 AM GMT,1.90E+13,,,,380cst,380cst Sing,Sept-25,5,"5,000",Sold,411,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:02:14 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Sold,489.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:07:42 AM GMT,1.90E+13,,,,380cst,380cst Sing,Sept-25,5,"5,000",Bought,410.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:32:09 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Bought,488,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:37:18 AM GMT,1.90E+13,,,,380cst,380cst Sing,Sept-25,5,"5,000",Sold,411.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:46:22 AM GMT,1.90E+13,,,,brent swap,Brent 1st Line,Aug-25,19,"19,000",Sold,66.1,,,3,1,2,"Foo, V",,,bbl,ICE Block
+"June 27, 2025",02:46:22 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Aug-25,3,"3,000",Bought,492.76,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",02:57:07 AM GMT,1.90E+13,,,,marine 0.5% crack,Marine 0.5% FOB Sing (Platts)/Brent 1st Line (bbl),Aug-25,10,"10,000",Bought,11.5,,,3,1,2,"Foo, V",,,bbl,ICE Block
+"June 27, 2025",03:10:26 AM GMT,1.90E+13,,,,380cst,380cst Sing Mini,Sept-25,30,"3,000",Sold,410.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:11:47 AM GMT,1.90E+13,,,,380cst,380cst Sing Mini,Sept-25,10,"1,000",Sold,410.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:11:47 AM GMT,1.90E+13,,,,380cst,380cst Sing,Sept-25,2,"2,000",Sold,410.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:15:39 AM GMT,1.90E+13,,,,380cst,380cst Sing,Oct-25,5,"5,000",Bought,403.86,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:15:39 AM GMT,1.90E+13,,,,brent swap,Brent 1st Line,Oct-25,32,"32,000",Sold,65.3,,,3,1,2,"Foo, V",,,bbl,ICE Block
+"June 27, 2025",03:25:01 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,5,"5,000",Bought,414.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:25:01 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Sept-25,5,"5,000",Sold,410,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:42:36 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,5,"5,000",Bought,414,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:42:36 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Sept-25,5,"5,000",Sold,409.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",03:53:30 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,20,"2,000",Sold,488,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",04:13:50 AM GMT,1.90E+13,,,,380cst,380cst Sing,Sept-25,5,"5,000",Sold,411,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",04:16:14 AM GMT,1.90E+13,,,,380cst,380cst Sing,Sept-25,5,"5,000",Sold,411.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",04:42:15 AM GMT,1.90E+13,,,,380cst,380cst Sing Mini,Jul-25,5,500,Sold,416,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",04:42:21 AM GMT,1.90E+13,,,,380cst,380cst Sing Mini,Jul-25,6,600,Sold,416,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",05:47:50 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Jul-25,10,"10,000",Sold,499,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",05:47:50 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Aug-25,10,"10,000",Bought,493.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:04:35 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Sold,488.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:07:33 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Bought,488.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:15:38 AM GMT,1.90E+13,,,,naphtha japan,Naphtha C&F Japan Mini,Jul-25,10,"1,000",Sold,568,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",06:23:37 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Sold,488.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:26:37 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,10,"1,000",Sold,488.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:27:38 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Sept-25,30,"3,000",Sold,488.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:29:39 AM GMT,1.90E+13,,,,380cst crack,380cst Sing/Brent 1st Line,Sept-25,10,"10,000",Bought,-0.8,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:31:32 AM GMT,1.90E+13,,,,380cst crack,380cst Sing/Brent 1st Line,Sept-25,10,"10,000",Sold,-0.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",06:33:22 AM GMT,1.90E+13,,,,naphtha japan,Naphtha C&F Japan Mini,Sept-25,30,"3,000",Sold,560,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",06:53:45 AM GMT,1.90E+13,,,,380cst,380cst Sing,Jul-25,7,"7,000",Sold,417,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",07:07:45 AM GMT,1.90E+13,,,,380cst crack,380cst Sing/Brent 1st Line,Jul-25,10,"10,000",Bought,-1.4,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",07:18:18 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,10,"10,000",Sold,416,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",07:18:18 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Sept-25,10,"10,000",Bought,411.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",07:42:50 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Jul-25,10,"10,000",Sold,417.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",07:42:50 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,10,"10,000",Bought,415,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",08:02:36 AM GMT,1.90E+13,,,,naphtha japan,Naphtha C&F Japan Mini,Jul-25,10,"1,000",Sold,563.25,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",08:02:37 AM GMT,1.90E+13,,,,naphtha japan,Naphtha C&F Japan Mini,Aug-25,30,"3,000",Bought,560.5,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",08:26:17 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Jul-25,10,"10,000",Bought,415.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",08:26:17 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,10,"10,000",Sold,414,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",08:33:37 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Aug-25,28,"2,800",Sold,494.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",08:34:35 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Jul-25,10,"1,000",Sold,499.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",08:34:35 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Aug-25,10,"1,000",Bought,494,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",08:43:16 AM GMT,1.90E+13,1.90E+13,,,naphtha japan,Naphtha C&F Japan Cg,Jul-25,2,"2,000",Bought,562,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",08:43:16 AM GMT,1.90E+13,1.90E+13,,,naphtha japan,Naphtha C&F Japan Cg,Aug-25,2,"2,000",Bought,562,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",08:43:16 AM GMT,1.90E+13,1.90E+13,,,naphtha japan,Naphtha C&F Japan Cg,Sept-25,2,"2,000",Bought,562,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",08:43:16 AM GMT,1.90E+13,1.90E+13,,,naphtha japan,Naphtha C&F Japan Cg,Oct-25,2,"2,000",Sold,555,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",08:43:16 AM GMT,1.90E+13,1.90E+13,,,naphtha japan,Naphtha C&F Japan Cg,Nov-25,2,"2,000",Sold,555,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",08:43:16 AM GMT,1.90E+13,1.90E+13,,,naphtha japan,Naphtha C&F Japan Cg,Dec-25,2,"2,000",Sold,555,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",09:05:34 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,10,"10,000",Sold,415,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:05:34 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Sept-25,10,"10,000",Bought,410.75,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:08:35 AM GMT,1.90E+13,,,,naphtha japan,Naphtha C&F Japan Mini,Sept-25,10,"1,000",Sold,559.5,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",09:12:58 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Jul-25,4,"4,000",Bought,499,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:12:58 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Aug-25,4,"4,000",Sold,494,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:20:32 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Jul-25,18,"1,800",Sold,499.75,,,3,1,2,"Yik, R",,,mt,ICE Block
+"June 27, 2025",09:23:48 AM GMT,1.90E+13,,,,marine 0.5% crack,Marine 0.5% FOB Sing (Platts)/Brent 1st Line (bbl),Jul-25,13,"13,000",Bought,11.5,,,3,1,2,"Yik, R",,,bbl,ICE Block
+"June 27, 2025",09:26:07 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Sept-25,5,"5,000",Bought,411,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:26:07 AM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Oct-25,5,"5,000",Sold,405,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:32:01 AM GMT,1.90E+13,,,,naphtha nwe crack,Naphtha CIF NWE Cg (Platts)/Brent 1st Line,Aug-25,18,"18,000",Bought,-5.9,,,3,1,2,"Jiang, S",,,bbl,ICE Block
+"June 27, 2025",09:32:10 AM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Aug-25,15,"1,500",Sold,494.5,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:40:28 AM GMT,1.90E+13,,,,brent swap,Brent 1st Line,Jul-25,20,"20,000",Bought,67.09,,,3,1,2,"Foo, V",,,bbl,ICE Block
+"June 27, 2025",09:47:17 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Jul-25,15,"15,000",Sold,499.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:47:17 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Aug-25,15,"15,000",Bought,494,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",09:57:01 AM GMT,1.90E+13,,,,naphtha japan,Naphtha C&F Japan Mini,Aug-25,20,"2,000",Bought,562,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",09:57:01 AM GMT,1.90E+13,,,,naphtha nwe,Naphtha CIF NWE Cg Mini,Aug-25,20,"2,000",Sold,536.5,,,3,1,2,"Jiang, S",,,mt,ICE Block
+"June 27, 2025",10:16:41 AM GMT,1.90E+13,,,,brent swap,Brent 1st Line,Jul-25,20,"20,000",Bought,67.07,,,3,1,2,"Yik, R",,,bbl,ICE Block
+"June 27, 2025",10:55:58 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Jul-25,10,"10,000",Bought,500.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",10:55:58 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Aug-25,10,"10,000",Sold,495.25,,,3,1,2,"Foo, V",,,mt,ICE Block
+"June 27, 2025",11:07:23 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Aug-25,10,"10,000",Sold,494,,,3,1,2,"Yik, R",,,mt,ICE Block
+"June 27, 2025",11:07:23 AM GMT,1.90E+13,1.90E+13,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Sept-25,10,"10,000",Bought,488.5,,,3,1,2,"Yik, R",,,mt,ICE Block
+"June 27, 2025",12:52:45 PM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Aug-25,5,"5,000",Sold,415.5,,,3,1,2,"Yik, R",,,mt,ICE Block
+"June 27, 2025",12:52:45 PM GMT,1.90E+13,1.90E+13,,,380cst,380cst Sing,Sept-25,5,"5,000",Bought,410.75,,,3,1,2,"Yik, R",,,mt,ICE Block
+"June 27, 2025",01:18:57 PM GMT,1.90E+13,,,,marine 0.5% crack,Marine 0.5% FOB Sing (Platts)/Brent 1st Line (bbl),Sept-25,32,"32,000",Bought,11.45,,,3,1,2,"Yik, R",,,bbl,ICE Block
+"June 27, 2025",01:23:18 PM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts) Mini,Oct-25,20,"2,000",Sold,484.25,,,3,1,2,"Yik, R",,,mt,ICE Block
+"June 27, 2025",01:55:05 PM GMT,1.90E+13,,,,marine 0.5%,Marine 0.5% FOB Sing (Platts),Sept-25,5,"5,000",Bought,488,,,3,1,2,"Yik, R",,,mt,ICE Block

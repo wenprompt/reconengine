@@ -1,11 +1,12 @@
 """Crack matching implementation for Rule 3."""
 
-from typing import List, Optional
+from typing import List, Dict, Tuple, Union
 from decimal import Decimal
 import logging
 import uuid
+from collections import defaultdict
 
-from ..models import Trade, TradeSource, MatchResult, MatchType
+from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 
@@ -34,9 +35,9 @@ class CrackMatcher:
         self.rule_number = 3
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
-        # Unit conversion tolerances from rules.md
-        self.BBL_TOLERANCE = Decimal("100")  # ±100 BBL
-        self.MT_TOLERANCE = Decimal("50")   # ±50 MT
+        # Unit conversion tolerances from config
+        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl()  # ±100 BBL
+        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()   # ±50 MT
         self.BBL_TO_MT_RATIO = config_manager.get_conversion_ratio()  # 6.35
         
         logger.info(f"Initialized CrackMatcher with {self.confidence}% confidence")
@@ -63,23 +64,33 @@ class CrackMatcher:
         logger.info(f"Checking {len(crack_trader_trades)} crack trader trades against "
                    f"{len(crack_exchange_trades)} crack exchange trades")
         
-        # Find matches between crack trades
+        # Build optimized index from exchange trades for O(1) lookup
+        exchange_index = self._build_exchange_index(crack_exchange_trades, pool_manager)
+        
+        # Find matches using indexed lookup - O(N) instead of O(N*M)
         for trader_trade in crack_trader_trades:
             # CRITICAL: Verify trade is still unmatched
             if pool_manager.is_trade_matched(trader_trade):
                 continue
                 
-            for exchange_trade in crack_exchange_trades:
-                # CRITICAL: Verify trade is still unmatched
+            # Build lookup key for this trader trade
+            match_key = self._build_match_key(trader_trade)
+            
+            # Get potential candidates from index - O(1) lookup
+            candidates = exchange_index.get(match_key, [])
+            
+            # Find first valid match among candidates
+            for exchange_trade in candidates:
+                # CRITICAL: Verify trade is still unmatched (prevents duplicates)
                 if pool_manager.is_trade_matched(exchange_trade):
                     continue
                 
-                # Check if these trades form a valid crack match
-                if self._validate_crack_match(trader_trade, exchange_trade):
+                # Validate quantity with conversion tolerance
+                if self._validate_quantity_with_conversion(trader_trade, exchange_trade):
                     match_result = self._create_crack_match_result(trader_trade, exchange_trade)
                     matches.append(match_result)
                     
-                    # Remove matched trades from pools
+                    # Remove matched trades from pools (prevents duplicates)
                     success = pool_manager.remove_matched_trades(
                         trader_trade, exchange_trade, MatchType.CRACK.value
                     )
@@ -111,49 +122,53 @@ class CrackMatcher:
         logger.debug(f"Filtered {len(crack_trades)} crack trades from {len(trades)} total")
         return crack_trades
     
-    def _validate_crack_match(self, trader_trade: Trade, exchange_trade: Trade) -> bool:
-        """Validate that two trades form a valid crack match.
+    def _build_exchange_index(self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> Dict[Tuple, List[Trade]]:
+        """Build optimized index from exchange trades for fast lookup.
         
         Args:
-            trader_trade: Trade from trader source
-            exchange_trade: Trade from exchange source
+            exchange_trades: List of exchange crack trades
+            pool_manager: Pool manager to check if trades are already matched
             
         Returns:
-            True if trades form a valid crack match
+            Dictionary mapping match keys to lists of candidate exchange trades
         """
-        # Rule 3 Required Matching Fields:
-        # 1. productname - Must contain "crack" and match base product
-        # 2. contractmonth - Contract delivery month must match exactly
-        # 3. price - Trade execution price must be identical
-        # 4. brokergroupid - Broker group must match
-        # 5. quantityunits - Quantity must match after unit conversion
-        # 6. b/s - Buy/Sell indicator must match
+        index: Dict[Tuple, List[Trade]] = defaultdict(list)
         
-        # 1. Product name validation (already filtered for "crack")
-        if trader_trade.product_name != exchange_trade.product_name:
-            return False
+        for trade in exchange_trades:
+            # CRITICAL: Only index unmatched trades (prevents duplicates)
+            if not pool_manager.is_trade_matched(trade):
+                match_key = self._build_match_key(trade)
+                index[match_key].append(trade)
         
-        # 2. Contract month must match exactly
-        if trader_trade.contract_month != exchange_trade.contract_month:
-            return False
+        logger.debug(f"Built exchange index with {len(index)} unique match keys")
+        return index
+    
+    def _build_match_key(self, trade: Trade) -> Tuple[str, str, Decimal, Union[int, None], str]:
+        """Build consistent match key for indexing and lookup.
         
-        # 3. Price must be identical
-        if trader_trade.price != exchange_trade.price:
-            return False
+        For crack matches, trades must match exactly on:
+        1. Product name (already filtered for "crack")
+        2. Contract month 
+        3. Price
+        4. Broker group ID
+        5. Buy/Sell indicator
         
-        # 4. Broker group must match
-        if trader_trade.broker_group_id != exchange_trade.broker_group_id:
-            return False
+        Quantity is handled separately with tolerance validation.
         
-        # 5. Quantity validation with unit conversion
-        if not self._validate_quantity_with_conversion(trader_trade, exchange_trade):
-            return False
-        
-        # 6. Buy/Sell indicator must match
-        if trader_trade.buy_sell != exchange_trade.buy_sell:
-            return False
-        
-        return True
+        Args:
+            trade: Trade to build key for
+            
+        Returns:
+            Tuple key for consistent matching
+        """
+        return (
+            trade.product_name,
+            trade.contract_month,
+            trade.price,
+            trade.broker_group_id,
+            trade.buy_sell
+        )
+    
     
     def _validate_quantity_with_conversion(self, trader_trade: Trade, exchange_trade: Trade) -> bool:
         """Validate quantities match after unit conversion with tolerance.
@@ -165,13 +180,6 @@ class CrackMatcher:
         Returns:
             True if quantities match within tolerance after conversion
         """
-        trader_unit = trader_trade.unit.lower()
-        exchange_unit = exchange_trade.unit.lower()
-        
-        # Get quantities in both units for comparison
-        trader_qty = trader_trade.quantity
-        exchange_qty = exchange_trade.quantity
-        
         # Convert to common unit for comparison (use MT as reference)
         trader_qty_mt = trader_trade.quantity_mt
         exchange_qty_mt = exchange_trade.quantity_mt
@@ -271,8 +279,8 @@ class CrackMatcher:
                 "Quantity match after unit conversion (±100 BBL or ±50 MT)"
             ],
             "tolerances": {
-                "quantity_bbl": float(self.BBL_TOLERANCE),
-                "quantity_mt": float(self.MT_TOLERANCE),
-                "conversion_ratio": float(self.BBL_TO_MT_RATIO)
+                "quantity_bbl": float(self.config_manager.get_crack_tolerance_bbl()),
+                "quantity_mt": float(self.config_manager.get_crack_tolerance_mt()),
+                "conversion_ratio": float(self.config_manager.get_conversion_ratio())
             }
         }

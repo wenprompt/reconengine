@@ -1,6 +1,8 @@
 """Universal trade data normalizer for consistent matching."""
 
 import re
+import json
+from pathlib import Path
 from decimal import Decimal
 from typing import Dict, Any, Optional
 import logging
@@ -15,61 +17,79 @@ class TradeNormalizer:
     
     Handles product name normalization, contract month standardization,
     quantity unit conversions, and other data standardization tasks.
+    Loads normalization mappings from external configuration files.
     """
-    
-    PRODUCT_MAPPINGS = {
-        "marine 0.5%": "marine 0.5%",
-        "marine 0.5% crack": "marine 0.5% crack", 
-        "marine 0.5%-380cst": "marine 0.5%-380cst",
-        "380cst": "380cst",
-        "380cst crack": "380cst crack",
-        "brent swap": "brent swap"
-    }
-    
-    MONTH_PATTERNS = {
-        r'^jan\-?(\d{2})$': r'Jan-\1',
-        r'^feb\-?(\d{2})$': r'Feb-\1', 
-        r'^mar\-?(\d{2})$': r'Mar-\1',
-        r'^apr\-?(\d{2})$': r'Apr-\1',
-        r'^may\-?(\d{2})$': r'May-\1',
-        r'^jun\-?(\d{2})$': r'Jun-\1',
-        r'^jul\-?(\d{2})$': r'Jul-\1',
-        r'^aug\-?(\d{2})$': r'Aug-\1',
-        r'^sep\-?(\d{2})$': r'Sep-\1',
-        r'^sept\-?(\d{2})$': r'Sep-\1',
-        r'^oct\-?(\d{2})$': r'Oct-\1',
-        r'^nov\-?(\d{2})$': r'Nov-\1',
-        r'^dec\-?(\d{2})$': r'Dec-\1',
-        r'^balmo$': 'Balmo'
-    }
-
-    PRODUCT_VARIATION_MAP = {
-        ("marine", "0.5", "crack"): "marine 0.5% crack",
-        ("marine", "0.5"): "marine 0.5%",
-        ("380", "cst", "crack"): "380cst crack",
-        ("380", "cst"): "380cst",
-        ("brent", "swap"): "brent swap",
-    }
     
     def __init__(self, config_manager: ConfigManager):
         """Initialize the normalizer."""
         self.config_manager = config_manager
         self.BBL_TO_MT_RATIO = config_manager.get_conversion_ratio()
+        
+        # Load mappings from configuration file
+        self._load_normalizer_config()
+        
+        logger.info(f"Loaded {len(self.product_mappings)} product mappings, "
+                   f"{len(self.month_patterns)} month patterns, "
+                   f"{len(self.product_variation_map)} product variations")
+    
+    def _load_normalizer_config(self):
+        """Load normalizer configuration from JSON file."""
+        config_path = Path(__file__).parent.parent / "config" / "normalizer_config.json"
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # Load product mappings
+            self.product_mappings = config.get("product_mappings", {})
+            
+            # Load month patterns
+            self.month_patterns = config.get("month_patterns", {})
+            
+            # Load product variation map - convert comma-separated keys back to tuples
+            variation_config = config.get("product_variation_map", {})
+            self.product_variation_map = {
+                tuple(key.split(",")): value 
+                for key, value in variation_config.items()
+            }
+            
+            logger.debug(f"Successfully loaded normalizer config from {config_path}")
+            
+        except FileNotFoundError:
+            logger.error(f"Normalizer config file not found: {config_path}")
+            # Fallback to empty mappings
+            self.product_mappings = {}
+            self.month_patterns = {}
+            self.product_variation_map = {}
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in normalizer config: {e}")
+            # Fallback to empty mappings
+            self.product_mappings = {}
+            self.month_patterns = {}
+            self.product_variation_map = {}
+            
+        except Exception as e:
+            logger.error(f"Error loading normalizer config: {e}")
+            # Fallback to empty mappings
+            self.product_mappings = {}
+            self.month_patterns = {}
+            self.product_variation_map = {}
     
     def normalize_product_name(self, product_name: str) -> str:
         """Normalize product name for consistent matching."""
         if not product_name:
             return ""
         product_lower = product_name.strip().lower()
-        if product_lower in self.PRODUCT_MAPPINGS:
-            return self.PRODUCT_MAPPINGS[product_lower]
+        if product_lower in self.product_mappings:
+            return self.product_mappings[product_lower]
         normalized = self._handle_product_variations(product_lower)
         logger.debug(f"Normalized product '{product_name}' -> '{normalized}'")
         return normalized
     
     def _handle_product_variations(self, product_lower: str) -> str:
         """Handle product name variations using a data-driven map."""
-        for keywords, normalized_name in self.PRODUCT_VARIATION_MAP.items():
+        for keywords, normalized_name in self.product_variation_map.items():
             if all(keyword in product_lower for keyword in keywords):
                 return normalized_name
         return product_lower
@@ -79,7 +99,7 @@ class TradeNormalizer:
         if not contract_month:
             return ""
         month_clean = contract_month.strip().lower()
-        for pattern, replacement in self.MONTH_PATTERNS.items():
+        for pattern, replacement in self.month_patterns.items():
             if re.match(pattern, month_clean, re.IGNORECASE):
                 result = re.sub(pattern, replacement, month_clean, flags=re.IGNORECASE)
                 logger.debug(f"Normalized contract month '{contract_month}' -> '{result}'")

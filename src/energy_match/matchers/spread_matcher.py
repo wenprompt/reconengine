@@ -43,8 +43,8 @@ class SpreadMatcher:
             if match_result:
                 matches.append(match_result)
                 exchange_trades_for_removal = [match_result.exchange_trade] + match_result.additional_exchange_trades
-                if not self._remove_spread_trades_from_pool(trader_group, exchange_trades_for_removal, pool_manager):
-                    logger.error("Failed to remove spread matched trades from pool")
+                if not pool_manager.record_match(match_result):
+                    logger.error("Failed to record spread match and remove trades from pool")
                 else:
                     logger.debug(f"Created spread match: {match_result}")
         
@@ -164,22 +164,7 @@ class SpreadMatcher:
             additional_exchange_trades=exchange_trades[1:]
         )
     
-    def _remove_spread_trades_from_pool(self, trader_trades: List[Trade], exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> bool:
-        """Remove all spread trades from the unmatched pools."""
-        if len(trader_trades) != len(exchange_trades):
-            logger.error(f"Mismatch in trade counts: {len(trader_trades)} trader, {len(exchange_trades)} exchange")
-            return False
-        
-        success = True
-        for trader_trade, exchange_trade in zip(trader_trades, exchange_trades):
-            if pool_manager.is_trade_matched(trader_trade) or pool_manager.is_trade_matched(exchange_trade):
-                logger.error(f"Trade already matched: T={trader_trade.trade_id}, E={exchange_trade.trade_id}")
-                success = False
-                continue
-            if not pool_manager.remove_matched_trades(trader_trade, exchange_trade, MatchType.SPREAD.value):
-                success = False
-                logger.error(f"Failed to remove spread trades: {trader_trade.trade_id} <-> {exchange_trade.trade_id}")
-        return success
+    
     
     def get_rule_info(self) -> dict:
         """Get information about this matching rule."""
