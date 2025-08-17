@@ -13,15 +13,16 @@ class MatchType(str, Enum):
     EXACT = "exact"  # Rule 1 - Exact 6-field match
     SPREAD = "spread"  # Rule 2 - Spread matching
     CRACK = "crack"  # Rule 3 - Crack spread matching with unit conversion
-    PRICE_TOLERANCE = "price_tolerance"  # Rule 4
-    QUANTITY_TOLERANCE = "quantity_tolerance"  # Rule 5
-    BOTH_TOLERANCE = "both_tolerance"  # Rule 6
-    PRODUCT_SIMILAR = "product_similar"  # Rule 7
-    CONTRACT_ADJACENT = "contract_adjacent"  # Rule 8
-    PRODUCT_CONTRACT_TOLERANCES = "product_contract_tolerances"  # Rule 9
-    BROKER_DIFFERENT = "broker_different"  # Rule 10
-    EXCHANGE_DIFFERENT = "exchange_different"  # Rule 11
-    CLEARING_DIFFERENT = "clearing_different"  # Rule 12
+    COMPLEX_CRACK = "complex_crack"  # Rule 4 - Complex crack matching (base product + brent swap)
+    PRICE_TOLERANCE = "price_tolerance"  # Rule 5
+    QUANTITY_TOLERANCE = "quantity_tolerance"  # Rule 6
+    BOTH_TOLERANCE = "both_tolerance"  # Rule 7
+    PRODUCT_SIMILAR = "product_similar"  # Rule 8
+    CONTRACT_ADJACENT = "contract_adjacent"  # Rule 9
+    PRODUCT_CONTRACT_TOLERANCES = "product_contract_tolerances"  # Rule 10
+    BROKER_DIFFERENT = "broker_different"  # Rule 11
+    EXCHANGE_DIFFERENT = "exchange_different"  # Rule 12
+    CLEARING_DIFFERENT = "clearing_different"  # Rule 13
 
 
 class MatchResult(BaseModel):

@@ -11,7 +11,7 @@ from .loaders import CSVTradeLoader
 from .normalizers import TradeNormalizer
 from .config import ConfigManager
 from .core import UnmatchedPoolManager
-from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher
+from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher
 from .cli import MatchDisplayer
 
 
@@ -140,6 +140,25 @@ class EnergyTradeMatchingEngine:
                 crack_matcher = CrackMatcher(self.config_manager)
                 crack_matches = crack_matcher.find_matches(pool_manager)
                 all_matches.extend(crack_matches)
+                
+                progress.remove_task(task)
+            
+            # Rule 4: Complex crack matching
+            self.logger.info("Applying Rule 4: Complex crack matching...")
+            with self.displayer.create_progress_context("Finding complex crack matches...") as progress:
+                task = progress.add_task("Matching...", total=None)
+                
+                complex_crack_matcher = ComplexCrackMatcher(self.normalizer, self.config_manager)
+                complex_crack_matches = complex_crack_matcher.find_matches(
+                    pool_manager.get_unmatched_trader_trades(), 
+                    pool_manager.get_unmatched_exchange_trades()
+                )
+                
+                # Remove matched trades from pool using proper record_match method
+                for match in complex_crack_matches:
+                    pool_manager.record_match(match)
+                
+                all_matches.extend(complex_crack_matches)
                 
                 progress.remove_task(task)
             

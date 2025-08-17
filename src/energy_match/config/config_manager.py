@@ -54,17 +54,30 @@ class MatchingConfig(BaseModel):
     rule_confidence_levels: Dict[int, Decimal] = Field(
         default={
             1: Decimal("100"),  # Exact match
-            2: Decimal("95"),  # Price tolerance
-            3: Decimal("90"),  # Quantity tolerance
-            4: Decimal("85"),  # Both tolerances
-            5: Decimal("80"),  # Product similar
-            6: Decimal("75"),  # Contract adjacent
-            7: Decimal("70"),  # Product + contract + tolerances
-            8: Decimal("65"),  # Broker different
-            9: Decimal("62"),  # Exchange different
-            10: Decimal("60"),  # Clearing different
+            2: Decimal("95"),  # Spread match
+            3: Decimal("90"),  # Crack match
+            4: Decimal("80"),  # Complex crack match
+            5: Decimal("75"),  # Product spread match
+            6: Decimal("72"),  # Aggregation match
+            7: Decimal("65"),  # Aggregated complex crack match
+            8: Decimal("65"),  # Crack roll match
+            9: Decimal("60"),  # Cross-month decomposition match
+            10: Decimal("60"),  # Complex product spread decomposition and netting match
         },
         description="Confidence levels for each matching rule",
+    )
+
+    # Complex Crack matching tolerances (Rule 4)
+    complex_crack_quantity_tolerance: Decimal = Field(
+        default=Decimal("100"),
+        ge=0,
+        description="Complex crack matching quantity tolerance in MT (±100 MT)",
+    )
+
+    complex_crack_price_tolerance: Decimal = Field(
+        default=Decimal("0.01"),
+        ge=0,
+        description="Complex crack matching price tolerance (±0.01)",
     )
 
     # Processing order (from rules.md)
@@ -185,6 +198,22 @@ class ConfigManager:
             Tolerance in MT (default ±50 MT)
         """
         return self._config.crack_tolerance_mt
+
+    def get_complex_crack_quantity_tolerance(self) -> Decimal:
+        """Get complex crack matching quantity tolerance in MT.
+
+        Returns:
+            Tolerance in MT (default ±100 MT)
+        """
+        return self._config.complex_crack_quantity_tolerance
+
+    def get_complex_crack_price_tolerance(self) -> Decimal:
+        """Get complex crack matching price tolerance.
+
+        Returns:
+            Tolerance (default ±0.01)
+        """
+        return self._config.complex_crack_price_tolerance
 
     def update_config(self, **kwargs) -> "ConfigManager":
         """Create new ConfigManager with updated values.

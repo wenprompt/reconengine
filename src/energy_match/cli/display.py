@@ -133,6 +133,11 @@ class MatchDisplayer:
                         match.additional_trader_trades and 
                         match.additional_exchange_trades)
             
+            # Check if this is a complex crack match (has additional exchange trades)
+            is_complex_crack = (match.match_type.value == "complex_crack" and 
+                               hasattr(match, 'additional_exchange_trades') and
+                               match.additional_exchange_trades)
+            
             if is_spread:
                 # For spread matches, format to show both legs
                 all_trader_trades = [match.trader_trade] + match.additional_trader_trades
@@ -154,6 +159,26 @@ class MatchDisplayer:
                 sides = f"{'/'.join(trader_sides)}↔{'/'.join(exchange_sides)}"
                 
                 # Use primary trade for product, quantity, price
+                primary_trade = match.trader_trade
+                
+            elif is_complex_crack:
+                # For complex crack matches, format to show base product + brent swap
+                all_exchange_trades = [match.exchange_trade] + match.additional_exchange_trades
+                
+                # Format trader ID (single crack trade)
+                trader_ids = match.trader_trade.trade_id
+                
+                # Format exchange IDs (base product + brent swap)
+                exchange_ids = " + ".join([trade.trade_id for trade in all_exchange_trades])
+                
+                # Use trader contract month for display
+                contract_display = match.trader_trade.contract_month
+                
+                # Format sides (trader vs. base + brent)
+                exchange_sides = [trade.buy_sell for trade in all_exchange_trades]
+                sides = f"{match.trader_trade.buy_sell}↔{'/'.join(exchange_sides)}"
+                
+                # Use trader trade for product, quantity, price
                 primary_trade = match.trader_trade
                 
             else:
