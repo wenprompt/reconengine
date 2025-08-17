@@ -95,11 +95,6 @@ uv add --dev pytest ruff mypy
 # Remove a package
 uv remove requests
 
-# Run commands in the environment
-uv run python script.py
-uv run pytest
-uv run ruff check .
-
 # Install specific Python version
 uv python install 3.12
 ```
@@ -107,15 +102,6 @@ uv python install 3.12
 ### Development Commands
 
 ```bash
-# Format code
-uv run ruff format .
-
-# Check linting
-uv run ruff check .
-
-# Fix linting issues automatically
-uv run ruff check --fix .
-
 # Type checking (with pandas type stubs installed)
 python -m mypy src/energy_match
 
@@ -201,6 +187,7 @@ def calculate_discount(
 This project uses **real CSV data** for testing and validation instead of traditional unit tests. The energy trade matching system processes actual trader and exchange data files, making this approach more practical and reliable.
 
 **Why Real Data Testing?**
+
 - **Realistic scenarios**: Actual CSV variations and edge cases
 - **End-to-end validation**: Complete workflows with real data patterns
 - **Immediate feedback**: See actual matches and unmatched trades
@@ -209,6 +196,7 @@ This project uses **real CSV data** for testing and validation instead of tradit
 ### Current Implementation Status
 
 ✅ **Completed & Tested**:
+
 - **Rule 1 (Exact Matching)**: 19 matches found in sample data
 - **CSV Data Loading**: Handles both trader and exchange formats
 - **Pydantic v2 Validation**: Type safety and data validation
@@ -218,6 +206,7 @@ This project uses **real CSV data** for testing and validation instead of tradit
 - **Type Safety**: Complete mypy compliance with pandas-stubs
 
 🔄 **Planned for Implementation**:
+
 - **Rules 2-10**: Spread, crack, aggregation, and complex matching scenarios
 - **Additional Data Sets**: More diverse trading scenarios
 - **Performance Optimization**: Large-scale data processing

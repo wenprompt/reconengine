@@ -55,8 +55,8 @@ class EnergyTradeMatchingEngine:
             show_logs: Whether to show log output to console
         """
         self.config_manager = config_manager or ConfigManager.default()
-        self.loader = CSVTradeLoader()
         self.normalizer = TradeNormalizer(self.config_manager)
+        self.loader = CSVTradeLoader(self.normalizer)  # Pass normalizer to loader
         self.displayer = MatchDisplayer(self.config_manager)
         
         # Setup logging

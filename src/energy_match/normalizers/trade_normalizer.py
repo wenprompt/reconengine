@@ -41,6 +41,14 @@ class TradeNormalizer:
         r'^dec\-?(\d{2})$': r'Dec-\1',
         r'^balmo$': 'Balmo'
     }
+
+    PRODUCT_VARIATION_MAP = {
+        ("marine", "0.5", "crack"): "marine 0.5% crack",
+        ("marine", "0.5"): "marine 0.5%",
+        ("380", "cst", "crack"): "380cst crack",
+        ("380", "cst"): "380cst",
+        ("brent", "swap"): "brent swap",
+    }
     
     def __init__(self, config_manager: ConfigManager):
         """Initialize the normalizer.
@@ -63,13 +71,17 @@ class TradeNormalizer:
         return normalized
     
     def _handle_product_variations(self, product_lower: str) -> str:
-        """Handle product name variations not in direct mapping."""
-        if "marine" in product_lower and "0.5" in product_lower:
-            return "marine 0.5% crack" if "crack" in product_lower else "marine 0.5%"
-        if "380" in product_lower and "cst" in product_lower:
-            return "380cst crack" if "crack" in product_lower else "380cst"
-        if "brent" in product_lower and "swap" in product_lower:
-            return "brent swap"
+        """Handle product name variations using a data-driven map.
+        
+        Args:
+            product_lower: Lowercase product name
+            
+        Returns:
+            Best match normalized product name
+        """
+        for keywords, normalized_name in self.PRODUCT_VARIATION_MAP.items():
+            if all(keyword in product_lower for keyword in keywords):
+                return normalized_name
         return product_lower
     
     def normalize_contract_month(self, contract_month: str) -> str:
