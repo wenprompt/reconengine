@@ -150,8 +150,7 @@ class EnergyTradeMatchingEngine:
                 
                 complex_crack_matcher = ComplexCrackMatcher(self.normalizer, self.config_manager)
                 complex_crack_matches = complex_crack_matcher.find_matches(
-                    pool_manager.get_unmatched_trader_trades(), 
-                    pool_manager.get_unmatched_exchange_trades()
+                    pool_manager # Pass pool_manager directly
                 )
                 
                 # Remove matched trades from pool using proper record_match method
@@ -260,7 +259,7 @@ Examples:
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",
+        default="INFO", # Reverted default to INFO
         help="Set logging level (default: INFO)"
     )
     
@@ -282,6 +281,12 @@ Examples:
         help="Show detailed logging output"
     )
     
+    parser.add_argument(
+        "--show-rules",
+        action="store_true",
+        help="Display information about all matching rules."
+    )
+    
     args = parser.parse_args()
     
     # Validate file paths
@@ -292,6 +297,38 @@ Examples:
     if not args.exchange_csv.exists():
         print(f"Error: Exchange CSV file not found: {args.exchange_csv}")
         return 1
+    
+    # Handle --show-rules argument
+    if args.show_rules:
+        # Initialize necessary components to get rule info
+        config_manager = ConfigManager.default()
+        normalizer = TradeNormalizer(config_manager)
+
+        # Create instances of your matchers
+        exact_matcher = ExactMatcher(config_manager)
+        spread_matcher = SpreadMatcher(config_manager, normalizer)
+        crack_matcher = CrackMatcher(config_manager)
+        complex_crack_matcher = ComplexCrackMatcher(normalizer, config_manager) # Assuming it's fully implemented
+
+        # Collect all matchers that have a get_rule_info method
+        all_matchers = [exact_matcher, spread_matcher, crack_matcher, complex_crack_matcher]
+
+        print("\n--- Energy Trade Matching Rules ---")
+        for matcher in all_matchers:
+            if hasattr(matcher, 'get_rule_info'): # Safely check if the method exists
+                rule_info = matcher.get_rule_info()
+                print(f"\nRule {rule_info['rule_number']}: {rule_info['rule_name']}")
+                print(f"  Confidence: {rule_info['confidence']}%")
+                print(f"  Description: {rule_info['description']}")
+                print(f"  Requirements:")
+                for req in rule_info['requirements']:
+                    print(f"    - {req}")
+                if 'tolerances' in rule_info and rule_info['tolerances']:
+                    print(f"  Tolerances:")
+                    for k, v in rule_info['tolerances'].items():
+                        print(f"    - {k}: {v}")
+        print("\n-----------------------------------")
+        return 0 # Exit the program after showing rules
     
     # Create configuration
     config_manager = ConfigManager.default().update_config(

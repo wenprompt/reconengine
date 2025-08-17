@@ -127,29 +127,18 @@ class MatchDisplayer:
         
         for match in matches:
             # Check if this is a spread match (has additional trades)
-            is_spread = (match.match_type.value == "spread" and 
-                        hasattr(match, 'additional_trader_trades') and 
-                        hasattr(match, 'additional_exchange_trades') and
-                        match.additional_trader_trades and 
-                        match.additional_exchange_trades)
-            
-            # Check if this is a complex crack match (has additional exchange trades)
-            is_complex_crack = (match.match_type.value == "complex_crack" and 
-                               hasattr(match, 'additional_exchange_trades') and
-                               match.additional_exchange_trades)
-            
-            if is_spread:
-                # For spread matches, format to show both legs
-                all_trader_trades = [match.trader_trade] + match.additional_trader_trades
-                all_exchange_trades = [match.exchange_trade] + match.additional_exchange_trades
+            if match.is_multi_leg_match:
+                # For multi-leg matches, format to show all legs
+                all_trader_trades = match.all_trader_trades
+                all_exchange_trades = match.all_exchange_trades
                 
-                # Format trader IDs (show both trades)
+                # Format trader IDs (show all trades)
                 trader_ids = " + ".join([trade.trade_id for trade in all_trader_trades])
                 
-                # Format exchange IDs (show both trades)
+                # Format exchange IDs (show all trades)
                 exchange_ids = " + ".join([trade.trade_id for trade in all_exchange_trades])
                 
-                # Format contract months (show both legs)
+                # Format contract months (show all legs)
                 trader_months = sorted(set(trade.contract_month for trade in all_trader_trades))
                 contract_display = "/".join(trader_months)
                 
@@ -158,31 +147,11 @@ class MatchDisplayer:
                 exchange_sides = [trade.buy_sell for trade in all_exchange_trades]
                 sides = f"{'/'.join(trader_sides)}↔{'/'.join(exchange_sides)}"
                 
-                # Use primary trade for product, quantity, price
-                primary_trade = match.trader_trade
-                
-            elif is_complex_crack:
-                # For complex crack matches, format to show base product + brent swap
-                all_exchange_trades = [match.exchange_trade] + match.additional_exchange_trades
-                
-                # Format trader ID (single crack trade)
-                trader_ids = match.trader_trade.trade_id
-                
-                # Format exchange IDs (base product + brent swap)
-                exchange_ids = " + ".join([trade.trade_id for trade in all_exchange_trades])
-                
-                # Use trader contract month for display
-                contract_display = match.trader_trade.contract_month
-                
-                # Format sides (trader vs. base + brent)
-                exchange_sides = [trade.buy_sell for trade in all_exchange_trades]
-                sides = f"{match.trader_trade.buy_sell}↔{'/'.join(exchange_sides)}"
-                
-                # Use trader trade for product, quantity, price
+                # Use primary trade for product, quantity, price (assuming primary trade is representative)
                 primary_trade = match.trader_trade
                 
             else:
-                # For exact and crack matches, show single trade
+                # For single-leg matches, show single trade
                 trader_ids = match.trader_trade.trade_id
                 exchange_ids = match.exchange_trade.trade_id
                 contract_display = match.trader_trade.contract_month

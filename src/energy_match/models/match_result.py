@@ -112,6 +112,12 @@ class MatchResult(BaseModel):
             len(self.additional_trader_trades) > 0 or 
             len(self.additional_exchange_trades) > 0
         )
+
+    @property
+    def is_multi_leg_match(self) -> bool:
+        """Check if this match involves multiple legs (additional trades)."""
+        return len(self.additional_trader_trades) > 0 or \
+               len(self.additional_exchange_trades) > 0
     
     @property
     def all_trader_trades(self) -> List[Trade]:
