@@ -12,15 +12,16 @@ class MatchType(str, Enum):
     """Type of matching rule that produced this match."""
     EXACT = "exact"  # Rule 1 - Exact 6-field match
     SPREAD = "spread"  # Rule 2 - Spread matching
-    PRICE_TOLERANCE = "price_tolerance"  # Rule 3
-    QUANTITY_TOLERANCE = "quantity_tolerance"  # Rule 4
-    BOTH_TOLERANCE = "both_tolerance"  # Rule 5
-    PRODUCT_SIMILAR = "product_similar"  # Rule 6
-    CONTRACT_ADJACENT = "contract_adjacent"  # Rule 7
-    PRODUCT_CONTRACT_TOLERANCES = "product_contract_tolerances"  # Rule 8
-    BROKER_DIFFERENT = "broker_different"  # Rule 9
-    EXCHANGE_DIFFERENT = "exchange_different"  # Rule 10
-    CLEARING_DIFFERENT = "clearing_different"  # Rule 11
+    CRACK = "crack"  # Rule 3 - Crack spread matching with unit conversion
+    PRICE_TOLERANCE = "price_tolerance"  # Rule 4
+    QUANTITY_TOLERANCE = "quantity_tolerance"  # Rule 5
+    BOTH_TOLERANCE = "both_tolerance"  # Rule 6
+    PRODUCT_SIMILAR = "product_similar"  # Rule 7
+    CONTRACT_ADJACENT = "contract_adjacent"  # Rule 8
+    PRODUCT_CONTRACT_TOLERANCES = "product_contract_tolerances"  # Rule 9
+    BROKER_DIFFERENT = "broker_different"  # Rule 10
+    EXCHANGE_DIFFERENT = "exchange_different"  # Rule 11
+    CLEARING_DIFFERENT = "clearing_different"  # Rule 12
 
 
 class MatchResult(BaseModel):
@@ -61,7 +62,7 @@ class MatchResult(BaseModel):
     
     # Metadata
     matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
-    rule_order: int = Field(..., ge=1, le=10, description="Order of rule that created this match (1-10)")
+    rule_order: int = Field(..., ge=1, le=12, description="Order of rule that created this match (1-12)")
     
     def __str__(self) -> str:
         """Human-readable string representation."""

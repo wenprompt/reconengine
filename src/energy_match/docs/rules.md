@@ -1,60 +1,10 @@
 # Trade Matching Rules
 
-## Processing Order by Confidence Level
-
-The matching engine processes trades in order of confidence level to ensure the most certain matches are identified first, leaving more complex scenarios for later processing:
-
-1. **Exact Matches** (Confidence: 100%) - Highest certainty, processed first
-2. **High-Confidence Spread Matches** (Confidence: 95%) - Clear spread indicators with tradeid/spread flags
-3. **High-Confidence Crack Matches** (Confidence: 85%) - Clear crack products with good unit conversion
-4. **Aggregation Matches** (Confidence: 80%) - Split/combined trade scenarios
-5. **Product Spread Matches** (Confidence: 75%) - Product combination spreads (e.g., "marine 0.5%-380cst")
-6. **Lower-Confidence Spread Matches** (Confidence: 70%) - Spreads missing tradeid or spread flags
-7. **Lower-Confidence Crack Matches** (Confidence: 65%) - Crack matches with less certain unit conversions
-8. **Complex Crack Matches** (Confidence: 75%) - 2-leg crack trades (base product + brent swap)
-9. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
-10. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
-11. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
-12. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
-
-### Complex Scenario Handling
-
-**Processing Hierarchy**: The system processes matches in a structured hierarchy to handle complex trading scenarios:
-
-- **Exact matches** remove the clearest matches first
-- **High-confidence spreads/cracks** handle trades with clear indicators
-- **Aggregation** resolves quantity mismatches between sources
-- **Product spreads** handle different product combination representations
-- **Low-confidence matches** catch remaining trades with missing metadata
-- **Complex cracks** handle sophisticated 2-leg crack trading strategies
-- **Aggregated complex cracks** handle the most complex scenarios with split base products
-
-## 1. Exact Match Rules
-
-### Definition
-
-An **exact match** occurs when trades from both data sources have identical values across all required matching fields after normalization.
-
-### Required Matching Fields
-
-For a trade to qualify as an exact match, the following 6 fields must match exactly:
-
-1. **productname** - Product identifier/name
-2. **contractmonth** - Contract delivery month
-3. **quantityunits** - Trade quantity in units
-4. **b/s** - Buy/Sell indicator
-5. **price** - Trade execution price
-6. **brokergroupid** - Broker group identifier
-
-### Data Normalization Rules
+## Universal Data Normalization Rules
 
 **IMPORTANT**: The following normalization rules must be applied to ALL data from BOTH sources before any matching operations. These normalization rules ensure consistent data format across all matching types (exact, spread, and crack matches).
 
-#### Universal Data Normalization
-
-All data must be normalized according to these rules before any processing:
-
-#### Field Name Mapping
+### Field Name Mapping
 
 - `sourceTraders.B/S` ↔ `sourceExchange.b/s`
 - `sourceTraders.contractmonth` ↔ `sourceExchange.contractmonth`
@@ -63,43 +13,97 @@ All data must be normalized according to these rules before any processing:
 - `sourceTraders.productname` ↔ `sourceExchange.productname`
 - `sourceTraders.price` ↔ `sourceExchange.price`
 
-#### Universal Value Normalization
+### Universal Value Normalization
 
 **Apply to ALL records from BOTH data sources:**
 
-- **Buy/Sell Values** (UNIVERSAL):
+- **Buy/Sell Values** (Standardized to full words):
 
   - `"S"` → `"Sold"`
   - `"B"` → `"Bought"`
   - `"Sell"` → `"Sold"`
   - `"Buy"` → `"Bought"`
-  - All values converted to standard `"Sold"` or `"Bought"` format
+  - Case-insensitive input, standardized output
 
-- **Contract Month Format** (UNIVERSAL):
+- **Contract Month Format** (Standardized to "MMM-YY"):
 
-  - Remove spaces: `"Aug 25"` → `"Aug-25"`
-  - Standardize to format: `"MMM-YY"` (e.g., `"Aug-25"`, `"Jun-25"`)
-  - Ensure consistent hyphen-separated format
+  - `"Aug 25"` → `"Aug-25"`
+  - `"aug25"` → `"Aug-25"`
+  - `"August-25"` → `"Aug-25"`
+  - `"Balmo"` → `"Balmo"` (special case preserved)
 
-- **Quantity Units** (UNIVERSAL):
+- **Quantity Units** (Cleaned numeric values):
 
-  - Remove commas from numbers: `"2,000"` → `"2000"`
-  - Remove quotes: `'"2,000"'` → `"2000"`
-  - Convert to integer for all operations
-  - Apply to both `quantityunits` fields
+  - `"2,000"` → `2000` (integer)
+  - `'"5,000"'` → `5000` (remove quotes and commas)
+  - All quantities converted to numeric for arithmetic operations
 
-- **Product Name** (UNIVERSAL):
+- **Product Name** (Lowercase with preserved punctuation):
 
-  - Convert to lowercase for comparison: `"Marine 0.5%"` → `"marine 0.5%"`
-  - Preserve spacing and punctuation after lowercase conversion
-  - Apply consistently across all matching types
+  - `"Marine 0.5%"` → `"marine 0.5%"`
+  - `"380CST CRACK"` → `"380cst crack"`
+  - `"marine 0.5%-380cst"` → `"marine 0.5%-380cst"` (hyphenated products preserved)
 
-- **Price** (UNIVERSAL):
-  - Convert to float for all numeric operations
-  - Maintain precision for exact matching
-  - No rounding or truncation
+- **Price** (Precise decimal values):
+
+  - Convert to Decimal type for exact arithmetic
+  - No rounding applied during conversion
+  - Maintains full precision for exact matching
+
+- **Broker Group ID** (Numeric standardization):
+  - Convert to integer for consistent comparison
+  - Handles string representations of numbers
 
 **Note**: These normalizations are applied to the actual data columns, not just for comparison. All subsequent matching operations work with the normalized data.
+
+## Processing Order by Confidence Level
+
+The matching engine processes trades in order of confidence level to ensure the most certain matches are identified first, leaving more complex scenarios for later processing:
+
+1. **Exact Matches** (Confidence: 100%) - Highest certainty, processed first
+2. **Spread Matches** (Confidence: 95%) - Calendar spreads between contract months
+3. **Crack Matches** (Confidence: 90%) - Crack spread trades with unit conversion
+4. **Aggregation Matches** (Confidence: 80%) - Split/combined trade scenarios
+5. **Product Spread Matches** (Confidence: 75%) - Product combination spreads (e.g., "marine 0.5%-380cst")
+6. **Complex Crack Matches** (Confidence: 75%) - 2-leg crack trades (base product + brent swap)
+7. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
+8. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
+9. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
+10. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
+
+### Complex Scenario Handling
+
+**Processing Hierarchy**: The system processes matches in a structured hierarchy to handle complex trading scenarios:
+
+- **Exact matches** remove the clearest matches first
+- **Spreads and cracks** handle trades with clear indicators and unit conversion needs
+- **Aggregation** resolves quantity mismatches between sources
+- **Product spreads** handle different product combination representations
+- **Complex cracks** handle sophisticated 2-leg crack trading strategies
+- **Advanced scenarios** handle the most complex decomposition and netting cases
+
+## 1. Exact Match Rules
+
+### Definition
+
+An **exact match** occurs when trades from both data sources have identical values across all required matching fields after normalization. This is the highest confidence match type (100%) and is processed first to establish the clearest trade relationships.
+
+### Required Matching Fields
+
+For a trade to qualify as an exact match, the following 6 fields must match exactly after normalization:
+
+1. **productname** - Product identifier/name (case-insensitive after normalization)
+2. **contractmonth** - Contract delivery month (standardized to "MMM-YY" format)
+3. **quantityunits** - Trade quantity in units (numeric values only, commas removed)
+4. **b/s** - Buy/Sell indicator (normalized to "Bought" or "Sold")
+5. **price** - Trade execution price (exact numeric match)
+6. **brokergroupid** - Broker group identifier (exact numeric match)
+
+### Processing Logic
+
+- **No tolerances applied**: All fields must match exactly after normalization
+- **One-to-one matching**: Each exact match removes exactly 1 trader trade and 1 exchange trade
+- **Highest priority**: Processed before all other matching rules to capture obvious matches first
 
 ### RULE 1: Exact Match
 
@@ -135,15 +139,20 @@ All data must be normalized according to these rules before any processing:
 
 ### Definition
 
-A **spread match** occurs when a trader executes a spread trade (buying one contract and selling another related contract simultaneously) that appears as two separate trades in the exchange data but as a calculated spread in the trader data.
+A **spread match** occurs when a trader executes a spread trade (buying one contract and selling another related contract simultaneously) that appears as two separate trades in the exchange data but as a calculated spread in the trader data. This is a high-confidence match type (95%) that handles complex trading strategies.
 
 **Processing Order**: Spread matching is performed AFTER exact matching has been completed and those trades have been removed from the matching pool. This makes spread identification easier by reducing the dataset to unmatched trades only.
+
+**Key Insight**: Spreads represent **single trading strategies** that appear differently in each data source:
+
+- **Trader data**: Shows the spread as 2 related trades (one with calculated spread price, one with price = 0)
+- **Exchange data**: Shows the spread as 2 separate individual trades with actual market prices
 
 ### Spread Trade Identification
 
 #### Exchange Data Indicators:
 
-- **tradeid**: Both legs have identical `DealId` values and non-identical `tradeId` values that are not empty, check the csv first if it can read the `DealId` and `tradeId` properly as they should be integers. If `DealId` and `tradeId` cannot be read properly, then if `tradeid` is not empty the trade **MIGHT** be part of a spread - _preferred but may be missing_
+- **tradeid**: Both legs have identical `dealId` values and non-identical `tradeId` values that are not empty - _check the csv first if it can read the `dealId` and `tradeId` properly as they should be integers_ - - **tradeid**: if `dealId` and `tradeId` cannot be read accurately, then use the rule if `tradeid` is not empty, the tradeid is part of a spread - _tradeId preferred but may be missing_
 - **Same brokergroupid**: Both legs have identical broker group identifier
 - **Opposite B/S**: One leg is "Bought", the other is "Sold"
 - **Same product group**: Both legs have the same base product (e.g., "380cst")
@@ -160,18 +169,25 @@ A **spread match** occurs when a trader executes a spread trade (buying one cont
 
 ### Required Matching Fields for Spreads
 
-1. **productname** - Base product must match (after normalization)
-2. **quantityunits** - Quantity must be identical for both legs
-3. **brokergroupid** - Broker group must match
-4. **Spread price calculation** - `sourceExchange.leg1_price - sourceExchange.leg2_price = sourceTraders.spread_price`
-5. **Contract months** - Must match the corresponding legs
-6. **B/S directions** - Must match after normalization (opposite sides)
+1. **productname** - Base product must match between all legs (after normalization)
+2. **quantityunits** - Quantity must be identical for all legs (2 trader + 2 exchange)
+3. **brokergroupid** - Broker group must match across all trades
+4. **contractmonth** - Contract months must correspond between trader and exchange legs
+5. **b/s directions** - Each leg's direction must match between sources (opposite directions within each source)
+6. **spread price calculation** - Exchange price differential must equal trader spread price
+
+### Spread Matching Logic
+
+- **Multi-trade matching**: Each spread match removes 2 trader trades and 2 exchange trades
+- **Price validation**: |Earlier_Contract_Price - Later_Contract_Price| = |Trader_Spread_Price|
+- **Direction validation**: Opposite B/S directions within each source, matching directions between sources
+- **Contract month validation**: Different months for legs, but corresponding months must match between sources
 
 ### Spread-Specific Normalization Rules
 
 #### Price Calculation Logic:
 
-- **Calculate exchange spread**: `higher_contract_price - lower_contract_price`
+- **Calculate exchange spread**: `earlier_contract_price - later_contract_price` (e.g., Jun-25 price - Jul-25 price)
 - **Match validation**: Exchange spread must equal trader spread price
 
 ### Example: Spread Match
@@ -198,7 +214,7 @@ A **spread match** occurs when a trader executes a spread trade (buying one cont
 
 #### After Normalization & Calculation:
 
-**Spread Price Calculation:** `425.50 - 409.00 = 16.50` ✅
+**Spread Price Calculation:** `425.50 - 409.00 = 16.50` ✅ (Jun-25 price - Jul-25 price)
 
 **Normalized Match:**
 
@@ -236,9 +252,16 @@ A **spread match** occurs when a trader executes a spread trade (buying one cont
 
 ### Definition
 
-A **crack match** occurs when a trader executes a crack spread trade (price differential between refined products and crude oil) that appears in both data sources but may require unit conversion between metric tons (MT) and barrels (BBL).
+A **crack match** occurs when a trader executes a crack spread trade (price differential between refined products and crude oil) that appears in both data sources but may require unit conversion between metric tons (MT) and barrels (BBL). This is a high-confidence match type (90%) that handles specialized energy trading products.
 
 **Processing Order**: Crack matching is performed AFTER exact matching and spread matching have been completed. This handles remaining unmatched crack spread trades that require unit normalization.
+
+**Key Characteristics**:
+
+- **Product identification**: Only trades with "crack" in the product name are eligible
+- **Unit conversion**: Automatic handling of MT ↔ BBL conversions using 6.35 ratio
+- **Conversion tolerances**: ±100 BBL or ±50 MT difference allowed for rounding
+- **One-to-one matching**: Each crack match removes 1 trader trade and 1 exchange trade
 
 ### Crack Trade Identification
 
@@ -252,12 +275,21 @@ A **crack match** occurs when a trader executes a crack spread trade (price diff
 
 ### Required Matching Fields for Cracks
 
-1. **productname** - Must contain "crack" and match base product (after normalization)
+All 6 fields must match exactly (with unit conversion applied where needed):
+
+1. **productname** - Must contain "crack" and match exactly after normalization
 2. **contractmonth** - Contract delivery month must match exactly
-3. **price** - Trade execution price must be identical
-4. **brokergroupid** - Broker group must match
-5. **quantityunits** - Quantity must match after unit conversion (MT ↔ BBL)
-6. **b/s** - Buy/Sell indicator must match (after normalization)
+3. **price** - Trade execution price must be identical (no price tolerance for crack matches)
+4. **brokergroupid** - Broker group must match exactly
+5. **quantityunits** - Quantity must match after unit conversion within tolerance (±100 BBL or ±50 MT)
+6. **b/s** - Buy/Sell indicator must match exactly after normalization
+
+### Crack Matching Logic
+
+- **Product filter**: Only processes trades containing "crack" in product name
+- **Unit-aware comparison**: Automatically converts between MT and BBL using 6.35 ratio
+- **Dual tolerance validation**: Checks both BBL and MT tolerances for maximum flexibility
+- **Exact field matching**: All non-quantity fields must match exactly (no tolerances except for unit conversion)
 
 ### Unit Conversion Rules
 
@@ -979,7 +1011,7 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 
 - Calculated Jul-25 crack: -0.95
 - Calculated Sep-25 crack: -0.45
-- Roll spread: -0.95 - (-0.45) = -0.5
+- Roll spread: -0.95 - (-0.45) = -0.5 (Jul-25 crack - Sep-25 crack, earlier minus later)
 - Trader pattern: Jul-25 = -0.5, Sep-25 = 0.0
 - **Match validation**: Roll spread (-0.5) equals trader non-zero price (-0.5) ✅
 

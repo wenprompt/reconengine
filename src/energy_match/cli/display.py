@@ -114,20 +114,55 @@ class MatchDisplayer:
         # Create title with match count
         title = f"✅ {match_type.replace('_', ' ').title()} Matches ({len(matches)})"
         
-        match_table = Table(title=title, box=box.ROUNDED)
-        match_table.add_column("Match ID", style="cyan", no_wrap=True)
-        match_table.add_column("Trader ID", style="green", no_wrap=True)
-        match_table.add_column("Exchange ID", style="blue", no_wrap=True)
-        match_table.add_column("Product", style="white")
-        match_table.add_column("Quantity (MT)", justify="right", style="white")
-        match_table.add_column("Price", justify="right", style="white")
-        match_table.add_column("Contract", style="white")
-        match_table.add_column("Sides", style="white")
-        match_table.add_column("Confidence", justify="right", style="white")
+        match_table = Table(title=title, box=box.ROUNDED, width=140)
+        match_table.add_column("Match ID", style="cyan", no_wrap=True, width=14)
+        match_table.add_column("Trader ID", style="green", no_wrap=True, width=18)
+        match_table.add_column("Exchange ID", style="blue", no_wrap=True, width=18)
+        match_table.add_column("Product", style="white", width=14)
+        match_table.add_column("Qty (MT)", justify="right", style="white", width=10)
+        match_table.add_column("Price", justify="right", style="white", width=8)
+        match_table.add_column("Contract", style="white", width=18)
+        match_table.add_column("Sides", style="white", width=8)
+        match_table.add_column("Conf", justify="right", style="white", width=6)
         
         for match in matches:
-            # Format sides display
-            sides = f"{match.trader_trade.buy_sell}↔{match.exchange_trade.buy_sell}"
+            # Check if this is a spread match (has additional trades)
+            is_spread = (match.match_type.value == "spread" and 
+                        hasattr(match, 'additional_trader_trades') and 
+                        hasattr(match, 'additional_exchange_trades') and
+                        match.additional_trader_trades and 
+                        match.additional_exchange_trades)
+            
+            if is_spread:
+                # For spread matches, format to show both legs
+                all_trader_trades = [match.trader_trade] + match.additional_trader_trades
+                all_exchange_trades = [match.exchange_trade] + match.additional_exchange_trades
+                
+                # Format trader IDs (show both trades)
+                trader_ids = " + ".join([trade.trade_id for trade in all_trader_trades])
+                
+                # Format exchange IDs (show both trades)
+                exchange_ids = " + ".join([trade.trade_id for trade in all_exchange_trades])
+                
+                # Format contract months (show both legs)
+                trader_months = sorted(set(trade.contract_month for trade in all_trader_trades))
+                contract_display = "/".join(trader_months)
+                
+                # Format sides (show all combinations)
+                trader_sides = [trade.buy_sell for trade in all_trader_trades]
+                exchange_sides = [trade.buy_sell for trade in all_exchange_trades]
+                sides = f"{'/'.join(trader_sides)}↔{'/'.join(exchange_sides)}"
+                
+                # Use primary trade for product, quantity, price
+                primary_trade = match.trader_trade
+                
+            else:
+                # For exact and crack matches, show single trade
+                trader_ids = match.trader_trade.trade_id
+                exchange_ids = match.exchange_trade.trade_id
+                contract_display = match.trader_trade.contract_month
+                sides = f"{match.trader_trade.buy_sell}↔{match.exchange_trade.buy_sell}"
+                primary_trade = match.trader_trade
             
             # Color confidence based on value
             confidence_str = f"{match.confidence}%"
@@ -140,12 +175,12 @@ class MatchDisplayer:
             
             match_table.add_row(
                 match.match_id,
-                match.trader_trade.trade_id,
-                match.exchange_trade.trade_id,
-                match.trader_trade.product_name,
-                f"{match.trader_trade.quantity_mt:,.0f}",
-                f"{match.trader_trade.price:,.2f}",
-                match.trader_trade.contract_month,
+                trader_ids,
+                exchange_ids,
+                primary_trade.product_name,
+                f"{primary_trade.quantity_mt:,.0f}",
+                f"{primary_trade.price:,.2f}",
+                contract_display,
                 sides,
                 confidence_str
             )

@@ -349,9 +349,39 @@ class SpreadMatcher:
             # Both prices are zero, can't validate
             return True
         
-        # Calculate exchange spread price
-        exchange_price1, exchange_price2 = exchange_trades[0].price, exchange_trades[1].price
-        exchange_spread_price = abs(exchange_price1 - exchange_price2)
+        # Calculate exchange spread price using earlier contract - later contract
+        # First, identify which exchange trade has the earlier contract month
+        exchange_trade1, exchange_trade2 = exchange_trades[0], exchange_trades[1]
+        
+        # Parse contract months to determine chronological order
+        # Format is "MMM-YY" (e.g., "Jun-25", "Jul-25")
+        def parse_contract_month(month_str: str) -> tuple[int, int]:
+            """Parse contract month string into (year, month_order) for comparison."""
+            try:
+                month_abbr, year_str = month_str.split('-')
+                year = int('20' + year_str)  # Convert "25" to 2025
+                
+                # Month order mapping
+                month_order = {
+                    'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+                    'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+                }
+                
+                return (year, month_order.get(month_abbr, 0))
+            except (ValueError, AttributeError):
+                # If parsing fails, fall back to string comparison
+                return (0, 0)
+        
+        month1_tuple = parse_contract_month(exchange_trade1.contract_month)
+        month2_tuple = parse_contract_month(exchange_trade2.contract_month)
+        
+        # Calculate spread as earlier_contract_price - later_contract_price
+        if month1_tuple < month2_tuple:
+            # trade1 is earlier, trade2 is later
+            exchange_spread_price = exchange_trade1.price - exchange_trade2.price
+        else:
+            # trade2 is earlier, trade1 is later
+            exchange_spread_price = exchange_trade2.price - exchange_trade1.price
         
         # Prices should match exactly for spread validation
         return trader_spread_price == exchange_spread_price
