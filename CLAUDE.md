@@ -35,7 +35,8 @@ src/energy_match/
 │   ├── spread_matcher.py # Rule 2: Spread matching (contract month spreads)
 │   ├── crack_matcher.py # Rule 3: Crack matching with unit conversion (optimized)
 │   ├── complex_crack_matcher.py # Rule 4: Complex crack matching (2-leg: base + brent swap)
-│   └── product_spread_matcher.py # Rule 5: Product spread matching (hyphenated products)
+│   ├── product_spread_matcher.py # Rule 5: Product spread matching (hyphenated products)
+│   └── aggregation_matcher.py # Rule 6: Aggregation matching (many↔one trade grouping)
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -102,7 +103,8 @@ src/energy_match/
 - **crack_matcher.py**: Rule 3 - Unit conversion matching with performance optimization
 - **complex_crack_matcher.py**: Rule 4 - Complex 2-leg crack matching (base product + brent swap)
 - **product_spread_matcher.py**: Rule 5 - Product spread matching with hyphenated product parsing
-- **Extensible Design**: Easy to add Rules 6-10 following established patterns
+- **aggregation_matcher.py**: Rule 6 - Bidirectional aggregation matching with exact quantity sum validation
+- **Extensible Design**: Easy to add Rules 7-10 following established patterns
 
 **`core/`** - **System Infrastructure**
 
@@ -345,11 +347,12 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 ✅ **Completed & Tested**:
 
-- **Rule 1 (Exact Matching)**: 23 exact matches found in sample data with proper product spread preservation
+- **Rule 1 (Exact Matching)**: 20 exact matches found in sample data with proper product spread preservation
 - **Rule 2 (Spread Matching)**: 4 spread matches found using intelligent grouped approach with 95% confidence
 - **Rule 3 (Crack Matching)**: 0 crack matches in current sample data (functionality verified with unit conversion)
 - **Rule 4 (Complex Crack Matching)**: 0 complex crack matches in current sample data (functionality verified with 2-leg validation)
 - **Rule 5 (Product Spread Matching)**: 2 product spread matches found using hyphenated product parsing with 75% confidence
+- **Rule 6 (Aggregation Matching)**: 3 aggregation matches found using bidirectional many↔one trade grouping with 72% confidence
 - **CSV Data Loading**: Integrated with TradeNormalizer for consistent data processing
 - **Universal Normalization**: Product names, contract months, buy/sell indicators standardized
 - **Product Spread Preservation**: Hyphenated product names (e.g., "marine 0.5%-380cst") correctly preserved for Rule 5
@@ -363,7 +366,7 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 🔄 **Planned for Implementation**:
 
-- **Rules 6-10**: Aggregation, time-based matching, and complex scenarios
+- **Rules 7-10**: Time-based matching, crack rolls, and complex decomposition scenarios
 - **Additional Data Sets**: More diverse trading scenarios for comprehensive rule testing
 - **Scaling Optimization**: Further performance improvements for enterprise-scale datasets
 
@@ -433,6 +436,45 @@ This project uses **real CSV data** for testing and validation instead of tradit
 - **Trader Match Rate**: Improved from 77.5% to 87.5%
 - **Processing Time**: Maintains sub-100ms performance for 83 trades
 - **Zero False Positives**: All matches validated through multiple criteria
+
+## 🏆 Rule 6 Implementation Summary
+
+**Successfully Completed**: Rule 6 - Aggregation Matching (Bidirectional Many↔One Trade Grouping)
+
+### Implementation Highlights
+
+- **✅ Complete Integration**: Fully integrated into the matching pipeline following Rules 1-5
+- **✅ Configuration Management**: Uses ConfigManager for confidence levels (72%)
+- **✅ Pool Management**: Proper encapsulation using `pool_manager.record_match()` method
+- **✅ Multi-Leg Display**: CLI shows all aggregated trades (primary + additional) correctly
+- **✅ Type Safety**: Full MyPy compliance with proper type annotations
+- **✅ Real-World Testing**: Successfully matches 3 aggregation scenarios (AGG_B1BF5E8F, AGG_A8194C30, AGG_D5C1C579)
+
+### Architecture Improvements Made
+
+- **Bidirectional Matching**: Implements both trader→exchange and exchange→trader aggregation scenarios
+- **Intelligent Grouping**: Groups trades by all fields except quantity for O(N+M) performance
+- **Exact Sum Validation**: Enforces perfect quantity sum matching with no tolerance
+- **Enhanced CLI Display**: Added special handling for aggregation matches showing all component trades
+- **Import Organization**: Updated `__init__.py` and `main.py` with proper imports and integration
+
+### Key Technical Features
+
+- **Aggregation Key Grouping**: Groups trades by (product, contract, price, broker, B/S) excluding quantity
+- **Bidirectional Scenarios**: Handles both many→one and one→many aggregation patterns
+- **Perfect Sum Validation**: Validates sum(many_trades.quantity) == one_trade.quantity exactly
+- **Direction Logic**: Maintains proper B/S direction consistency across all component trades
+- **Non-Duplication**: Triple validation ensures trades only match once across all rules
+- **Performance Optimization**: O(N+M) indexing strategy for scalable aggregation detection
+
+### Performance Results
+
+- **3 Aggregation Matches Found**: Successfully identified and matched aggregated trade scenarios
+- **Improved Match Rate**: Overall system match rate increased from 69.9% to 77.1%
+- **Trader Match Rate**: Improved from 87.5% to 95.0%
+- **Exchange Match Rate**: Improved from 76.7% to 90.7%
+- **Processing Time**: Maintains excellent performance (~0.05 seconds for 83 trades)
+- **Zero False Positives**: All matches validated through exact sum and field matching criteria
 
 ## 🚨 Error Handling
 

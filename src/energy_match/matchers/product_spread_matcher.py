@@ -369,9 +369,6 @@ class ProductSpreadMatcher:
         # Product name and price are calculated/derived
         differing_fields = ["product_name", "price"]
         
-        # No tolerances applied - exact price match required
-        tolerances_applied = {}
-        
         return MatchResult(
             match_id=match_id,
             match_type=MatchType.PRODUCT_SPREAD,
@@ -381,7 +378,6 @@ class ProductSpreadMatcher:
             additional_trader_trades=[second_trader_trade],  # Additional component trade
             matched_fields=matched_fields,
             differing_fields=differing_fields,
-            tolerances_applied=tolerances_applied,
             rule_order=self.rule_number
         )
 
