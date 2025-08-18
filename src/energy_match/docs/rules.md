@@ -114,9 +114,10 @@ The matching engine processes trades in order of confidence level to ensure the 
 6. **Aggregation Matches** (Confidence: 72%) - Split/combined trade scenarios
 7. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
 8. **Aggregated Spread Matches** (Confidence: 70%) - Spread matching with exchange trade aggregation
-9. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
-10. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
-11. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
+9. **Aggregated Crack Matches** (Confidence: 68%) - **NEW** - Aggregation with unit conversion for crack products
+10. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
+11. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
+12. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
 
 ### Complex Scenario Handling
 
@@ -1067,7 +1068,73 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 - **Spread Integration**: Uses same spread logic as Rule 2 for Phase 2
 - **Detailed Audit**: Maintains mapping of which exchange trades aggregate to form each spread leg
 
-## 9. Crack Roll Match Rules (Calendar Spread of Crack Positions)
+## 9. Aggregated Crack Match Rules
+
+### Definition
+An **aggregated crack match** occurs when a single crack trade from one source corresponds to multiple crack trades from the other source, requiring both quantity aggregation and unit conversion with tolerance. This rule combines the logic of Rule 3 (Crack Matching) and Rule 6 (Aggregation).
+
+**Key Pattern**: 1 trade (in MT) ↔ N trades (in BBL) for the same crack product.
+
+### Aggregated Crack Trade Identification
+- **Identical Details**: All trades involved (one and many) must have the same `productname` (containing "crack"), `contractmonth`, `price`, and `b/s` direction after normalization.
+- **Unit Mismatch**: One side of the match has quantities in Metric Tons (MT), while the other has quantities in Barrels (BBL).
+- **Quantity Relationship**: The sum of quantities on the "many" side, when converted to the same unit as the "one" side, must fall within the allowed tolerance.
+
+### Required Matching Fields
+1.  **productname**: Must contain "crack" and match exactly across all trades.
+2.  **contractmonth**: Must be identical for all trades.
+3.  **price**: Must be identical for all trades.
+4.  **b/s**: Must be identical for all trades.
+5.  **Quantity Validation**: The aggregated quantity must match the single quantity after unit conversion, within the defined `crack_tolerance_bbl`.
+
+### Aggregation and Conversion Logic
+1.  **Group and Aggregate**: Trades on the "many" side are grouped by their matching key (product, month, price, b/s, universal fields). The quantities within each group are summed up.
+2.  **Unit Conversion**: The quantity of the MT trade(s) is converted to BBL using the product-specific conversion ratio (e.g., 8.9 for Naphtha).
+3.  **Tolerance Check**: The aggregated BBL quantity is compared to the converted BBL quantity. The absolute difference must be within the configured tolerance (e.g., ±500 BBL).
+
+### Example: Aggregated Crack Match (1 Trader MT vs. 2 Exchange BBL)
+
+This example uses trades from the `230525` dataset.
+
+**sourceTraders.csv (Single MT Trade):**
+```
+| productname       | contractmonth | quantityunits | unit | price | B/S | brokergroupid |
+|-------------------|---------------|---------------|------|-------|-----|---------------|
+| naphtha nwe crack | Jun25         | 4000          |      | -4.15 | B   | 3             |
+```
+*(Note: Trader unit is inferred as MT by default)*
+
+**sourceExchange.csv (Multiple BBL Trades):**
+```
+| productname       | contractmonth | quantityunits | unit | price | b/s    | brokergroupid |
+|-------------------|---------------|---------------|------|-------|--------|---------------|
+| naphtha nwe crack | Jun-25        | 25,000        | bbl  | -4.15 | Bought | 3             |
+| naphtha nwe crack | Jun-25        | 11,000        | bbl  | -4.15 | Bought | 3             |
+```
+
+#### Matching Validation Process:
+
+1.  **Field Validation**: ✅
+    -   `productname`: "naphtha nwe crack" (matches)
+    -   `contractmonth`: "Jun-25" (matches)
+    -   `price`: -4.15 (matches)
+    -   `b/s`: "Bought" (matches)
+    -   `brokergroupid`: 3 (matches)
+
+2.  **Exchange Quantity Aggregation**: ✅
+    -   `25,000 BBL + 11,000 BBL = 36,000 BBL`
+
+3.  **Trader Quantity Unit Conversion**: ✅
+    -   The conversion ratio for "naphtha nwe crack" is `8.9`.
+    -   `4,000 MT * 8.9 = 35,600 BBL`
+
+4.  **Tolerance Validation**: ✅
+    -   Difference: `|36,000 BBL - 35,600 BBL| = 400 BBL`
+    -   The difference of 400 BBL is within the `crack_tolerance_bbl` of 500 BBL.
+
+**Result:** ✅ **AGGREGATED CRACK MATCH**
+
+## 10. Crack Roll Match Rules (Calendar Spread of Crack Positions)
 
 ### Definition
 
@@ -1222,7 +1289,7 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 - **Calculation Audit**: Maintains detailed record of crack price calculations and roll spread validation
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 
-## 10. Cross-Month Decomposition Match Rules
+## 11. Cross-Month Decomposition Match Rules
 
 ### Definition
 
@@ -1382,7 +1449,7 @@ A **cross-month decomposition match** occurs when a trader executes a complex cr
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 - **Pattern Driven**: Relies on consecutive index patterns with 0.0 price indicators
 
-## 11. Complex Product Spread Decomposition and Netting Match Rules
+## 12. Complex Product Spread Decomposition and Netting Match Rules
 
 ### Definition
 
