@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Gemini when working with this **Ene
 
 ## 🎯 Project Overview
 
-This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential, rule-based approach. The system is designed to be robust, extensible, and maintainable, with a focus on clear data processing pipelines and strong data integrity. It now supports a growing set of matching rules, including complex scenarios like multi-leg crack spreads, product spreads, and aggregation.
+This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential, rule-based approach. The system is designed to be robust, extensible, and maintainable, with a focus on clear data processing pipelines and strong data integrity. It now supports a growing set of matching rules, including complex scenarios like multi-leg crack spreads, product spreads, aggregation, and advanced decomposition and netting. All 10 rules defined in `docs/rules.md` are now implemented.
 
 ### Key Features
 
@@ -31,7 +31,10 @@ The system follows a clear, sequential data processing pipeline:
     -   **Rule 4 (ComplexCrackMatcher)**: Finds 2-leg complex crack matches (trader crack vs. exchange base product + Brent swap).
     -   **Rule 5 (ProductSpreadMatcher)**: Matches product combination spreads.
     -   **Rule 6 (AggregationMatcher)**: Matches trades that are split or combined across sources.
-    -   *(Future matchers will follow this sequence)*
+    -   **Rule 7 (AggregatedComplexCrackMatcher)**: Finds 2-leg complex crack matches with aggregated base products.
+    -   **Rule 8 (CrackRollMatcher)**: Finds calendar spreads of crack positions.
+    -   **Rule 9 (CrossMonthDecompositionMatcher)**: Finds cross-month decomposed positions.
+    -   **Rule 10 (ComplexProductSpreadDecompositionMatcher)**: Finds complex product spread decomposition and netting matches.
 6.  **Display**: The `MatchDisplayer` presents the results, including matches, unmatched trades, and statistics, in a clear, user-friendly format.
 
 ## 🏗️ Project Architecture
@@ -52,7 +55,11 @@ src/energy_match/
 │   ├── crack_matcher.py   # Implements Rule 3: Crack Matching.
 │   ├── complex_crack_matcher.py # Implements Rule 4: Complex Crack Matching.
 │   ├── product_spread_matcher.py # Implements Rule 5: Product Spread Matching.
-│   └── aggregation_matcher.py # Implements Rule 6: Aggregation Matching.
+│   ├── aggregation_matcher.py # Implements Rule 6: Aggregation Matching.
+│   ├── aggregated_complex_crack_matcher.py # Implements Rule 7: Aggregated Complex Crack Matching.
+│   ├── crack_roll_matcher.py # Implements Rule 8: Crack Roll Matching.
+│   ├── cross_month_decomposition_matcher.py # Implements Rule 9: Cross-Month Decomposition Matching.
+│   └── complex_product_spread_decomposition_matcher.py # Implements Rule 10: Complex Product Spread Decomposition and Netting Matching.
 ├── core/
 │   └── unmatched_pool.py # State manager for all trades, preventing duplicate matches.
 ├── config/
@@ -67,109 +74,3 @@ src/energy_match/
 └── docs/
     └── rules.md        # The complete 10-rule specification. The primary source for business logic.
 ```
-
-## 🛠️ Development Environment
-
-### UV Package Management
-
-This project uses `uv` for Python package and environment management.
-
--   **Install UV (if not already installed)**: `curl -LsSf https://astral.sh/uv/install.sh | sh`
--   **Create virtual environment**: `uv venv`
--   **Activate environment**: `source .venv/bin/activate`
--   **Sync dependencies**: `uv sync`
--   **Add a package**: `uv add <package>`
--   **Add a development dependency**: `uv add --dev <package>`
--   **Remove a package**: `uv remove <package>`
--   **Install specific Python version**: `uv python install 3.12`
-
-### Key Development Commands
-
--   **Format code**: `uv run ruff format .`
--   **Lint and fix**: `uv run ruff check --fix .`
--   **Type checking**: `uv run mypy src/energy_match`
--   **Type checking (fallback if stubs missing)**: `uv run mypy src/energy_match --ignore-missing-imports`
--   **Run with default data**: `uv run python -m src.energy_match.main`
--   **Run with debug logging visible**: `uv run python -m src.energy_match.main --show-logs --log-level DEBUG`
--   **Run with custom data**: `uv run python -m src.energy_match.main path/to/traders.csv path/to/exchange.csv`
--   **Run with output options**:
-    -   `uv run python -m src.energy_match.main --no-unmatched`  # Hide unmatched trades
-    -   `uv run python -m src.energy_match.main --no-stats`      # Hide statistics
-    -   `uv run python -m src.energy_match.main --show-logs`     # Show detailed logs
--   **See all options**: `uv run python -m src.energy_match.main --help`
--   **Display matching rules info**: `uv run python -m src.energy_match.main --show-rules`
-
-## ✅ Matching Rules Summary
-
-The system uses a sequential, confidence-based rule system defined in `docs/rules.md`.
-
-1.  **Exact Match (Implemented)**: 6 fields (`product_name`, `quantity_mt`, `price`, `contract_month`, `buy_sell`, `broker_group_id`) must match exactly after normalization.
-2.  **Spread Match (Implemented)**: Matches a 2-leg trader spread (where one leg's price is the spread differential and the other is zero) against two separate exchange trades. The logic groups potential legs by `(product, quantity, broker)` for efficiency.
-3.  **Crack Match (Implemented)**: Matches crack spread trades, handling unit conversions.
-4.  **Complex Crack Match (Implemented)**: Matches a trader's crack trade against a combination of an exchange base product trade and a Brent swap trade, involving price calculation and unit conversion.
-5.  **Product Spread Match (Implemented)**: Matches product combination spreads.
-6.  **Aggregation Match (Implemented)**: Matches trades that are split or combined across sources.
-7.  **Aggregated Complex Crack Match (Future)**: 2-leg crack trades with aggregated base products.
-8.  **Crack Roll Match (Future)**: Calendar spreads of crack positions.
-9.  **Cross-Month Decomposition Match (Future)**: Cross-month decomposed positions.
-10. **Complex Product Spread Decomposition and Netting Match (Future)**: Most complex scenario.
-
----
-
-## 📚 Detailed Module Responsibilities
-
-This section provides a deeper dive into the role of each module within the `src/energy_match/` directory.
-
-*   **`src/energy_match/main.py`**:
-    *   **Role**: The central orchestrator and application entry point.
-    *   **Responsibilities**: Initializes the `ConfigManager`, `TradeNormalizer`, `CSVTradeLoader`, `UnmatchedPoolManager`, and all `Matcher` instances. It defines the sequence of matching rule application, manages the overall data flow, and handles command-line arguments.
-
-*   **`src/energy_match/models/`**:
-    *   **Role**: Defines the core data structures used throughout the system.
-    *   **Responsibilities**:
-        *   `trade.py`: Defines the `Trade` Pydantic model, which is the immutable, normalized representation of a single trade. It includes properties for quantity conversion (MT/BBL) and basic matching signatures.
-        *   `match_result.py`: Defines the `MatchResult` Pydantic model, which captures details of a successful match, including the matched trades, rule used, confidence, and any additional trades involved in multi-leg matches.
-
-*   **`src/energy_match/loaders/`**:
-    *   **Role**: Handles the ingestion of raw trade data from external files.
-    *   **Responsibilities**:
-        *   `csv_loader.py`: Implements `CSVTradeLoader` to read trade data from CSV files (e.g., `sourceTraders.csv`, `sourceExchange.csv`). It performs initial parsing and leverages the `TradeNormalizer` to clean and standardize data before creating `Trade` objects.
-
-*   **`src/energy_match/normalizers/`**:
-    *   **Role**: Ensures data consistency and standardization across different sources and formats.
-    *   **Responsibilities**:
-        *   `trade_normalizer.py`: Implements `TradeNormalizer`, which provides methods to clean and standardize various trade fields (e.g., product names, contract months, buy/sell indicators). It loads its specific normalization rules from an external JSON file. It also provides product-specific unit conversion ratios and shared conversion/validation methods (e.g., `get_product_conversion_ratio`, `convert_mt_to_bbl_with_product_ratio`, `validate_mt_to_bbl_quantity_match`).
-        *   **`src/energy_match/config/normalizer_config.json`**: This JSON file externalizes the normalization mappings. It contains:
-            *   `product_mappings`: Direct mapping for specific product name strings.
-            *   `month_patterns`: Regular expressions and replacements for standardizing contract month formats.
-            *   `product_variation_map`: Keywords used to identify and normalize product name variations (e.g., "marine 0.5% crack" from keywords "marine", "0.5", "crack").
-            *   `product_conversion_ratios`: Product-specific MT to BBL conversion ratios.
-            *   **Benefit**: Allows business users or configuration managers to update and extend normalization rules without requiring changes to the Python code, improving flexibility and maintainability.
-
-*   **`src/energy_match/matchers/`**:
-    *   **Role**: Contains the core business logic for identifying and validating trade matches based on specific rules.
-    *   **Responsibilities**: Each file in this directory implements a distinct matching rule (e.g., `exact_matcher.py`, `spread_matcher.py`, `crack_matcher.py`, `complex_crack_matcher.py`). Matchers are designed to operate on the `UnmatchedPoolManager` to ensure trades are not duplicated across matches. They also provide a `get_rule_info()` method to describe their specific rule.
-        *   `exact_matcher.py`: Implements Rule 1: Exact Matching. Finds exact matches based on 6 fields (`product_name`, `quantity_mt`, `price`, `contract_month`, `buy_sell`, `broker_group_id`) after normalization.
-        *   `spread_matcher.py`: Implements Rule 2: Spread Matching. Finds 2-leg calendar spread matches. It intelligently groups trades by `(product, quantity, broker)` to minimize search space and validates spread price differentials.
-        *   `crack_matcher.py`: Implements Rule 3: Crack Matching. Matches crack spread trades, handling unit conversions. It uses an optimized indexing strategy (O(N+M)) and product-specific conversion ratios (6.35, 8.9, 7.0 default).
-        *   `complex_crack_matcher.py`: Implements Rule 4: Complex Crack Matching. Matches a trader's crack trade against a combination of an exchange base product trade and a Brent swap trade, involving price calculation and unit conversion. It handles base product extraction and enforces B/S direction logic.
-        *   `product_spread_matcher.py`: Implements Rule 5: Product Spread Matching. Matches product combination spreads where exchange data shows hyphenated products and trader data shows separate component trades. It intelligently parses hyphenated products and uses price=0 pattern detection for multi-leg trader trades.
-        *   `aggregation_matcher.py`: Implements Rule 6: Aggregation Matching. Matches trades that are split or combined across sources. It supports bidirectional (many↔one) aggregation scenarios and enforces perfect quantity sum matching.
-
-*   **`src/energy_match/core/`**:
-    *   **Role**: Manages the state of trades throughout the matching process.
-    *   **Responsibilities**:
-        *   `unmatched_pool.py`: Implements `UnmatchedPoolManager`, which maintains pools of trades that are still available for matching. It provides methods to retrieve unmatched trades, and crucially, to `record_match()` (for multi-leg matches) or `remove_matched_trades()` (for 1-to-1 matches), ensuring that once trades are matched, they are removed from further consideration.
-
-*   **`src/energy_match/config/`**:
-    *   **Role**: Centralizes system-wide configuration parameters.
-    *   **Responsibilities**:
-        *   `config_manager.py`: Implements `ConfigManager`, which loads and provides access to various system settings, including conversion ratios, general tolerances, and confidence levels for each matching rule. It uses Pydantic for robust configuration management.
-
-*   **`src/energy_match/cli/`**:
-    *   **Role**: Handles the command-line interface and presentation of results.
-    *   **Responsibilities**:
-        *   `display.py`: Implements `MatchDisplayer`, which uses the `rich` library to provide visually appealing and informative output to the terminal, including summaries, detailed match tables, unmatched trade lists, and statistics.
-
----
-*This document was last updated by Gemini based on a comprehensive code review.*
