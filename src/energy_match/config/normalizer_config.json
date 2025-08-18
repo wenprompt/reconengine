@@ -38,5 +38,12 @@
     "naphtha,japan": "naphtha japan",
     "naphtha,nwe,crack": "naphtha nwe crack",
     "naphtha,nwe": "naphtha nwe"
+  },
+  "product_conversion_ratios": {
+    "marine 0.5% crack": 6.35,
+    "380cst crack": 6.35,
+    "naphtha japan crack": 8.9,
+    "naphtha nwe crack": 8.9,
+    "default": 7.0
   }
 }

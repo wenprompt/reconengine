@@ -12,7 +12,7 @@ This is an **Energy Trade Matching System** that matches trades between trader a
 - **Configuration Management**: Centralized settings with rule confidence levels, tolerances, and conversion ratios
 - **Sequential Rule Processing**: Implements rules in priority order (exact matches first) with non-duplication
 - **Rich CLI Interface**: Beautiful terminal output with progress indicators and detailed results
-- **Unit Conversion**: Automatic BBL ↔ MT conversion with configurable ratios (default 6.35)
+- **Product-Specific Unit Conversion**: MT→BBL conversion with product-specific ratios (6.35, 8.9, 7.0 default)
 - **Pydantic v2 Data Models**: Strict validation and type safety for all trade data
 - **Complete Type Safety**: Full mypy compliance with pandas-stubs integration
 
@@ -127,8 +127,9 @@ The TradeNormalizer ensures consistent data formatting across all trade sources:
 - **Product Name Standardization**: Maps variations to canonical forms (e.g., "marine 0.5%", "380cst crack", "marine 0.5%-380cst")
 - **Contract Month Normalization**: Standardizes formats to "MMM-YY" pattern (e.g., "Jan-25", "Feb-25")
 - **Buy/Sell Indicator Mapping**: Converts all variations to "B" or "S"
-- **Unit Conversion**: Handles BBL ↔ MT conversions with configurable ratios
+- **Product-Specific Unit Conversion**: Handles MT→BBL conversions with product-specific ratios from JSON configuration
 - **Adjacent Month Detection**: Identifies consecutive contract months for Rule 6
+- **Shared Conversion Methods**: Provides reusable MT→BBL conversion logic for Rules 3 and 4
 
 ### SpreadMatcher (Rule 2)
 
@@ -142,31 +143,34 @@ The SpreadMatcher implements sophisticated contract month spread matching with h
 - **Non-Duplication**: Triple validation prevents any trade from being matched multiple times
 - **Performance**: O(n+m) grouping plus small combination checks vs. O(n²×m²) brute force
 
-### CrackMatcher (Rule 3) - **Performance Optimized**
+### CrackMatcher (Rule 3) - **MT→BBL Conversion Optimized**
 
-The CrackMatcher implements crack spread matching with unit conversion and advanced optimization:
+The CrackMatcher implements crack spread matching with product-specific unit conversion and advanced optimization:
 
 - **Indexing Strategy**: Optimized from O(N\*M) to O(N+M) using dictionary-based lookups
-- **Unit Conversion**: Handles BBL ↔ MT conversions with configurable tolerances (±100 BBL, ±50 MT)
+- **Product-Specific Conversion**: Uses configurable ratios (6.35 for marine 0.5%/380cst, 8.9 for naphtha, 7.0 default)
+- **One-Way Conversion**: Pure MT→BBL conversion scenarios with BBL tolerance only (±100 BBL)
+- **Unit Logic**: Trader data defaults to MT, exchange data uses unit column for determination
+- **Shared Conversion Methods**: Uses reusable conversion logic from TradeNormalizer
 - **Match Key Optimization**: Groups by (product, contract, price, broker, buy/sell) for O(1) lookups
-- **Configurable Tolerances**: Moved from hardcoded values to centralized configuration management
 - **Duplicate Prevention**: Triple validation with pool manager integration prevents any duplicate matches
 - **Performance**: Scales linearly instead of quadratically with large datasets
-- **Real-World Testing**: Successfully processes 97 trades in 0.05 seconds with 3 crack matches found
+- **Real-World Testing**: Successfully processes trades with accurate product-specific conversion
 
-### ComplexCrackMatcher (Rule 4) - **2-Leg Crack Matching**
+### ComplexCrackMatcher (Rule 4) - **2-Leg Crack Matching with Shared Conversion**
 
 The ComplexCrackMatcher implements sophisticated 2-leg crack trade matching where a single crack trade in trader data corresponds to a base product + brent swap combination in exchange data:
 
 - **Base Product Extraction**: Intelligently extracts base product from crack names (e.g., "marine 0.5% crack" → "marine 0.5%")
 - **2-Leg Validation**: Matches single crack trade against base product + brent swap pairs in exchange data
 - **B/S Direction Logic**: Enforces direction rules: Sell Crack = Sell Base + Buy Brent; Buy Crack = Buy Base + Sell Brent
-- **Unit Conversion**: Handles BBL ↔ MT conversions with configurable tolerances (±100 MT default)
-- **Price Formula Validation**: Verifies (base_price ÷ 6.35) - brent_price = crack_price within tolerance
+- **Shared Conversion Logic**: Uses same MT→BBL conversion methods as Rule 3 for consistency
+- **Unit-Specific Tolerances**: ±50 MT for crack vs base, ±100 BBL for crack vs brent swap
+- **Product-Specific Price Formula**: Verifies (base_price ÷ product_ratio) - brent_price = crack_price
 - **Pool Integration**: Uses UnmatchedPoolManager for proper trade removal and non-duplication
 - **Encapsulated Architecture**: Clean integration using `pool_manager.record_match()` method
 - **Configuration-Driven**: Leverages ConfigManager for tolerances and confidence levels (80% default)
-- **Real-World Validation**: Successfully matches T_0016 crack with E_0016 (base) + E_0015 (brent swap)
+- **Real-World Validation**: Successfully matches complex crack scenarios with accurate conversions
 
 ### ProductSpreadMatcher (Rule 5) - **Hyphenated Product Matching**
 
@@ -187,9 +191,21 @@ Centralized configuration management with Pydantic validation:
 
 - **Rule Confidence Levels**: Predefined confidence percentages for Rules 1-10
 - **Tolerance Settings**: Price and quantity tolerances for fuzzy matching
-- **Conversion Ratios**: BBL to MT conversion factor (default 6.35)
+- **Product-Specific Ratios**: JSON-configured conversion ratios for different products
 - **Processing Order**: Sequential rule execution order
 - **Output Settings**: Display options and logging configuration
+
+### Shared Unit Conversion System
+
+The system implements a shared, product-specific unit conversion architecture:
+
+- **Product-Specific Ratios**: Marine 0.5%/380cst crack use 6.35, naphtha japan/nwe crack use 8.9, default 7.0
+- **One-Way Conversion**: Always MT→BBL (trader MT data converts to compare with exchange BBL)
+- **Unit Logic**: Trader data defaults to MT, exchange data uses unit column
+- **Exact Matching**: Product names are pre-normalized, allowing exact ratio lookup instead of "contains" matching
+- **Shared Methods**: `convert_mt_to_bbl_with_product_ratio()` and `validate_mt_to_bbl_quantity_match()`
+- **Rules 3 & 4 Integration**: Both CrackMatcher and ComplexCrackMatcher use identical conversion logic
+- **JSON Configuration**: Conversion ratios stored in `normalizer_config.json` for maintainability
 
 ### CSV Integration
 

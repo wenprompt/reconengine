@@ -25,20 +25,20 @@ class CrackMatcher:
     Confidence: 95%
     """
     
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self, config_manager: ConfigManager, normalizer=None):
         """Initialize the crack matcher.
         
         Args:
             config_manager: Configuration manager with rule settings
+            normalizer: Optional normalizer for product-specific conversion ratios
         """
         self.config_manager = config_manager
+        self.normalizer = normalizer
         self.rule_number = 3
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
-        # Unit conversion tolerances from config
+        # Unit conversion tolerance from config (Rule 3 uses BBL tolerance only)
         self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl()  # ±100 BBL
-        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()   # ±50 MT
-        self.BBL_TO_MT_RATIO = config_manager.get_conversion_ratio()  # 6.35
         
         logger.info(f"Initialized CrackMatcher with {self.confidence}% confidence")
     
@@ -171,38 +171,41 @@ class CrackMatcher:
     
     
     def _validate_quantity_with_conversion(self, trader_trade: Trade, exchange_trade: Trade) -> bool:
-        """Validate quantities match after unit conversion with tolerance.
+        """Validate quantities using one-way MT→BBL conversion with product-specific ratios.
+        
+        Rule 3 Logic: Convert trader MT to BBL, compare with exchange BBL using BBL tolerance only.
+        Example: 2040 MT × 6.35 = 12,954 BBL vs 13,000 BBL = 46 BBL diff < 100 BBL tolerance ✅
         
         Args:
-            trader_trade: Trade from trader source
-            exchange_trade: Trade from exchange source
+            trader_trade: Trade from trader source (always MT)
+            exchange_trade: Trade from exchange source (check unit column)
             
         Returns:
-            True if quantities match within tolerance after conversion
+            True if quantities match within BBL tolerance after MT→BBL conversion
         """
-        # Convert to common unit for comparison (use MT as reference)
+        if not self.normalizer:
+            # Fallback: Rule 3 requires normalizer for product-specific ratios
+            logger.error("CrackMatcher requires normalizer for product-specific conversion ratios")
+            return False
+        
+        # Get trader quantity in MT (always MT for trader data)
         trader_qty_mt = trader_trade.quantity_mt
-        exchange_qty_mt = exchange_trade.quantity_mt
         
-        # Calculate difference in MT
-        qty_diff_mt = abs(trader_qty_mt - exchange_qty_mt)
-        
-        # Check if within MT tolerance
-        if qty_diff_mt <= self.MT_TOLERANCE:
-            logger.debug(f"Quantity match within MT tolerance: {qty_diff_mt} MT <= {self.MT_TOLERANCE} MT")
-            return True
-        
-        # Also check in BBL for additional validation
-        trader_qty_bbl = trader_trade.quantity_bbl
-        exchange_qty_bbl = exchange_trade.quantity_bbl
-        qty_diff_bbl = abs(trader_qty_bbl - exchange_qty_bbl)
-        
-        if qty_diff_bbl <= self.BBL_TOLERANCE:
-            logger.debug(f"Quantity match within BBL tolerance: {qty_diff_bbl} BBL <= {self.BBL_TOLERANCE} BBL")
-            return True
-        
-        logger.debug(f"Quantity mismatch: {qty_diff_mt} MT / {qty_diff_bbl} BBL exceed tolerances")
-        return False
+        # Rule 3 is specifically for MT→BBL conversion scenarios
+        # If both were MT, it would have been caught by Rule 1 (Exact Match)
+        if exchange_trade.unit.lower() == "bbl":
+            # Pure MT→BBL conversion scenario (the main Rule 3 case)
+            # Use shared conversion method from normalizer
+            return self.normalizer.validate_mt_to_bbl_quantity_match(
+                trader_qty_mt, 
+                exchange_trade.quantity_bbl, 
+                trader_trade.product_name, 
+                self.BBL_TOLERANCE
+            )
+        else:
+            # Exchange is not BBL, this shouldn't happen in Rule 3 scenarios
+            logger.debug(f"Exchange unit is {exchange_trade.unit}, not BBL - no conversion needed, should have been exact match")
+            return False
     
     def _create_crack_match_result(self, trader_trade: Trade, exchange_trade: Trade) -> MatchResult:
         """Create MatchResult for crack match.
@@ -226,22 +229,34 @@ class CrackMatcher:
             "buy_sell"
         ]
         
-        # Check if unit conversion was applied
+        # Check if unit conversion was applied and calculate tolerances
         tolerances_applied: dict[str, str | float] = {}
         if trader_trade.unit.lower() != exchange_trade.unit.lower():
             matched_fields.append("quantity_with_conversion")
-            tolerances_applied["unit_conversion"] = f"{trader_trade.unit} ↔ {exchange_trade.unit}"
-            tolerances_applied["conversion_ratio"] = float(self.BBL_TO_MT_RATIO)
+            
+            if self.normalizer:
+                # Use shared conversion logic
+                product_ratio = self.normalizer.get_product_conversion_ratio(trader_trade.product_name)
+                trader_qty_bbl = self.normalizer.convert_mt_to_bbl_with_product_ratio(
+                    trader_trade.quantity_mt, trader_trade.product_name
+                )
+                qty_diff_bbl = abs(trader_qty_bbl - exchange_trade.quantity_bbl)
+                
+                tolerances_applied["unit_conversion"] = f"{trader_trade.unit} → {exchange_trade.unit} (one-way MT→BBL)"
+                tolerances_applied["conversion_ratio"] = float(product_ratio)
+                tolerances_applied["product_specific_ratio"] = f"{trader_trade.product_name}: {product_ratio}"
+                tolerances_applied["quantity_tolerance_bbl"] = float(qty_diff_bbl)
+            else:
+                # Fallback logic
+                product_ratio = self.config_manager.get_conversion_ratio()
+                qty_diff_mt = abs(trader_trade.quantity_mt - exchange_trade.quantity_mt)
+                tolerances_applied["unit_conversion"] = f"{trader_trade.unit} → {exchange_trade.unit}"
+                tolerances_applied["conversion_ratio"] = float(product_ratio)
+                tolerances_applied["quantity_tolerance_mt"] = float(qty_diff_mt)
         else:
+            # This shouldn't happen in Rule 3 - both MT would be exact match
             matched_fields.append("quantity")
-        
-        # Calculate quantity difference for tolerance tracking
-        qty_diff_mt = abs(trader_trade.quantity_mt - exchange_trade.quantity_mt)
-        qty_diff_bbl = abs(trader_trade.quantity_bbl - exchange_trade.quantity_bbl)
-        
-        if qty_diff_mt > 0 or qty_diff_bbl > 0:
-            tolerances_applied["quantity_tolerance_mt"] = float(qty_diff_mt)
-            tolerances_applied["quantity_tolerance_bbl"] = float(qty_diff_bbl)
+            logger.warning(f"Rule 3 handling same units ({trader_trade.unit} vs {exchange_trade.unit}) - should have been exact match")
         
         # No differing fields for successful crack matches
         differing_fields: List[str] = []
@@ -276,11 +291,9 @@ class CrackMatcher:
                 "Same price", 
                 "Same broker group",
                 "Same buy/sell indicator",
-                "Quantity match after unit conversion (±100 BBL or ±50 MT)"
+                "Quantity match after MT→BBL conversion (±100 BBL tolerance)"
             ],
             "tolerances": {
-                "quantity_bbl": float(self.config_manager.get_crack_tolerance_bbl()),
-                "quantity_mt": float(self.config_manager.get_crack_tolerance_mt()),
-                "conversion_ratio": float(self.config_manager.get_conversion_ratio())
+                "quantity_bbl": float(self.config_manager.get_crack_tolerance_bbl())
             }
         }

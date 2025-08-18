@@ -20,8 +20,8 @@ class ComplexCrackMatcher:
     Handles Rule 4: Complex Crack Match Rules (2-Leg with Brent Swap)
     - Processes trades that remain unmatched after Rules 1-3
     - Matches single crack trades against base product + brent swap pairs
-    - Applies unit conversion (BBL ↔ MT) with 6.35 ratio
-    - Validates price formula: (base_price ÷ 6.35) - brent_price = crack_price
+    - Applies unit conversion (MT → BBL) with product-specific ratios
+    - Validates price formula: (base_price ÷ product_ratio) - brent_price = crack_price
     """
 
     def __init__(
@@ -34,15 +34,12 @@ class ComplexCrackMatcher:
         self.confidence = config_manager.get_rule_confidence(
             self.rule_number
         )  # Get confidence from config
-        self.quantity_tolerance = (
-            config_manager.get_complex_crack_quantity_tolerance()
-        )  # Get quantity tolerance
+        # Get unit-specific tolerances (shared with Rule 3)
+        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()   # ±50 MT
+        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl() # ±100 BBL
         self.price_tolerance = (
             config_manager.get_complex_crack_price_tolerance()
         )  # Get price tolerance
-        self.bbl_to_mt_ratio = (
-            config_manager.get_conversion_ratio()
-        )  # Get conversion ratio
 
         self.matches_found: List[MatchResult] = []  # Added type annotation
 
@@ -240,48 +237,43 @@ class ComplexCrackMatcher:
     def _validate_quantity_with_conversion(
         self, crack_trade: Trade, base_trade: Trade, brent_trade: Trade
     ) -> bool:
-        """Validate quantities match after unit conversion."""
+        """Validate quantities using unit-specific tolerances and shared conversion logic."""
 
-        # Convert all quantities to MT for comparison
-        crack_quantity_mt = self.normalizer.convert_quantity_to_mt(
-            crack_trade.quantity, crack_trade.unit or "mt"
-        )
+        crack_quantity_mt = crack_trade.quantity_mt
+        base_quantity_mt = base_trade.quantity_mt
 
-        base_quantity_mt = self.normalizer.convert_quantity_to_mt(
-            base_trade.quantity, base_trade.unit or "mt"
-        )
-
-        brent_quantity_mt = self.normalizer.convert_quantity_to_mt(
-            brent_trade.quantity, brent_trade.unit or "bbl"
-        )
-
-        # Allow tolerance for conversion rounding from config
-        tolerance = self.quantity_tolerance
-
-        # Check crack quantity matches base quantity
-        if abs(crack_quantity_mt - base_quantity_mt) > tolerance:
+        # 1. Crack vs Base: Both should be MT (trader=MT, base product from exchange=MT)
+        qty_diff_mt = abs(crack_quantity_mt - base_quantity_mt)
+        if qty_diff_mt > self.MT_TOLERANCE:
             logger.debug(
-                f"Crack-base quantity mismatch: {crack_quantity_mt} vs {base_quantity_mt}"
+                f"Crack-base quantity mismatch: {qty_diff_mt} MT > {self.MT_TOLERANCE} MT tolerance"
             )
             return False
 
-        # Check crack quantity matches brent quantity (after conversion)
-        if abs(crack_quantity_mt - brent_quantity_mt) > tolerance:
-            logger.debug(
-                f"Crack-brent quantity mismatch: {crack_quantity_mt} vs {brent_quantity_mt}"
-            )
+        # 2. Crack vs Brent: Brent swap is always in BBL, use shared MT→BBL conversion validation
+        # Use shared conversion method from normalizer (same as Rule 3)
+        if not self.normalizer.validate_mt_to_bbl_quantity_match(
+            crack_quantity_mt, 
+            brent_trade.quantity_bbl, 
+            crack_trade.product_name, 
+            self.BBL_TOLERANCE
+        ):
+            logger.debug("Crack-brent quantity mismatch using shared MT→BBL validation")
             return False
 
+        logger.debug("Quantity validation passed using shared conversion logic")
         return True
 
     def _validate_price_calculation(
         self, crack_trade: Trade, base_trade: Trade, brent_trade: Trade
     ) -> bool:
-        """Validate price calculation: (base_price ÷ 6.35) - brent_price = crack_price."""
+        """Validate price calculation using shared product-specific conversion ratio: (base_price ÷ ratio) - brent_price = crack_price."""
 
         try:
-            # Formula: (Base Product Price ÷ BBL_TO_MT_RATIO) - Brent Swap Price = Crack Price
-            conversion_factor = self.bbl_to_mt_ratio
+            # Get product-specific conversion ratio using shared method
+            conversion_factor = self.normalizer.get_product_conversion_ratio(crack_trade.product_name)
+            
+            # Formula: (Base Product Price ÷ PRODUCT_RATIO) - Brent Swap Price = Crack Price
             calculated_crack_price = (
                 base_trade.price / conversion_factor
             ) - brent_trade.price
@@ -292,13 +284,13 @@ class ComplexCrackMatcher:
 
             if price_diff <= price_tolerance:
                 logger.debug(
-                    f"Price calculation valid: ({base_trade.price} ÷ 6.35) - {brent_trade.price} "
+                    f"Price calculation valid (shared ratio): ({base_trade.price} ÷ {conversion_factor}) - {brent_trade.price} "
                     f"= {calculated_crack_price} ≈ {crack_trade.price}"
                 )
                 return True
             else:
                 logger.debug(
-                    f"Price calculation invalid: ({base_trade.price} ÷ 6.35) - {brent_trade.price} "
+                    f"Price calculation invalid: ({base_trade.price} ÷ {conversion_factor}) - {brent_trade.price} "
                     f"= {calculated_crack_price} ≠ {crack_trade.price} (diff: {price_diff})"
                 )
                 return False
@@ -326,12 +318,12 @@ class ComplexCrackMatcher:
                 "All three trades (base product, brent swap, crack) must have identical contract months",
                 "Quantities must align after unit conversion",
                 "B/S direction logic: Sell Crack = Sell Base + Buy Brent; Buy Crack = Buy Base + Sell Brent",
-                "Price calculation: (Base Product Price / 6.35) - Brent Swap Price = Crack Price",
+                "Price calculation: (Base Product Price / Product-Specific Ratio) - Brent Swap Price = Crack Price",
                 "All trades must have matching brokergroupid",
             ],
             "tolerances": {
-                "quantity_mt": float(self.quantity_tolerance),
+                "quantity_mt": float(self.MT_TOLERANCE),
+                "quantity_bbl": float(self.BBL_TOLERANCE), 
                 "price": float(self.price_tolerance),
-                "conversion_ratio": float(self.bbl_to_mt_ratio),
             },
         }

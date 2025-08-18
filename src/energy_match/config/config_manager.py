@@ -18,7 +18,7 @@ class MatchingConfig(BaseModel):
 
     # Unit conversion
     bbl_to_mt_ratio: Decimal = Field(
-        default=Decimal("6.35"), description="Conversion ratio from BBL to MT"
+        default=Decimal("6.35"), description="Default conversion ratio from BBL to MT"
     )
 
     # Price tolerances (for future rules)

@@ -137,7 +137,7 @@ class EnergyTradeMatchingEngine:
             with self.displayer.create_progress_context("Finding crack matches...") as progress:
                 task = progress.add_task("Matching...", total=None)
                 
-                crack_matcher = CrackMatcher(self.config_manager)
+                crack_matcher = CrackMatcher(self.config_manager, self.normalizer)
                 crack_matches = crack_matcher.find_matches(pool_manager)
                 all_matches.extend(crack_matches)
                 
@@ -329,7 +329,7 @@ Examples:
         # Create instances of your matchers
         exact_matcher = ExactMatcher(config_manager)
         spread_matcher = SpreadMatcher(config_manager, normalizer)
-        crack_matcher = CrackMatcher(config_manager)
+        crack_matcher = CrackMatcher(config_manager, normalizer)
         complex_crack_matcher = ComplexCrackMatcher(normalizer, config_manager)
         product_spread_matcher = ProductSpreadMatcher(config_manager, normalizer)
         aggregation_matcher = AggregationMatcher(config_manager)

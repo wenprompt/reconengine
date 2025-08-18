@@ -53,6 +53,9 @@ class TradeNormalizer:
                 for key, value in variation_config.items()
             }
             
+            # Load product conversion ratios
+            self.product_conversion_ratios = config.get("product_conversion_ratios", {})
+            
             logger.debug(f"Successfully loaded normalizer config from {config_path}")
             
         except FileNotFoundError:
@@ -200,3 +203,77 @@ class TradeNormalizer:
             return (year, month_num)
         
         return None
+    
+    def get_product_conversion_ratio(self, product_name: str) -> Decimal:
+        """Get product-specific MT to BBL conversion ratio from configuration.
+        
+        Since product names are already normalized, we can use exact matching.
+        
+        Args:
+            product_name: Normalized product name to get conversion ratio for
+            
+        Returns:
+            Product-specific conversion ratio, fallback to default 7.0
+        """
+        product_lower = product_name.lower().strip()
+        
+        # Direct exact match since product names are already normalized
+        if product_lower in self.product_conversion_ratios:
+            return Decimal(str(self.product_conversion_ratios[product_lower]))
+        
+        # Fallback to default ratio
+        default_ratio = self.product_conversion_ratios.get("default", 7.0)
+        return Decimal(str(default_ratio))
+    
+    def convert_mt_to_bbl_with_product_ratio(self, quantity_mt: Decimal, product_name: str) -> Decimal:
+        """Convert MT quantity to BBL using product-specific conversion ratio.
+        
+        This is the shared MT→BBL conversion method used by Rules 3 and 4.
+        
+        Args:
+            quantity_mt: Quantity in metric tons
+            product_name: Product name to determine conversion ratio
+            
+        Returns:
+            Converted quantity in barrels (BBL)
+        """
+        product_ratio = self.get_product_conversion_ratio(product_name)
+        converted_bbl = quantity_mt * product_ratio
+        
+        logger.debug(f"MT→BBL conversion: {quantity_mt} MT × {product_ratio} = {converted_bbl} BBL for {product_name}")
+        return converted_bbl
+    
+    def validate_mt_to_bbl_quantity_match(
+        self, 
+        trader_quantity_mt: Decimal, 
+        exchange_quantity_bbl: Decimal, 
+        product_name: str, 
+        bbl_tolerance: Decimal
+    ) -> bool:
+        """Validate MT vs BBL quantity match using product-specific conversion.
+        
+        This is the shared validation method used by Rules 3 and 4.
+        
+        Args:
+            trader_quantity_mt: Trader quantity in MT
+            exchange_quantity_bbl: Exchange quantity in BBL
+            product_name: Product name for conversion ratio
+            bbl_tolerance: BBL tolerance (e.g., ±100 BBL)
+            
+        Returns:
+            True if quantities match within BBL tolerance after conversion
+        """
+        # Convert trader MT to BBL using product-specific ratio
+        trader_quantity_bbl = self.convert_mt_to_bbl_with_product_ratio(trader_quantity_mt, product_name)
+        
+        # Compare BBL vs BBL with tolerance
+        qty_diff_bbl = abs(trader_quantity_bbl - exchange_quantity_bbl)
+        is_match = qty_diff_bbl <= bbl_tolerance
+        
+        logger.debug(
+            f"MT→BBL quantity validation: {trader_quantity_mt} MT → {trader_quantity_bbl} BBL "
+            f"vs {exchange_quantity_bbl} BBL = {qty_diff_bbl} BBL diff "
+            f"(tolerance: ±{bbl_tolerance} BBL) → {'MATCH' if is_match else 'NO MATCH'}"
+        )
+        
+        return is_match
