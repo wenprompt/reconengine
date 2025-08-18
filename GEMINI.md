@@ -46,7 +46,9 @@ src/energy_match/
 │   ├── exact_matcher.py   # Implements Rule 1: Exact Matching.
 │   ├── spread_matcher.py  # Implements Rule 2: Spread Matching.
 │   ├── crack_matcher.py   # Implements Rule 3: Crack Matching.
-│   └── complex_crack_matcher.py # Implements Rule 4: Complex Crack Matching.
+│   ├── complex_crack_matcher.py # Implements Rule 4: Complex Crack Matching.
+│   ├── product_spread_matcher.py # Implements Rule 5: Product Spread Matching.
+│   └── aggregation_matcher.py # Implements Rule 6: Aggregation Matching.
 ├── core/
 │   └── unmatched_pool.py # State manager for all trades, preventing duplicate matches.
 ├── config/

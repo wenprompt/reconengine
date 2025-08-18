@@ -11,7 +11,7 @@ from .loaders import CSVTradeLoader
 from .normalizers import TradeNormalizer
 from .config import ConfigManager
 from .core import UnmatchedPoolManager
-from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher, ProductSpreadMatcher
+from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher, ProductSpreadMatcher, AggregationMatcher
 from .cli import MatchDisplayer
 
 
@@ -172,6 +172,17 @@ class EnergyTradeMatchingEngine:
                 
                 progress.remove_task(task)
             
+            # Rule 6: Aggregation matching
+            self.logger.info("Applying Rule 6: Aggregation matching...")
+            with self.displayer.create_progress_context("Finding aggregation matches...") as progress:
+                task = progress.add_task("Matching...", total=None)
+                
+                aggregation_matcher = AggregationMatcher(self.config_manager)
+                aggregation_matches = aggregation_matcher.find_matches(pool_manager)
+                all_matches.extend(aggregation_matches)
+                
+                progress.remove_task(task)
+            
             # Step 5: Display results
             self.logger.info("Displaying results...")
             
@@ -321,9 +332,10 @@ Examples:
         crack_matcher = CrackMatcher(config_manager)
         complex_crack_matcher = ComplexCrackMatcher(normalizer, config_manager)
         product_spread_matcher = ProductSpreadMatcher(config_manager, normalizer)
+        aggregation_matcher = AggregationMatcher(config_manager)
 
         # Collect all matchers that have a get_rule_info method
-        all_matchers = [exact_matcher, spread_matcher, crack_matcher, complex_crack_matcher, product_spread_matcher]
+        all_matchers = [exact_matcher, spread_matcher, crack_matcher, complex_crack_matcher, product_spread_matcher, aggregation_matcher]
 
         print("\n--- Energy Trade Matching Rules ---")
         for matcher in all_matchers:

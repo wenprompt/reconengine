@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with this 
 
 ## 🎯 Project Overview
 
-This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1), spread matching (Rule 2), crack matching (Rule 3), complex crack matching (Rule 4), and product spread matching (Rule 5) with plans for 5 additional sophisticated matching rules including aggregations and time-based scenarios.
+This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1), spread matching (Rule 2), crack matching (Rule 3), complex crack matching (Rule 4), product spread matching (Rule 5), and aggregation matching (Rule 6) with plans for 4 additional sophisticated matching rules including time-based scenarios.
 
 ### Key Features
 
