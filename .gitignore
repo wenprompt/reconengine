@@ -10,4 +10,4 @@ wheels/
 .venv
 
 # data files
-# src/energy_match/data/
+src/energy_match/data/
