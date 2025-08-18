@@ -296,7 +296,7 @@ All 6 fields must match exactly (with unit conversion applied where needed):
 #### Product-Specific MT to BBL Conversion:
 
 - **Marine 0.5% & 380cst**: `1 MT = 6.35 BBL`
-- **Naphtha Japan & Naphtha NWE**: `1 MT = 8.9 BBL`  
+- **Naphtha Japan & Naphtha NWE**: `1 MT = 8.9 BBL`
 - **Default (unknown products)**: `1 MT = 7.0 BBL`
 - **One-way conversion**: Always MT → BBL (trader MT data converts to compare with exchange BBL)
 
@@ -310,8 +310,9 @@ All 6 fields must match exactly (with unit conversion applied where needed):
 #### Rule 3 Conversion Logic:
 
 Rule 3 specifically handles MT→BBL conversion scenarios where:
+
 - **Trader data**: Contains crack trades in MT units (regardless of trader product unit defaults)
-- **Exchange data**: Contains crack trades in BBL units  
+- **Exchange data**: Contains crack trades in BBL units
 - **Conversion**: Always MT→BBL using product-specific ratios from configuration
 - **Tolerance**: ±100 BBL only (since MT units would have been exact matches in Rule 1)
 
@@ -427,6 +428,7 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
    - **Buy Crack** = **Buy Base Product** + **Sell Brent Swap**
 
 5. **Price Calculation**: `(Base Product Price ÷ Product_Ratio) - Brent Swap Price = Crack Price`
+
    - Uses product-specific conversion ratios (6.35 for marine 0.5%/380cst, 8.9 for naphtha, 7.0 default)
 
 6. **Broker Group**: All trades must have matching brokergroupid
@@ -446,7 +448,7 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 #### Conversion Process:
 
 1. Crack vs Base: Both in MT, direct comparison with ±50 MT tolerance
-2. Crack vs Brent: MT → BBL conversion using product-specific ratio with ±100 BBL tolerance  
+2. Crack vs Brent: MT → BBL conversion using product-specific ratio with ±100 BBL tolerance
 3. Apply price formula with product-specific conversion factor
 
 ### Example: Complex Crack Match

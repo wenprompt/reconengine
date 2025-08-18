@@ -38,9 +38,11 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         self.rule_number = 7
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
-        # Enhanced tolerances for aggregation complexity
-        self.MT_TOLERANCE = Decimal("100")  # Enhanced ±100 MT tolerance for aggregation precision
-        self.price_tolerance = Decimal("0.01")  # ±0.01 for aggregated calculation complexity
+        # Enhanced tolerances for aggregation complexity - now sourced from ConfigManager
+        # Use the same tolerances as ComplexCrackMatcher (Rule 4)
+        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()
+        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl()
+        self.price_tolerance = config_manager.get_complex_crack_price_tolerance()
         
         logger.info(f"Initialized AggregatedComplexCrackMatcher with {self.confidence}% confidence")
 

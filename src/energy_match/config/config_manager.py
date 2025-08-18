@@ -39,15 +39,15 @@ class MatchingConfig(BaseModel):
 
     # Crack matching tolerances (Rule 3)
     crack_tolerance_bbl: Decimal = Field(
-        default=Decimal("100"),
+        default=Decimal("500"),
         ge=0,
-        description="Crack matching tolerance in BBL (±100 BBL)",
+        description="Crack matching tolerance in BBL (±500 BBL)",
     )
 
     crack_tolerance_mt: Decimal = Field(
-        default=Decimal("50"),
+        default=Decimal("70"),
         ge=0,
-        description="Crack matching tolerance in MT (±50 MT)",
+        description="Crack matching tolerance in MT (±70 MT)",
     )
 
     # Confidence levels for each rule (from rules.md)
