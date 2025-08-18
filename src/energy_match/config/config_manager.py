@@ -1,7 +1,9 @@
 """Configuration manager for energy trade matching system."""
 
+import json
+from pathlib import Path
 from decimal import Decimal
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -129,6 +131,20 @@ class ConfigManager:
             config: Optional custom configuration, uses defaults if None
         """
         self._config = config or MatchingConfig()
+        self._normalizer_config: Dict[str, Any] = {}
+        self._load_normalizer_config()
+
+    def _load_normalizer_config(self):
+        """Load normalizer configuration from JSON file."""
+        config_dir = Path(__file__).parent
+        normalizer_config_path = config_dir / "normalizer_config.json"
+        try:
+            with open(normalizer_config_path, 'r') as f:
+                self._normalizer_config = json.load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Normalizer config file not found: {normalizer_config_path}")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in normalizer_config.json: {e}")
 
     @property
     def config(self) -> MatchingConfig:
@@ -215,6 +231,58 @@ class ConfigManager:
             Tolerance (default ±0.01)
         """
         return self._config.complex_crack_price_tolerance
+
+    def get_universal_matching_fields(self) -> List[str]:
+        """Get universal matching fields that must match across ALL rules.
+        
+        Loads from normalizer_config.json under universal_matching_fields.required_fields
+        
+        Returns:
+            List of field names that must match in all matching rules
+            
+        Raises:
+            KeyError: If required configuration keys are missing
+        """
+        try:
+            universal_config = self._normalizer_config["universal_matching_fields"]
+            return universal_config["required_fields"]
+        except KeyError as e:
+            raise KeyError(f"Missing required key in normalizer_config.json: {e}")
+    
+    def get_universal_field_mappings(self) -> Dict[str, str]:
+        """Get universal field mappings from config (config field name -> Trade attribute name).
+        
+        Returns:
+            Dictionary mapping config field names to Trade model attribute names
+            
+        Raises:
+            KeyError: If required configuration keys are missing
+        """
+        try:
+            universal_config = self._normalizer_config["universal_matching_fields"]
+            return universal_config["field_mappings"]
+        except KeyError as e:
+            raise KeyError(f"Missing required key in normalizer_config.json: {e}")
+
+    def get_product_mappings(self) -> Dict[str, str]:
+        """Get product name normalization mappings."""
+        return self._normalizer_config.get("product_mappings", {})
+
+    def get_month_patterns(self) -> Dict[str, str]:
+        """Get contract month normalization regex patterns."""
+        return self._normalizer_config.get("month_patterns", {})
+
+    def get_product_variation_map(self) -> Dict[str, str]:
+        """Get product variation mappings."""
+        return self._normalizer_config.get("product_variation_map", {})
+
+    def get_product_conversion_ratios(self) -> Dict[str, float]:
+        """Get product-specific MT to BBL conversion ratios."""
+        return self._normalizer_config.get("product_conversion_ratios", {})
+
+    def get_traders_product_unit_defaults(self) -> Dict[str, str]:
+        """Get default units for trader products."""
+        return self._normalizer_config.get("traders_product_unit_defaults", {})
 
 
     def update_config(self, **kwargs) -> "ConfigManager":

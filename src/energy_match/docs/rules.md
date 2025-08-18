@@ -10,6 +10,7 @@
 - `sourceTraders.contractmonth` ↔ `sourceExchange.contractmonth`
 - `sourceTraders.quantityunits` ↔ `sourceExchange.quantityunits`
 - `sourceTraders.brokergroupid` ↔ `sourceExchange.brokergroupid`
+- `sourceTraders.exchclearingacctid` ↔ `sourceExchange.exchclearingacctid`
 - `sourceTraders.productname` ↔ `sourceExchange.productname`
 - `sourceTraders.price` ↔ `sourceExchange.price`
 
@@ -56,6 +57,23 @@
 
 **Note**: These normalizations are applied to the actual data columns, not just for comparison. All subsequent matching operations work with the normalized data.
 
+## Universal Matching Fields
+
+**IMPORTANT**: In addition to rule-specific matching criteria, ALL matching rules require the following universal fields to match exactly between trader and exchange data:
+
+### Required Universal Fields (from `config/normalizer_config.json`)
+
+- **brokergroupid** - Broker group identifier must match exactly across all trades in any match
+- **exchclearingacctid** - Exchange clearing account identifier must match exactly across all trades in any match
+
+### Optional Universal Fields
+
+- **traderid** - Trader identifier (can be enabled for additional matching precision)
+
+These universal matching fields are configured in `src/energy_match/config/normalizer_config.json` under the `universal_matching_fields` section, allowing easy addition or modification of fields that must be consistent across all matching rules.
+
+**Implementation Note**: Every matching rule implementation should validate these universal fields in addition to its specific matching criteria. This ensures consistent broker and clearing account relationships across all match types.
+
 ## Processing Order by Confidence Level
 
 The matching engine processes trades in order of confidence level to ensure the most certain matches are identified first, leaving more complex scenarios for later processing:
@@ -67,9 +85,10 @@ The matching engine processes trades in order of confidence level to ensure the 
 5. **Product Spread Matches** (Confidence: 75%) - Product combination spreads (e.g., "marine 0.5%-380cst")
 6. **Aggregation Matches** (Confidence: 72%) - Split/combined trade scenarios
 7. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
-8. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
-9. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
-10. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
+8. **Aggregated Spread Matches** (Confidence: 70%) - Spread matching with exchange trade aggregation
+9. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
+10. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
+11. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
 
 ### Complex Scenario Handling
 
@@ -90,14 +109,18 @@ An **exact match** occurs when trades from both data sources have identical valu
 
 ### Required Matching Fields
 
-For a trade to qualify as an exact match, the following 6 fields must match exactly after normalization:
+For a trade to qualify as an exact match, the following fields must match exactly after normalization:
 
+**Rule-Specific Fields:**
 1. **productname** - Product identifier/name (case-insensitive after normalization)
 2. **contractmonth** - Contract delivery month (standardized to "MMM-YY" format)
 3. **quantityunits** - Trade quantity in units (numeric values only, commas removed)
 4. **b/s** - Buy/Sell indicator (normalized to "Bought" or "Sold")
 5. **price** - Trade execution price (exact numeric match)
-6. **brokergroupid** - Broker group identifier (exact numeric match)
+
+**Universal Fields:** (as configured in `normalizer_config.json`)
+- **brokergroupid** - Broker group identifier (exact numeric match)
+- **exchclearingacctid** - Exchange clearing account identifier (exact numeric match)
 
 ### Processing Logic
 
@@ -169,12 +192,16 @@ A **spread match** occurs when a trader executes a spread trade (buying one cont
 
 ### Required Matching Fields for Spreads
 
+**Rule-Specific Fields:**
 1. **productname** - Base product must match between all legs (after normalization)
 2. **quantityunits** - Quantity must be identical for all legs (2 trader + 2 exchange)
-3. **brokergroupid** - Broker group must match across all trades
-4. **contractmonth** - Contract months must correspond between trader and exchange legs
-5. **b/s directions** - Each leg's direction must match between sources (opposite directions within each source)
-6. **spread price calculation** - Exchange price differential must equal trader spread price
+3. **contractmonth** - Contract months must correspond between trader and exchange legs
+4. **b/s directions** - Each leg's direction must match between sources (opposite directions within each source)
+5. **spread price calculation** - Exchange price differential must equal trader spread price
+
+**Universal Fields:** (automatically validated for all spread components)
+- **brokergroupid** - Broker group must match across all trades
+- **exchclearingacctid** - Exchange clearing account must match across all trades
 
 ### Spread Matching Logic
 
@@ -917,7 +944,168 @@ An **aggregated complex crack match** occurs when a trader executes a crack spre
 - Handles the most complex trading scenarios in the entire matching hierarchy
 - Processed with lowest priority to ensure it doesn't interfere with simpler matches
 
-## 8. Crack Roll Match Rules (Calendar Spread of Crack Positions)
+## 8. Aggregated Spread Match Rules (Spread Matching with Exchange Trade Aggregation)
+
+### Definition
+
+An **aggregated spread match** occurs when a trader executes a spread trade (contract month spread) that appears as a calculated spread in trader data (one leg with price, other with 0.00) but corresponds to multiple disaggregated exchange trades per contract month that must first be aggregated before standard spread matching logic can be applied. This combines the aggregation logic from Rule 6 with the spread matching logic from Rule 2.
+
+**Processing Order**: Aggregated spread matching is performed AFTER aggregated complex crack matching but BEFORE crack roll matching. This handles spread scenarios where exchange data contains multiple smaller trades per contract month that need aggregation first.
+
+### Aggregated Spread Trade Identification
+
+#### Key Characteristics:
+
+- **Two-Phase Process**: Phase 1 - Aggregate exchange trades by matching characteristics; Phase 2 - Apply spread matching logic
+- **Trader Spread Pattern**: Shows spread with one leg having calculated price, other leg having price = 0.00
+- **Exchange Disaggregation**: Multiple exchange trades per contract month with identical characteristics (product, price, B/S, broker)
+- **Contract Month Spread**: Different contract months between spread legs (e.g., Jul-25 vs Sep-25)
+- **Quantity Summation**: Aggregated exchange quantities must match trader spread quantities
+- **Price Differential**: Spread price calculation applied after exchange trade aggregation
+
+#### Required Trader Components:
+
+1. **Spread Pattern**: Two trades with spread indicators:
+   - One leg with calculated spread price (non-zero)
+   - One leg with price = 0.00
+   - Opposite B/S directions
+   - Same product, quantity, and broker
+   - Different contract months
+
+#### Required Exchange Components:
+
+1. **Multiple Trades per Contract Month**: Multiple exchange trades requiring aggregation:
+   - Same product name
+   - Same contract month
+   - Same price
+   - Same B/S direction
+   - Same broker group
+   - Quantities that sum to match trader quantity
+
+2. **Spread Relationship**: After aggregation, two aggregated positions must form a spread pattern matching trader data
+
+### Required Matching Fields for Aggregated Spreads
+
+**Phase 1: Exchange Trade Aggregation**
+
+1. **Aggregation Grouping**: Group exchange trades by:
+   - **productname** - Identical product after normalization
+   - **contractmonth** - Same contract month
+   - **price** - Identical execution price
+   - **b/s** - Same buy/sell direction
+   - **brokergroupid** - Same broker group
+
+2. **Quantity Summation**: Sum quantities of trades within each aggregation group
+
+**Phase 2: Spread Matching Logic**
+
+1. **Product Matching**: Aggregated exchange trades must match trader spread product
+2. **Contract Month Correspondence**: Each aggregated group's contract month must match corresponding trader spread leg
+3. **B/S Direction Logic**: Aggregated exchange directions must match trader spread directions
+4. **Quantity Validation**: Aggregated exchange quantities must equal trader spread quantities
+5. **Price Differential**: Price difference between aggregated groups must equal trader spread price
+6. **Broker Group**: All trades must have matching brokergroupid
+
+### Example: Aggregated Spread Match
+
+#### Source Data from CSV Files:
+
+**sourceTraders.csv (Spread Pattern):**
+
+```
+| Index | productname | contractmonth | quantityunits | price | B/S    | brokergroupid |
+|-------|-------------|---------------|---------------|-------|--------|---------------|
+| T_0034| 380cst      | Jul-25        | 2000          | 23.00 | Bought | 3             |
+| T_0035| 380cst      | Sep-25        | 2000          | 0.00  | Sold   | 3             |
+```
+
+**sourceExchange.csv (Disaggregated Trades):**
+
+```
+| Index | productname | contractmonth | quantityunits | price  | b/s    | brokergroupid |
+|-------|-------------|---------------|---------------|--------|--------|---------------|
+| E_0057| 380cst      | Jul-25        | 1000          | 412.00 | Bought | 3             |
+| E_0058| 380cst      | Jul-25        | 1000          | 412.00 | Bought | 3             |
+| E_0059| 380cst      | Sep-25        | 1000          | 389.00 | Sold   | 3             |
+| E_0060| 380cst      | Sep-25        | 1000          | 389.00 | Sold   | 3             |
+```
+
+#### Matching Validation Process:
+
+**Phase 1: Exchange Trade Aggregation**
+
+- **Jul-25 380cst Aggregation**:
+  - E_0057: 1,000 MT @ 412.00, Bought, broker=3
+  - E_0058: 1,000 MT @ 412.00, Bought, broker=3
+  - **Aggregated**: 2,000 MT @ 412.00, Bought, Jul-25, broker=3
+
+- **Sep-25 380cst Aggregation**:
+  - E_0059: 1,000 MT @ 389.00, Sold, broker=3
+  - E_0060: 1,000 MT @ 389.00, Sold, broker=3
+  - **Aggregated**: 2,000 MT @ 389.00, Sold, Sep-25, broker=3
+
+**Phase 2: Spread Matching Logic**
+
+1. **Product Matching**: ✅
+   - All trades: "380cst"
+
+2. **Contract Month Correspondence**: ✅
+   - Trader Jul-25 ↔ Exchange aggregated Jul-25
+   - Trader Sep-25 ↔ Exchange aggregated Sep-25
+
+3. **Quantity Validation**: ✅
+   - All positions: 2,000 MT
+
+4. **B/S Direction Logic**: ✅
+   - Trader: Jul-25 Bought, Sep-25 Sold
+   - Exchange: Jul-25 Bought, Sep-25 Sold
+
+5. **Broker Group**: ✅
+   - All trades: brokergroupid = 3
+
+6. **Price Differential Calculation**: ✅
+   - Exchange spread: 412.00 - 389.00 = 23.00
+   - Trader spread: 23.00 - 0.00 = 23.00
+   - **Perfect match**: 23.00 = 23.00
+
+**Result:** ✅ **AGGREGATED SPREAD MATCH**
+
+### Implementation Strategy
+
+#### Processing Approach:
+
+1. **Process After Complex Matching**: Handle aggregated spreads after aggregated complex crack matching
+2. **Two-Phase Algorithm**:
+   - **Phase 1**: Apply aggregation logic to exchange data (group by product, contract, price, B/S, broker)
+   - **Phase 2**: Apply spread matching logic to aggregated results
+3. **Spread Pattern Recognition**: Identify trader spread patterns (price, 0.00) with opposite B/S directions
+4. **Aggregation Validation**: Verify multiple exchange trades can be aggregated per contract month
+5. **Price Formula Verification**: Apply spread price calculation after aggregation
+6. **Multi-Trade Removal**: Remove all component exchange trades and both trader spread legs
+
+#### Matching Tolerance:
+
+- **Aggregation Tolerance**: No tolerance - quantities must sum exactly
+- **Price Tolerance**: Spread price calculation must be exact
+- **Quantity Matching**: Aggregated quantities must equal trader quantities exactly
+
+#### Critical Implementation Notes:
+
+- **Two-Phase Processing**: Must complete aggregation before attempting spread matching
+- **No Interference**: Must not break existing aggregation or spread matching logic
+- **Component Tracking**: Track all individual exchange trades that form the aggregated spread
+- **Spread Indicators**: Recognize spread patterns by price=0.00 leg and opposite B/S directions
+
+### Processing Notes
+
+- **Confidence Level**: 70% (combines aggregation and spread complexity)
+- **Processing Priority**: After aggregated complex cracks, before crack roll matching
+- **Match Removal**: Removes 4+ exchange trades (multiple per contract month) and 2 trader trades from unmatched pool
+- **Aggregation Integration**: Uses same aggregation logic as Rule 6 for Phase 1
+- **Spread Integration**: Uses same spread logic as Rule 2 for Phase 2
+- **Detailed Audit**: Maintains mapping of which exchange trades aggregate to form each spread leg
+
+## 9. Crack Roll Match Rules (Calendar Spread of Crack Positions)
 
 ### Definition
 
@@ -1075,7 +1263,7 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 - **Calculation Audit**: Maintains detailed record of crack price calculations and roll spread validation
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 
-## 9. Cross-Month Decomposition Match Rules
+## 10. Cross-Month Decomposition Match Rules
 
 ### Definition
 
@@ -1238,7 +1426,7 @@ A **cross-month decomposition match** occurs when a trader executes a complex po
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 - **Pattern Driven**: Relies on consecutive index patterns with 0.0 price indicators
 
-## 10. Complex Product Spread Decomposition and Netting Match Rules
+## 11. Complex Product Spread Decomposition and Netting Match Rules
 
 ### Definition
 

@@ -36,7 +36,7 @@ class Trade(BaseModel):
     product_name: str = Field(..., description="Normalized product name")
     quantity: Decimal = Field(..., gt=0, description="Trade quantity in MT")
     unit: str = Field(..., description="Quantity unit (mt or bbl)")
-    price: Decimal = Field(..., ge=0, description="Trade price")
+    price: Decimal = Field(..., description="Trade price (can be negative for crack spreads)")
     contract_month: str = Field(..., description="Normalized contract month")
     buy_sell: str = Field(..., pattern=r"^[BS]$", description="Buy (B) or Sell (S)")
     
@@ -99,11 +99,14 @@ class Trade(BaseModel):
         return self.quantity
     
     def matching_signature(self) -> tuple:
-        """Generate a tuple for exact matching comparison.
+        """DEPRECATED: Generate a tuple for exact matching comparison.
+        
+        Note: This method is deprecated in favor of the universal field system
+        implemented in BaseMatcher. Individual matchers should use 
+        BaseMatcher.create_universal_signature() instead.
         
         Returns:
-            Tuple containing the 6 fields used for exact matching:
-            (product_name, quantity_mt, price, contract_month, buy_sell, broker_group_id)
+            Tuple containing basic fields for backward compatibility
         """
         return (
             self.product_name,

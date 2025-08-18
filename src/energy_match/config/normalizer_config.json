@@ -49,5 +49,18 @@
   "traders_product_unit_defaults": {
     "brent swap": "bbl",
     "default": "mt"
+  },
+  "universal_matching_fields": {
+    "description": "Fields that must match across ALL matching rules - these are checked in addition to rule-specific fields",
+    "required_fields": ["brokergroupid", "exchclearingacctid"],
+    "field_mappings": {
+      "brokergroupid": "broker_group_id",
+      "exchclearingacctid": "exch_clearing_acct_id"
+    },
+    "notes": {
+      "brokergroupid": "Broker group identifier - must match exactly across all trades in any match",
+      "exchclearingacctid": "Exchange clearing account identifier - must match exactly across all trades in any match",
+      "field_mappings": "Maps config field names to Trade model attribute names for dynamic access"
+    }
   }
 }

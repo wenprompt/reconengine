@@ -10,11 +10,12 @@ from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager  # Added import
 from ..core import UnmatchedPoolManager # Added import
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class ComplexCrackMatcher:
+class ComplexCrackMatcher(BaseMatcher):
     """Matches complex crack trades (base product + brent swap combinations).
 
     Handles Rule 4: Complex Crack Match Rules (2-Leg with Brent Swap)
@@ -29,7 +30,7 @@ class ComplexCrackMatcher:
     ):  # Modified __init__
         """Initialize the complex crack matcher."""
         self.normalizer = normalizer
-        self.config_manager = config_manager  # Stored config_manager
+        super().__init__(config_manager)  # Initialize BaseMatcher
         self.rule_number = 4  # Rule number for complex crack
         self.confidence = config_manager.get_rule_confidence(
             self.rule_number
@@ -144,14 +145,7 @@ class ComplexCrackMatcher:
                         additional_exchange_trades=[
                             brent_trade
                         ],  # Additional trade (brent swap)
-                        matched_fields=[
-                            "product_name",
-                            "contract_month",
-                            "quantity",
-                            "buy_sell",
-                            "broker_group_id",
-                            "price",
-                        ],
+                        matched_fields=self._get_matched_fields(),
                         rule_order=self.rule_number,  # Get rule number from config
                     )
 
@@ -169,27 +163,43 @@ class ComplexCrackMatcher:
 
         return None
 
-    def _build_crack_match_key(
-        self, trade: Trade
-    ) -> Tuple[str, str, str, Optional[int]]:
-        """Build match key for crack trade."""
-        return (
+    def _build_crack_match_key(self, trade: Trade) -> Tuple:
+        """Build match key for crack trade with universal fields."""
+        # Rule-specific fields
+        rule_specific_fields = [
             trade.product_name.lower(),
             trade.contract_month,
-            trade.buy_sell,
-            trade.broker_group_id,
-        )
+            trade.buy_sell
+        ]
+        
+        # Use BaseMatcher method to add universal fields
+        return self.create_universal_signature(trade, rule_specific_fields)
 
-    def _build_exchange_match_key(
-        self, trade: Trade
-    ) -> Tuple[str, str, str, Optional[int]]:
-        """Build match key for exchange trade."""
-        return (
+    def _build_exchange_match_key(self, trade: Trade) -> Tuple:
+        """Build match key for exchange trade with universal fields."""
+        # Rule-specific fields
+        rule_specific_fields = [
             trade.product_name.lower(),
             trade.contract_month,
-            trade.buy_sell,
-            trade.broker_group_id,
-        )
+            trade.buy_sell
+        ]
+        
+        # Use BaseMatcher method to add universal fields
+        return self.create_universal_signature(trade, rule_specific_fields)
+
+    def _get_matched_fields(self) -> List[str]:
+        """Get list of fields that matched for complex crack matches."""
+        # Rule-specific matched fields
+        rule_specific_fields = [
+            "product_name",
+            "contract_month",
+            "quantity",
+            "buy_sell",
+            "price"
+        ]
+        
+        # Get complete matched fields with universal fields using BaseMatcher method
+        return self.get_universal_matched_fields(rule_specific_fields)
 
     def _validate_complex_crack_combination(
         self, crack_trade: Trade, base_trade: Trade, brent_trade: Trade

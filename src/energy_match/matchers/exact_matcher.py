@@ -8,11 +8,12 @@ import uuid
 from ..models import Trade, TradeSource, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class ExactMatcher:
+class ExactMatcher(BaseMatcher):
     """Implements Rule 1: Exact matching on 6 fields.
     
     From rules.md:
@@ -32,7 +33,7 @@ class ExactMatcher:
         Args:
             config_manager: Configuration manager with rule settings
         """
-        self.config_manager = config_manager
+        super().__init__(config_manager)
         self.rule_number = 1
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
@@ -111,22 +112,17 @@ class ExactMatcher:
         Returns:
             Tuple representing the matching signature
         """
-        # Rule 1 matching fields (6 fields):
-        # 1. ProductName (exact)
-        # 2. Quantity in MT (exact after conversion)
-        # 3. Price (exact)
-        # 4. ContractMonth (exact)
-        # 5. B/S (exact match)
-        # 6. BrokerGroupId (exact)
-        
-        return (
+        # Rule 1 specific matching fields
+        rule_specific_fields = [
             trade.product_name,
             trade.quantity_mt,  # Always in MT for comparison
             trade.price,
             trade.contract_month,
-            trade.buy_sell,
-            trade.broker_group_id
-        )
+            trade.buy_sell
+        ]
+        
+        # Create signature with universal fields automatically included
+        return self.create_universal_signature(trade, rule_specific_fields)
     
     def _find_exact_match(self, trader_trade: Trade, exchange_index: dict, 
                          pool_manager: UnmatchedPoolManager) -> Optional[MatchResult]:
@@ -176,15 +172,17 @@ class ExactMatcher:
         # Generate unique match ID
         match_id = f"EXACT_{uuid.uuid4().hex[:8].upper()}"
         
-        # All 6 fields match exactly for exact matches
-        matched_fields = [
+        # Rule-specific fields that match exactly
+        rule_specific_fields = [
             "product_name",
             "quantity_mt", 
             "price",
             "contract_month",
-            "buy_sell",  # B/S also matches exactly for exact matches
-            "broker_group_id"
+            "buy_sell"  # B/S also matches exactly for exact matches
         ]
+        
+        # Get complete matched fields with universal fields automatically included
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
         
         # No differing fields for exact matches
         differing_fields: List[str] = []
@@ -218,15 +216,17 @@ class ExactMatcher:
             if exchange_trade.source != TradeSource.EXCHANGE:
                 return False
             
-            # Check ALL 6 fields match exactly (including B/S)
-            return (
+            # Rule-specific field validation
+            rule_specific_match = (
                 trader_trade.product_name == exchange_trade.product_name and
                 trader_trade.quantity_mt == exchange_trade.quantity_mt and
                 trader_trade.price == exchange_trade.price and
                 trader_trade.contract_month == exchange_trade.contract_month and
-                trader_trade.buy_sell == exchange_trade.buy_sell and  # EXACT B/S match
-                trader_trade.broker_group_id == exchange_trade.broker_group_id
+                trader_trade.buy_sell == exchange_trade.buy_sell  # EXACT B/S match
             )
+            
+            # Universal field validation (using base class method)
+            return rule_specific_match and self.validate_universal_fields(trader_trade, exchange_trade)
             
         except Exception as e:
             logger.error(f"Error validating exact match: {e}")
@@ -244,14 +244,13 @@ class ExactMatcher:
             "match_type": MatchType.EXACT.value,
             "confidence": float(self.confidence),
             "description": "Exact matching on 6 fields: ProductName, Quantity(MT), Price, ContractMonth, B/S, BrokerGroupId",
-            "fields_matched": [
+            "fields_matched": self.get_universal_matched_fields([
                 "product_name",
                 "quantity_mt",
                 "price", 
                 "contract_month",
-                "buy_sell",
-                "broker_group_id"
-            ],
+                "buy_sell"
+            ]),
             "requirements": [
                 "All 6 fields must match exactly",
                 "B/S must be identical (same side)",

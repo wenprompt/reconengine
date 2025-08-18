@@ -9,11 +9,12 @@ from collections import defaultdict
 from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class CrackMatcher:
+class CrackMatcher(BaseMatcher):
     """Implements Rule 3: Crack matching with unit conversion.
     
     From rules.md:
@@ -32,7 +33,7 @@ class CrackMatcher:
             config_manager: Configuration manager with rule settings
             normalizer: Optional normalizer for product-specific conversion ratios
         """
-        self.config_manager = config_manager
+        super().__init__(config_manager)
         self.normalizer = normalizer
         self.rule_number = 3
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
@@ -143,15 +144,15 @@ class CrackMatcher:
         logger.debug(f"Built exchange index with {len(index)} unique match keys")
         return index
     
-    def _build_match_key(self, trade: Trade) -> Tuple[str, str, Decimal, Union[int, None], str]:
+    def _build_match_key(self, trade: Trade) -> Tuple:
         """Build consistent match key for indexing and lookup.
         
         For crack matches, trades must match exactly on:
         1. Product name (already filtered for "crack")
         2. Contract month 
         3. Price
-        4. Broker group ID
-        5. Buy/Sell indicator
+        4. Buy/Sell indicator
+        5. Universal fields (dynamic from config)
         
         Quantity is handled separately with tolerance validation.
         
@@ -161,13 +162,16 @@ class CrackMatcher:
         Returns:
             Tuple key for consistent matching
         """
-        return (
+        # Rule-specific fields
+        rule_specific_fields = [
             trade.product_name,
             trade.contract_month,
             trade.price,
-            trade.broker_group_id,
             trade.buy_sell
-        )
+        ]
+        
+        # Use BaseMatcher method to add universal fields
+        return self.create_universal_signature(trade, rule_specific_fields)
     
     
     def _validate_quantity_with_conversion(self, trader_trade: Trade, exchange_trade: Trade) -> bool:
@@ -220,14 +224,16 @@ class CrackMatcher:
         # Generate unique match ID
         match_id = f"CRACK_{uuid.uuid4().hex[:8].upper()}"
         
-        # Fields that matched for cracks
-        matched_fields = [
+        # Rule-specific fields that matched for cracks
+        rule_specific_fields = [
             "product_name",
             "contract_month", 
             "price",
-            "broker_group_id",
             "buy_sell"
         ]
+        
+        # Get complete matched fields with universal fields using BaseMatcher method
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
         
         # Check if unit conversion was applied and calculate tolerances
         tolerances_applied: dict[str, str | float] = {}

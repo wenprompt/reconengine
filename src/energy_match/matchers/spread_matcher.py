@@ -9,16 +9,17 @@ from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class SpreadMatcher:
+class SpreadMatcher(BaseMatcher):
     """Implements Rule 2: Spread matching."""
     
     def __init__(self, config_manager: ConfigManager, normalizer: TradeNormalizer):
         """Initialize the spread matcher."""
-        self.config_manager = config_manager
+        super().__init__(config_manager)
         self.normalizer = normalizer
         self.rule_number = 2
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
@@ -49,6 +50,7 @@ class SpreadMatcher:
         logger.info(f"Found {len(matches)} spread matches")
         return matches
     
+
     def _group_trader_spreads(self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[List[Trade]]:
         """Group trader trades into potential spread pairs."""
         spread_groups = []
@@ -58,7 +60,9 @@ class SpreadMatcher:
                 # Use product-specific unit defaults for quantity comparison
                 default_unit = self.normalizer.get_trader_product_unit_default(trade.product_name)
                 quantity_for_grouping = trade.quantity_bbl if default_unit == "bbl" else trade.quantity_mt
-                key = (trade.product_name, quantity_for_grouping, trade.broker_group_id)
+                
+                # Create grouping key with universal fields using BaseMatcher method
+                key = self.create_universal_signature(trade, [trade.product_name, quantity_for_grouping])
                 trade_groups[key].append(trade)
         
         for trades in trade_groups.values():
@@ -88,7 +92,9 @@ class SpreadMatcher:
                     quantity_for_grouping = trade.quantity_bbl
                 else:
                     quantity_for_grouping = trade.quantity_mt
-                key = (trade.product_name, quantity_for_grouping, trade.broker_group_id)
+                
+                # Create grouping key with universal fields using BaseMatcher method
+                key = self.create_universal_signature(trade, [trade.product_name, quantity_for_grouping])
                 trade_groups[key].append(trade)
         return trade_groups
     
@@ -101,7 +107,9 @@ class SpreadMatcher:
         # Use same unit logic as grouping for consistent key generation
         default_unit = self.normalizer.get_trader_product_unit_default(trader_trade1.product_name)
         quantity_for_key = trader_trade1.quantity_bbl if default_unit == "bbl" else trader_trade1.quantity_mt
-        group_key = (trader_trade1.product_name, quantity_for_key, trader_trade1.broker_group_id)
+        
+        # Create grouping key with universal fields (same as in grouping methods)
+        group_key = self.create_universal_signature(trader_trade1, [trader_trade1.product_name, quantity_for_key])
         
         if group_key not in exchange_groups:
             return None
@@ -160,13 +168,19 @@ class SpreadMatcher:
     
     def _create_spread_match_result(self, trader_trades: List[Trade], exchange_trades: List[Trade]) -> MatchResult:
         """Create MatchResult for spread match."""
+        # Rule-specific matched fields
+        rule_specific_fields = ["product_name", "quantity", "contract_months", "spread_price_calculation"]
+        
+        # Get complete matched fields with universal fields using BaseMatcher method
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
+        
         return MatchResult(
             match_id=f"SPREAD_{uuid.uuid4().hex[:8].upper()}",
             match_type=MatchType.SPREAD,
             confidence=self.confidence,
             trader_trade=trader_trades[0],
             exchange_trade=exchange_trades[0],
-            matched_fields=["product_name", "quantity", "broker_group_id", "contract_months", "spread_price_calculation"],
+            matched_fields=matched_fields,
             differing_fields=[],
             tolerances_applied={},
             rule_order=self.rule_number,

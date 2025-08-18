@@ -9,11 +9,12 @@ from collections import defaultdict
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class AggregationMatcher:
+class AggregationMatcher(BaseMatcher):
     """Matches aggregated trades where one source has multiple entries that sum to a single entry in the other.
 
     Handles Rule 6: Aggregation Match Rules
@@ -29,7 +30,7 @@ class AggregationMatcher:
         Args:
             config_manager: Configuration manager with rule settings
         """
-        self.config_manager = config_manager
+        super().__init__(config_manager)
         self.rule_number = 6
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
@@ -141,17 +142,25 @@ class AggregationMatcher:
         
         for trade in trades:
             # Aggregation key: all fundamental trade details except quantity
-            key = (
-                trade.product_name,
-                trade.contract_month,
-                trade.price,
-                trade.buy_sell,
-                trade.broker_group_id
-            )
+            key = self._create_aggregation_key(trade)
             groups[key].append(trade)
         
         logger.debug(f"Grouped {len(trades)} trades into {len(groups)} aggregation groups")
         return groups
+    
+    def _create_aggregation_key(self, trade: Trade) -> tuple:
+        """Create aggregation key with universal fields."""
+        # Rule-specific fields for aggregation
+        rule_specific_fields = [
+            trade.product_name,
+            trade.contract_month,
+            trade.price,
+            trade.buy_sell
+        ]
+        
+        # Use BaseMatcher method to add universal fields
+        return self.create_universal_signature(trade, rule_specific_fields)
+    
 
     def _create_trade_index(self, trades: List[Trade]) -> Dict[tuple, List[Trade]]:
         """Create index for single trades by full matching signature.
@@ -166,14 +175,8 @@ class AggregationMatcher:
         
         for trade in trades:
             # Full signature: all fields including quantity
-            signature = (
-                trade.product_name,
-                trade.contract_month,
-                trade.price,
-                trade.buy_sell,
-                trade.broker_group_id,
-                trade.quantity_mt
-            )
+            base_key = list(self._create_aggregation_key(trade))
+            signature = tuple(base_key + [trade.quantity_mt])
             index[signature].append(trade)
         
         logger.debug(f"Created trade index with {len(index)} unique signatures")
@@ -205,14 +208,16 @@ class AggregationMatcher:
             # Generate unique match ID
             match_id = f"AGG_{uuid.uuid4().hex[:8].upper()}"
             
-            # Fields that match exactly (all except quantity)
-            matched_fields = [
+            # Rule-specific fields that match exactly (all except quantity)
+            rule_specific_fields = [
                 "product_name",
                 "contract_month", 
                 "price",
-                "buy_sell",
-                "broker_group_id"
+                "buy_sell"
             ]
+            
+            # Get complete matched fields with universal fields using BaseMatcher method
+            matched_fields = self.get_universal_matched_fields(rule_specific_fields)
             
             # Quantity is the aggregated field
             differing_fields = ["quantity_aggregation"]
@@ -275,11 +280,16 @@ class AggregationMatcher:
             first_trade = many_trades[0]
             
             # Check fundamental fields match
+            # Check rule-specific fields
             if (first_trade.product_name != one_trade.product_name or
                 first_trade.contract_month != one_trade.contract_month or
                 first_trade.price != one_trade.price or
-                first_trade.buy_sell != one_trade.buy_sell or
-                first_trade.broker_group_id != one_trade.broker_group_id):
+                first_trade.buy_sell != one_trade.buy_sell):
+                logger.debug("Aggregation validation failed: fundamental fields don't match")
+                return False
+                
+            # Check universal fields dynamically
+            if not self.validate_universal_fields(first_trade, one_trade):
                 logger.debug("Aggregation validation failed: fundamental fields don't match")
                 return False
             
@@ -318,13 +328,12 @@ class AggregationMatcher:
             "match_type": MatchType.AGGREGATION.value,
             "confidence": float(self.confidence),
             "description": "Matches trades where one source has multiple smaller entries that sum to a single larger entry in the other source",
-            "fields_matched": [
+            "fields_matched": self.get_universal_matched_fields([
                 "product_name",
                 "contract_month",
                 "price", 
-                "buy_sell",
-                "broker_group_id"
-            ],
+                "buy_sell"
+            ]),
             "requirements": [
                 "All fundamental trade details must match exactly (product, contract, price, broker, B/S)",
                 "Multiple trades in one source must sum to single trade quantity in other source", 

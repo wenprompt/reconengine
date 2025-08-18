@@ -10,11 +10,12 @@ from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class ProductSpreadMatcher:
+class ProductSpreadMatcher(BaseMatcher):
     """Matches product spread trades (hyphenated products vs separate component trades).
 
     Handles Rule 5: Product Spread Match Rules
@@ -31,7 +32,7 @@ class ProductSpreadMatcher:
             config_manager: Configuration manager with rule settings
             normalizer: Trade normalizer for data processing
         """
-        self.config_manager = config_manager
+        super().__init__(config_manager)
         self.normalizer = normalizer
         self.rule_number = 5
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
@@ -122,16 +123,36 @@ class ProductSpreadMatcher:
         index: Dict[tuple, List[Trade]] = defaultdict(list)
         
         for trade in trader_trades:
-            # Index by contract month, quantity, and broker group
-            signature = (
-                trade.contract_month,
-                trade.quantity_mt,
-                trade.broker_group_id
-            )
+            # Index by contract month, quantity, and universal fields
+            signature = self._create_trader_signature(trade)
             index[signature].append(trade)
         
         logger.debug(f"Created trader index with {len(index)} unique signatures")
         return index
+    
+    def _create_trader_signature(self, trade: Trade) -> tuple:
+        """Create signature for trader trade grouping."""
+        # Rule-specific fields
+        rule_fields = [
+            trade.contract_month,
+            trade.quantity_mt
+        ]
+        
+        
+        # Use BaseMatcher method to add universal fields
+        return self.create_universal_signature(trade, rule_fields)
+    
+    def _create_exchange_signature(self, trade: Trade) -> tuple:
+        """Create signature for exchange trade grouping."""
+        # Rule-specific fields
+        rule_fields = [
+            trade.contract_month,
+            trade.quantity_mt
+        ]
+        
+        
+        # Use BaseMatcher method to add universal fields
+        return self.create_universal_signature(trade, rule_fields)
 
     def _find_product_spread_match(
         self, 
@@ -158,11 +179,7 @@ class ProductSpreadMatcher:
         logger.debug(f"Parsed {exchange_trade.product_name} into: '{first_product}' + '{second_product}'")
         
         # Create signature for finding matching trader trades
-        signature = (
-            exchange_trade.contract_month,
-            exchange_trade.quantity_mt,
-            exchange_trade.broker_group_id
-        )
+        signature = self._create_exchange_signature(exchange_trade)
         
         if signature not in trader_index:
             logger.debug(f"No trades found for signature: {signature}")
@@ -359,12 +376,14 @@ class ProductSpreadMatcher:
         # Generate unique match ID
         match_id = f"PROD_SPREAD_{uuid.uuid4().hex[:8].upper()}"
         
-        # Fields that match exactly
-        matched_fields = [
+        # Rule-specific fields that match exactly
+        rule_specific_fields = [
             "contract_month",
-            "quantity_mt", 
-            "broker_group_id"
+            "quantity_mt"
         ]
+        
+        # Get complete matched fields with universal fields using BaseMatcher method
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
         
         # Product name and price are calculated/derived
         differing_fields = ["product_name", "price"]
@@ -393,11 +412,10 @@ class ProductSpreadMatcher:
             "match_type": MatchType.PRODUCT_SPREAD.value,
             "confidence": float(self.confidence),
             "description": "Matches hyphenated exchange products with separate component trader trades",
-            "fields_matched": [
+            "fields_matched": self.get_universal_matched_fields([
                 "contract_month",
-                "quantity_mt",
-                "broker_group_id"
-            ],
+                "quantity_mt"
+            ]),
             "requirements": [
                 "Exchange product must be hyphenated (e.g., 'marine 0.5%-380cst')",
                 "Trader must have separate trades for each component product",
