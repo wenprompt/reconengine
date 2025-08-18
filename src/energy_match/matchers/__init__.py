@@ -8,5 +8,6 @@ from .complex_crack_matcher import ComplexCrackMatcher
 from .product_spread_matcher import ProductSpreadMatcher
 from .aggregation_matcher import AggregationMatcher
 from .aggregated_complex_crack_matcher import AggregatedComplexCrackMatcher
+from .aggregated_spread_matcher import AggregatedSpreadMatcher
 
-__all__ = ["BaseMatcher", "ExactMatcher", "SpreadMatcher", "CrackMatcher", "ComplexCrackMatcher", "ProductSpreadMatcher", "AggregationMatcher", "AggregatedComplexCrackMatcher"]
+__all__ = ["BaseMatcher", "ExactMatcher", "SpreadMatcher", "CrackMatcher", "ComplexCrackMatcher", "ProductSpreadMatcher", "AggregationMatcher", "AggregatedComplexCrackMatcher", "AggregatedSpreadMatcher"]

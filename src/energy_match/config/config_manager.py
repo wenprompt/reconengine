@@ -44,7 +44,7 @@ class MatchingConfig(BaseModel):
         description="Crack matching tolerance in MT (±70 MT)",
     )
 
-    # Confidence levels for each rule (from rules.md)
+    # Confidence levels for each rule (from rules.md) - implemented rules
     rule_confidence_levels: Dict[int, Decimal] = Field(
         default={
             1: Decimal("100"),  # Exact match
@@ -54,12 +54,9 @@ class MatchingConfig(BaseModel):
             5: Decimal("75"),  # Product spread match
             6: Decimal("72"),  # Aggregation match
             7: Decimal("65"),  # Aggregated complex crack match
-            8: Decimal("65"),  # Crack roll match
-            9: Decimal("60"),  # Cross-month decomposition match
-            10: Decimal("60"),  # Complex product spread decomposition and netting match
-            11: Decimal("60"),  # Time-based matching
+            8: Decimal("70"),  # Aggregated spread match
         },
-        description="Confidence levels for each matching rule",
+        description="Confidence levels for each matching rule (implemented rules)",
     )
 
     # Complex Crack matching tolerances (Rule 4)
@@ -69,10 +66,10 @@ class MatchingConfig(BaseModel):
         description="Complex crack matching quantity tolerance in MT (±100 MT)",
     )
 
-    # Processing order (from rules.md)
+    # Processing order (from rules.md) - implemented rules
     rule_processing_order: list[int] = Field(
-        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        description="Order in which rules should be processed",
+        default=[1, 2, 3, 4, 5, 6, 7, 8],
+        description="Order in which rules should be processed (implemented rules)",
     )
 
     # Logging configuration
@@ -141,7 +138,7 @@ class ConfigManager:
         """Get confidence level for a specific rule.
 
         Args:
-            rule_number: Rule number (1-11)
+            rule_number: Rule number (1-8)
 
         Returns:
             Confidence level as percentage

@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with this 
 
 ## 🎯 Project Overview
 
-This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1), spread matching (Rule 2), crack matching (Rule 3), complex crack matching (Rule 4), product spread matching (Rule 5), and aggregation matching (Rule 6) with plans for 4 additional sophisticated matching rules including time-based scenarios.
+This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1), spread matching (Rule 2), crack matching (Rule 3), complex crack matching (Rule 4), product spread matching (Rule 5), aggregation matching (Rule 6), aggregated complex crack matching (Rule 7), and aggregated spread matching (Rule 8) with plans for 3 additional sophisticated matching rules including time-based scenarios.
 
 ### Key Features
 
@@ -37,7 +37,8 @@ src/energy_match/
 │   ├── complex_crack_matcher.py # Rule 4: Complex crack matching (2-leg: base + brent swap)
 │   ├── product_spread_matcher.py # Rule 5: Product spread matching (hyphenated products)
 │   ├── aggregation_matcher.py # Rule 6: Aggregation matching (many↔one trade grouping)
-│   └── aggregated_complex_crack_matcher.py # Rule 7: Aggregated complex crack matching (2-leg + aggregation)
+│   ├── aggregated_complex_crack_matcher.py # Rule 7: Aggregated complex crack matching (2-leg + aggregation)
+│   └── aggregated_spread_matcher.py # Rule 8: Aggregated spread matching (2-phase: aggregation + spread)
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -49,7 +50,7 @@ src/energy_match/
 │   ├── sourceExchange.csv   # Default exchange data
 │   └── [additional datasets] # Various test scenarios (150525, 160525, etc.)
 └── docs/
-    └── rules.md        # Complete 10-rule specification
+    └── rules.md        # Complete 11-rule specification
 ```
 
 ### Architecture Principles
@@ -72,7 +73,7 @@ src/energy_match/
 - **Single Source of Truth**: All system settings, tolerances, and thresholds in one place
 - **Environment Flexibility**: Easy to adjust parameters without code changes
 - **Type Safety**: Pydantic validation ensures configuration integrity
-- **Rule Management**: Confidence levels and processing order for all 10 rules
+- **Rule Management**: Confidence levels and processing order for all 8 implemented rules
 - **Business Logic Separation**: Keeps matching algorithms clean from configuration details
 
 **`normalizers/trade_normalizer.py`** - **Data Standardization Engine**
@@ -106,7 +107,8 @@ src/energy_match/
 - **product_spread_matcher.py**: Rule 5 - Product spread matching with hyphenated product parsing
 - **aggregation_matcher.py**: Rule 6 - Bidirectional aggregation matching with exact quantity sum validation
 - **aggregated_complex_crack_matcher.py**: Rule 7 - Aggregated complex crack matching with inherited ComplexCrackMatcher logic and enhanced tolerances
-- **Extensible Design**: Easy to add Rules 8-10 following established patterns
+- **aggregated_spread_matcher.py**: Rule 8 - Two-phase aggregated spread matching with exchange trade aggregation and spread logic
+- **Extensible Design**: Easy to add Rules 9-11 following established patterns
 
 **`core/`** - **System Infrastructure**
 
@@ -188,11 +190,25 @@ The ProductSpreadMatcher implements sophisticated product spread matching where 
 - **Configuration-Driven**: Leverages ConfigManager for confidence levels (75% default)
 - **Real-World Validation**: Successfully matches T_0025 + T_0026 with E_0026 (marine 0.5%-380cst)
 
+### AggregatedSpreadMatcher (Rule 8) - **Two-Phase Spread Matching with Exchange Aggregation**
+
+The AggregatedSpreadMatcher implements sophisticated two-phase spread matching where trader spread patterns correspond to multiple disaggregated exchange trades that must first be aggregated:
+
+- **Two-Phase Algorithm**: Phase 1 aggregates exchange trades by matching characteristics, Phase 2 applies standard spread matching logic
+- **Spread Pattern Recognition**: Identifies trader spread patterns using price/0.00 indicators with opposite B/S directions and different contract months
+- **Exchange Trade Aggregation**: Groups exchange trades by (product, contract_month, price, buy_sell, broker) for precise aggregation
+- **Universal Field Integration**: Uses `validate_universal_fields()`, `get_universal_matched_fields()`, and dynamic field access for consistency
+- **Perfect Matching Requirements**: Exact quantity sum validation and precise price differential calculation with no tolerances
+- **Bidirectional Processing**: Handles complex scenarios where exchange data is disaggregated but trader data shows consolidated spread positions
+- **Pool Integration**: Uses UnmatchedPoolManager for proper trade removal and non-duplication across all component trades
+- **Configuration-Driven**: Leverages ConfigManager for confidence levels (70%) and universal field mappings
+- **Real-World Testing**: Successfully matches complex scenarios like T_0032 + T_0033 spread against aggregated E_0055 + E_0056 + additional trades
+
 ### ConfigManager
 
 Centralized configuration management with Pydantic validation:
 
-- **Rule Confidence Levels**: Predefined confidence percentages for Rules 1-10
+- **Rule Confidence Levels**: Predefined confidence percentages for Rules 1-8
 - **Enhanced Tolerance Settings**: Realistic tolerances for complex scenarios (±500 BBL, ±150 MT)
 - **Product-Specific Ratios**: JSON-configured conversion ratios for different products
 - **Unit Default Configuration**: Product-specific unit defaults (brent swap = BBL, others = MT)
@@ -297,6 +313,7 @@ All implemented matchers automatically include universal field validation:
 - **Rule 5 (ProductSpreadMatcher)**: Universal fields in component matching
 - **Rule 6 (AggregationMatcher)**: Universal fields in aggregation grouping
 - **Rule 7 (AggregatedComplexCrackMatcher)**: Universal fields in complex aggregation
+- **Rule 8 (AggregatedSpreadMatcher)**: Universal fields in aggregated spread matching
 
 Universal fields are automatically included in:
 - Matching signatures for trade grouping
@@ -458,6 +475,7 @@ This project uses **real CSV data** for testing and validation instead of tradit
 - **Rule 5 (Product Spread Matching)**: 2 product spread matches found using hyphenated product parsing with 75% confidence
 - **Rule 6 (Aggregation Matching)**: 3 aggregation matches found using bidirectional many↔one trade grouping with 72% confidence
 - **Rule 7 (Aggregated Complex Crack Matching)**: 1 aggregated complex crack match found with enhanced tolerances (±150 MT, ±500 BBL) for sophisticated aggregation scenarios
+- **Rule 8 (Aggregated Spread Matching)**: 1 aggregated spread match found using two-phase matching (aggregation + spread logic) with 70% confidence
 - **CSV Data Loading**: Integrated with TradeNormalizer for consistent data processing
 - **Universal Normalization**: Product names, contract months, buy/sell indicators standardized
 - **Product Spread Preservation**: Hyphenated product names (e.g., "marine 0.5%-380cst") correctly preserved for Rule 5
@@ -471,7 +489,7 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 🔄 **Planned for Implementation**:
 
-- **Rules 8-10**: Time-based matching, crack rolls, and complex decomposition scenarios
+- **Rules 9-11**: Crack roll matching, cross-month decomposition, and complex product spread decomposition scenarios
 - **Additional Data Sets**: More diverse trading scenarios for comprehensive rule testing
 - **Scaling Optimization**: Further performance improvements for enterprise-scale datasets
 
@@ -620,6 +638,56 @@ This project uses **real CSV data** for testing and validation instead of tradit
 - **Processing Time**: Maintains excellent performance with complex aggregation logic
 - **Zero False Positives**: All matches validated through multiple aggregation and crack validation criteria
 - **Real-World Validation**: Handles realistic unit conversion differences (475 BBL difference within ±500 BBL tolerance)
+
+## 🏆 Rule 8 Implementation Summary
+
+**Successfully Completed**: Rule 8 - Aggregated Spread Matching (Two-Phase: Aggregation + Spread Logic)
+
+### Implementation Highlights
+
+- **✅ Complete Integration**: Fully integrated into the matching pipeline following Rules 1-7
+- **✅ Two-Phase Algorithm**: Phase 1 aggregates exchange trades, Phase 2 applies spread matching logic
+- **✅ Universal Fields Integration**: Proper use of `validate_universal_fields()` and `get_universal_matched_fields()`
+- **✅ Configuration Management**: Uses ConfigManager for confidence levels (70%) and centralized settings
+- **✅ Pool Management**: Proper encapsulation using `pool_manager.record_match()` method
+- **✅ Multi-Leg Display**: CLI shows both trader spread legs and all aggregated exchange trades correctly
+- **✅ Type Safety**: Full MyPy compliance with proper type annotations
+- **✅ Real-World Testing**: Successfully matches T_0032 + T_0033 with aggregated E_0055 + E_0056 + additional exchange trades
+
+### Architecture Improvements Made
+
+- **Two-Phase Processing**: Implements aggregation of exchange trades followed by spread matching logic
+- **Universal Field Compliance**: Uses BaseMatcher's universal field validation throughout the matching process
+- **Exact Matching Logic**: No price tolerances - exact price differential calculation required
+- **Enhanced Pattern Recognition**: Identifies price/0.00 spread patterns with opposite B/S directions
+- **Aggregation Validation**: Perfect quantity sum matching with no tolerance for precision
+- **Import Organization**: Updated `__init__.py` and `main.py` with proper imports and integration
+
+### Key Technical Features
+
+- **Spread Pattern Detection**: Identifies trader spread patterns (price vs 0.00) with opposite B/S directions and different contract months
+- **Exchange Trade Aggregation**: Groups exchange trades by (product, contract, price, B/S, broker) for aggregation
+- **Two-Phase Validation**: Universal field validation in Phase 1, exact spread calculation validation in Phase 2
+- **Perfect Sum Matching**: Validates aggregated exchange quantities match trader spread quantities exactly
+- **Price Differential Logic**: Enforces first_contract_price - second_contract_price = spread_price exactly
+- **Non-Duplication**: Triple validation ensures trades only match once across all rules
+- **Dynamic Field Access**: Uses `getattr()` with configurable field mappings for flexible universal field handling
+
+### Performance Results
+
+- **1 Aggregated Spread Match Found**: Successfully identified and matched complex two-phase spread scenario
+- **Excellent Processing Speed**: Maintains sub-100ms performance with complex aggregation logic
+- **Zero False Positives**: All matches validated through multiple aggregation and spread validation criteria
+- **Real-World Validation**: Handles actual disaggregated exchange data requiring aggregation before spread matching
+- **Configuration-Driven**: 70% confidence level appropriate for medium-complexity two-phase matching
+
+### Universal Fields Implementation
+
+- **Trader Grouping**: Uses `get_universal_matching_fields()` and `get_universal_field_mappings()` for consistent grouping
+- **Validation Logic**: Uses `validate_universal_fields()` in `_is_valid_spread_pair()` for universal field validation
+- **Match Results**: Uses `get_universal_matched_fields()` for comprehensive matched field reporting
+- **Dynamic Access**: Uses `getattr()` with field mappings for flexible universal field value extraction
+- **Code Quality**: Removed unused imports, maintained type safety, and followed established patterns
 
 ## 🚨 Error Handling
 

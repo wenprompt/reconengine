@@ -33,9 +33,10 @@ The system follows a clear, sequential data processing pipeline:
     -   **Rule 5 (ProductSpreadMatcher)**: Matches product combination spreads.
     -   **Rule 6 (AggregationMatcher)**: Matches trades that are split or combined across sources.
     -   **Rule 7 (AggregatedComplexCrackMatcher)**: Finds 2-leg complex crack matches with aggregated base products.
-    -   **Rule 8 (CrackRollMatcher)**: Finds calendar spreads of crack positions.
-    -   **Rule 9 (CrossMonthDecompositionMatcher)**: Finds cross-month decomposed positions.
-    -   **Rule 10 (ComplexProductSpreadDecompositionMatcher)**: Finds complex product spread decomposition and netting matches.
+    -   **Rule 8 (AggregatedSpreadMatcher)**: Finds spread matches with aggregated exchange trades.
+    -   **Rule 9 (CrackRollMatcher)**: Finds calendar spreads of crack positions.
+    -   **Rule 10 (CrossMonthDecompositionMatcher)**: Finds cross-month decomposed positions.
+    -   **Rule 11 (ComplexProductSpreadDecompositionMatcher)**: Finds complex product spread decomposition and netting matches.
 6.  **Display**: The `MatchDisplayer` presents the results, including matches, unmatched trades, and statistics, in a clear, user-friendly format.
 
 ## 🏗️ Project Architecture
@@ -58,9 +59,10 @@ src/energy_match/
 │   ├── product_spread_matcher.py # Implements Rule 5: Product Spread Matching.
 │   ├── aggregation_matcher.py # Implements Rule 6: Aggregation Matching.
 │   ├── aggregated_complex_crack_matcher.py # Implements Rule 7: Aggregated Complex Crack Matching.
-│   ├── crack_roll_matcher.py # Implements Rule 8: Crack Roll Matching.
-│   ├── cross_month_decomposition_matcher.py # Implements Rule 9: Cross-Month Decomposition Matching.
-│   └── complex_product_spread_decomposition_matcher.py # Implements Rule 10: Complex Product Spread Decomposition and Netting Matching.
+│   ├── aggregated_spread_matcher.py # Implements Rule 8: Aggregated Spread Matching.
+│   ├── crack_roll_matcher.py # Implements Rule 9: Crack Roll Matching.
+│   ├── cross_month_decomposition_matcher.py # Implements Rule 10: Cross-Month Decomposition Matching.
+│   └── complex_product_spread_decomposition_matcher.py # Implements Rule 11: Complex Product Spread Decomposition and Netting Matching.
 ├── core/
 │   └── unmatched_pool.py # State manager for all trades, preventing duplicate matches.
 ├── config/
@@ -73,7 +75,7 @@ src/energy_match/
 │   └── sourceExchange.csv   # Default exchange data.
 │   └── ...                  # Additional data directories for specific dates or test cases.
 └── docs/
-    └── rules.md        # The complete 10-rule specification. The primary source for business logic.
+    └── rules.md        # The complete 11-rule specification. The primary source for business logic.
 ```
 
 ## ⚙️ Universal Matching Fields System

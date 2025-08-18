@@ -17,9 +17,7 @@ class MatchType(str, Enum):
     PRODUCT_SPREAD = "product_spread"  # Rule 5 - Product spread matching (hyphenated products)
     AGGREGATION = "aggregation"  # Rule 6 - Aggregation matching
     AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 7 - Aggregated complex crack matching
-    CRACK_ROLL = "crack_roll"  # Rule 8 - Crack roll matching
-    CROSS_MONTH_DECOMPOSITION = "cross_month_decomposition"  # Rule 9 - Cross-month decomposition matching
-    COMPLEX_PRODUCT_SPREAD_DECOMPOSITION = "complex_product_spread_decomposition"  # Rule 10 - Complex product spread decomposition and netting
+    AGGREGATED_SPREAD = "aggregated_spread"  # Rule 8 - Aggregated spread matching
 
 
 class MatchResult(BaseModel):
@@ -60,7 +58,7 @@ class MatchResult(BaseModel):
     
     # Metadata
     matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
-    rule_order: int = Field(..., ge=1, le=12, description="Order of rule that created this match (1-12)")
+    rule_order: int = Field(..., ge=1, le=8, description="Order of rule that created this match (1-8)")
     
     def __str__(self) -> str:
         """Human-readable string representation."""
