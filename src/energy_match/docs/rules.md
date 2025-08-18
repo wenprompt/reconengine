@@ -302,16 +302,20 @@ All 6 fields must match exactly (with unit conversion applied where needed):
 
 #### Unit Logic:
 
-- **Trader Data**: Always defaults to MT units (even when unit column is blank)
+- **Trader Data**: Has product-specific unit defaults (configured in `traders_product_unit_defaults`):
+  - **Brent Swap**: Defaults to BBL (for exact matching with exchange brent swap trades)
+  - **All Other Products**: Default to MT units (even when unit column is blank)
 - **Exchange Data**: Uses actual unit from the `unit` column ("mt", "bbl", etc.)
 
 #### Rule 3 Conversion Logic:
 
 Rule 3 specifically handles MT→BBL conversion scenarios where:
-- **Trader data**: Contains crack trades in MT units
+- **Trader data**: Contains crack trades in MT units (regardless of trader product unit defaults)
 - **Exchange data**: Contains crack trades in BBL units  
-- **Conversion**: Uses product-specific ratios from configuration
+- **Conversion**: Always MT→BBL using product-specific ratios from configuration
 - **Tolerance**: ±100 BBL only (since MT units would have been exact matches in Rule 1)
+
+**IMPORTANT**: Crack matching is **ALWAYS** MT→BBL conversion. The BBL unit defaults in trader data are only relevant for exact matching scenarios (particularly brent swap exact matches in Rule 1), not for crack matching logic.
 
 #### Conversion Tolerance:
 
@@ -431,11 +435,13 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 
 #### Critical Conversion Rules:
 
-- **Brent Swap Units**: Always in BBL (barrels)
+- **Brent Swap Units**: Always in BBL (barrels) in exchange data
 - **Base Product Units**: Always in MT (from exchange data)
-- **Crack Product Units**: Always in MT (trader data defaults to MT)
+- **Crack Product Units**: Always in MT for matching purposes (regardless of trader unit defaults)
 - **Product-Specific Ratios**: Uses shared conversion ratios from configuration
 - **Price Adjustment**: Base product price divided by product-specific ratio when comparing to Brent price
+
+**IMPORTANT**: Complex crack matching always uses MT→BBL conversion logic. Even if trader brent swap trades have BBL unit defaults, the crack matching calculation still operates on MT→BBL basis.
 
 #### Conversion Process:
 

@@ -30,7 +30,8 @@ class TradeNormalizer:
         
         logger.info(f"Loaded {len(self.product_mappings)} product mappings, "
                    f"{len(self.month_patterns)} month patterns, "
-                   f"{len(self.product_variation_map)} product variations")
+                   f"{len(self.product_variation_map)} product variations, "
+                   f"{len(self.traders_product_unit_defaults)} trader unit defaults")
     
     def _load_normalizer_config(self):
         """Load normalizer configuration from JSON file."""
@@ -56,6 +57,9 @@ class TradeNormalizer:
             # Load product conversion ratios
             self.product_conversion_ratios = config.get("product_conversion_ratios", {})
             
+            # Load trader product unit defaults
+            self.traders_product_unit_defaults = config.get("traders_product_unit_defaults", {})
+            
             logger.debug(f"Successfully loaded normalizer config from {config_path}")
             
         except FileNotFoundError:
@@ -64,6 +68,8 @@ class TradeNormalizer:
             self.product_mappings = {}
             self.month_patterns = {}
             self.product_variation_map = {}
+            self.product_conversion_ratios = {}
+            self.traders_product_unit_defaults = {"default": "mt"}
             
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in normalizer config: {e}")
@@ -71,6 +77,8 @@ class TradeNormalizer:
             self.product_mappings = {}
             self.month_patterns = {}
             self.product_variation_map = {}
+            self.product_conversion_ratios = {}
+            self.traders_product_unit_defaults = {"default": "mt"}
             
         except Exception as e:
             logger.error(f"Error loading normalizer config: {e}")
@@ -78,6 +86,8 @@ class TradeNormalizer:
             self.product_mappings = {}
             self.month_patterns = {}
             self.product_variation_map = {}
+            self.product_conversion_ratios = {}
+            self.traders_product_unit_defaults = {"default": "mt"}
     
     def normalize_product_name(self, product_name: str) -> str:
         """Normalize product name for consistent matching."""
@@ -277,3 +287,24 @@ class TradeNormalizer:
         )
         
         return is_match
+
+    def get_trader_product_unit_default(self, product_name: str) -> str:
+        """Get default unit for trader product based on configuration.
+        
+        Args:
+            product_name: Normalized product name
+            
+        Returns:
+            Default unit for the product ("mt" or "bbl")
+        """
+        product_lower = product_name.lower().strip()
+        
+        # Check for exact match in trader unit defaults
+        if product_lower in self.traders_product_unit_defaults:
+            unit = self.traders_product_unit_defaults[product_lower]
+            logger.debug(f"Found specific unit default for '{product_lower}': {unit}")
+            return unit
+        
+        # Return default unit
+        default_unit = self.traders_product_unit_defaults.get("default", "mt")
+        return default_unit

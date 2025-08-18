@@ -45,5 +45,9 @@
     "naphtha japan crack": 8.9,
     "naphtha nwe crack": 8.9,
     "default": 7.0
+  },
+  "traders_product_unit_defaults": {
+    "brent swap": "bbl",
+    "default": "mt"
   }
 }

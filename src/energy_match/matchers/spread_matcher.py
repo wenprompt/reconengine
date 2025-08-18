@@ -1,7 +1,6 @@
 """Spread matching implementation for Rule 2."""
 
 from typing import List, Optional, Dict, Tuple
-from decimal import Decimal
 import logging
 import uuid
 from collections import defaultdict
@@ -42,7 +41,6 @@ class SpreadMatcher:
             match_result = self._find_spread_match(trader_group, exchange_spread_groups, pool_manager)
             if match_result:
                 matches.append(match_result)
-                exchange_trades_for_removal = [match_result.exchange_trade] + match_result.additional_exchange_trades
                 if not pool_manager.record_match(match_result):
                     logger.error("Failed to record spread match and remove trades from pool")
                 else:
@@ -57,10 +55,13 @@ class SpreadMatcher:
         trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
         for trade in trader_trades:
             if not pool_manager.is_trade_matched(trade):
-                key = (trade.product_name, trade.quantity_mt, trade.broker_group_id)
+                # Use product-specific unit defaults for quantity comparison
+                default_unit = self.normalizer.get_trader_product_unit_default(trade.product_name)
+                quantity_for_grouping = trade.quantity_bbl if default_unit == "bbl" else trade.quantity_mt
+                key = (trade.product_name, quantity_for_grouping, trade.broker_group_id)
                 trade_groups[key].append(trade)
         
-        for key, trades in trade_groups.items():
+        for trades in trade_groups.values():
             if len(trades) >= 2:
                 for i in range(len(trades)):
                     for j in range(i + 1, len(trades)):
@@ -81,7 +82,13 @@ class SpreadMatcher:
         trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
         for trade in exchange_trades:
             if not pool_manager.is_trade_matched(trade):
-                key = (trade.product_name, trade.quantity_mt, trade.broker_group_id)
+                # Exchange data uses actual units, so group by the appropriate quantity
+                # For consistency with trader grouping, use BBL for brent swap products
+                if trade.product_name.lower() in ["brent swap", "brent_swap"]:
+                    quantity_for_grouping = trade.quantity_bbl
+                else:
+                    quantity_for_grouping = trade.quantity_mt
+                key = (trade.product_name, quantity_for_grouping, trade.broker_group_id)
                 trade_groups[key].append(trade)
         return trade_groups
     
@@ -91,7 +98,10 @@ class SpreadMatcher:
             return None
         
         trader_trade1, trader_trade2 = trader_group
-        group_key = (trader_trade1.product_name, trader_trade1.quantity_mt, trader_trade1.broker_group_id)
+        # Use same unit logic as grouping for consistent key generation
+        default_unit = self.normalizer.get_trader_product_unit_default(trader_trade1.product_name)
+        quantity_for_key = trader_trade1.quantity_bbl if default_unit == "bbl" else trader_trade1.quantity_mt
+        group_key = (trader_trade1.product_name, quantity_for_key, trader_trade1.broker_group_id)
         
         if group_key not in exchange_groups:
             return None
@@ -156,15 +166,13 @@ class SpreadMatcher:
             confidence=self.confidence,
             trader_trade=trader_trades[0],
             exchange_trade=exchange_trades[0],
-            matched_fields=["product_name", "quantity_mt", "broker_group_id", "contract_months", "spread_price_calculation"],
+            matched_fields=["product_name", "quantity", "broker_group_id", "contract_months", "spread_price_calculation"],
             differing_fields=[],
             tolerances_applied={},
             rule_order=self.rule_number,
             additional_trader_trades=trader_trades[1:],
             additional_exchange_trades=exchange_trades[1:]
         )
-    
-    
     
     def get_rule_info(self) -> dict:
         """Get information about this matching rule."""

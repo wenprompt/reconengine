@@ -105,12 +105,20 @@ class CSVTradeLoader:
             if not all([product_name, quantity_str, price_str, contract_month, buy_sell]):
                 return None
 
+            # Determine unit with product-specific defaults for trader data
+            raw_unit = self._safe_str(row.get("unit", ""))
+            if raw_unit:
+                unit = raw_unit.lower()
+            else:
+                # Use normalizer to get product-specific unit defaults
+                unit = self.normalizer.get_trader_product_unit_default(product_name)
+
             return Trade(
                 trade_id=f"T_{index:04d}",
                 source=TradeSource.TRADER,
                 product_name=product_name,
                 quantity=Decimal(quantity_str.replace(",", "")),
-                unit=self._safe_str(row.get("unit", "mt")).lower(),
+                unit=unit,
                 price=Decimal(price_str),
                 contract_month=contract_month,
                 buy_sell=buy_sell,
