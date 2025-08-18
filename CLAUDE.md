@@ -4,7 +4,7 @@ This file provides comprehensive guidance to Claude Code when working with this 
 
 ## 🎯 Project Overview
 
-This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1), spread matching (Rule 2), and crack matching (Rule 3) with plans for 7 additional sophisticated matching rules including aggregations, product spreads, and complex scenarios.
+This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential rule-based approach. The system implements exact matching (Rule 1), spread matching (Rule 2), crack matching (Rule 3), and complex crack matching (Rule 4) with plans for 6 additional sophisticated matching rules including aggregations, product spreads, and time-based scenarios.
 
 ### Key Features
 
@@ -33,7 +33,8 @@ src/energy_match/
 ├── matchers/            # Matching rule implementations
 │   ├── exact_matcher.py # Rule 1: Exact matching (6-field comparison)
 │   ├── spread_matcher.py # Rule 2: Spread matching (contract month spreads)
-│   └── crack_matcher.py # Rule 3: Crack matching with unit conversion (optimized)
+│   ├── crack_matcher.py # Rule 3: Crack matching with unit conversion (optimized)
+│   └── complex_crack_matcher.py # Rule 4: Complex crack matching (2-leg: base + brent swap)
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -98,7 +99,8 @@ src/energy_match/
 - **exact_matcher.py**: Rule 1 - Perfect field matching with 100% confidence
 - **spread_matcher.py**: Rule 2 - Complex spread detection with price validation
 - **crack_matcher.py**: Rule 3 - Unit conversion matching with performance optimization
-- **Extensible Design**: Easy to add Rules 4-10 following established patterns
+- **complex_crack_matcher.py**: Rule 4 - Complex 2-leg crack matching (base product + brent swap)
+- **Extensible Design**: Easy to add Rules 5-10 following established patterns
 
 **`core/`** - **System Infrastructure**
 
@@ -147,6 +149,20 @@ The CrackMatcher implements crack spread matching with unit conversion and advan
 - **Duplicate Prevention**: Triple validation with pool manager integration prevents any duplicate matches
 - **Performance**: Scales linearly instead of quadratically with large datasets
 - **Real-World Testing**: Successfully processes 97 trades in 0.05 seconds with 3 crack matches found
+
+### ComplexCrackMatcher (Rule 4) - **2-Leg Crack Matching**
+
+The ComplexCrackMatcher implements sophisticated 2-leg crack trade matching where a single crack trade in trader data corresponds to a base product + brent swap combination in exchange data:
+
+- **Base Product Extraction**: Intelligently extracts base product from crack names (e.g., "marine 0.5% crack" → "marine 0.5%")
+- **2-Leg Validation**: Matches single crack trade against base product + brent swap pairs in exchange data
+- **B/S Direction Logic**: Enforces direction rules: Sell Crack = Sell Base + Buy Brent; Buy Crack = Buy Base + Sell Brent
+- **Unit Conversion**: Handles BBL ↔ MT conversions with configurable tolerances (±100 MT default)
+- **Price Formula Validation**: Verifies (base_price ÷ 6.35) - brent_price = crack_price within tolerance
+- **Pool Integration**: Uses UnmatchedPoolManager for proper trade removal and non-duplication
+- **Encapsulated Architecture**: Clean integration using `pool_manager.record_match()` method
+- **Configuration-Driven**: Leverages ConfigManager for tolerances and confidence levels (80% default)
+- **Real-World Validation**: Successfully matches T_0016 crack with E_0016 (base) + E_0015 (brent swap)
 
 ### ConfigManager
 
@@ -314,9 +330,10 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 ✅ **Completed & Tested**:
 
-- **Rule 1 (Exact Matching)**: 20 exact matches found in sample data with proper product spread preservation
-- **Rule 2 (Spread Matching)**: 11 spread matches found using intelligent grouped approach with 95% confidence
+- **Rule 1 (Exact Matching)**: 28 exact matches found in sample data with proper product spread preservation
+- **Rule 2 (Spread Matching)**: 18 spread matches found using intelligent grouped approach with 95% confidence
 - **Rule 3 (Crack Matching)**: 3 crack matches found with optimized indexing strategy and unit conversion
+- **Rule 4 (Complex Crack Matching)**: 1 complex crack match found using 2-leg base product + brent swap validation
 - **CSV Data Loading**: Integrated with TradeNormalizer for consistent data processing
 - **Universal Normalization**: Product names, contract months, buy/sell indicators standardized
 - **Product Spread Preservation**: Hyphenated product names (e.g., "marine 0.5%-380cst") correctly preserved for Rule 5
@@ -324,14 +341,92 @@ This project uses **real CSV data** for testing and validation instead of tradit
 - **Performance Optimization**: CrackMatcher optimized from O(N\*M) to O(N+M) using indexing strategy
 - **Pydantic v2 Validation**: Type safety and data validation for all models
 - **Non-Duplication Architecture**: Triple validation ensures no trade matched more than once across rules
-- **Rich CLI Output**: Shows matches by type, unmatched trades, and comprehensive statistics
+- **Encapsulated Pool Management**: Proper `record_match()` method usage for multi-leg matches
+- **Rich CLI Output**: Shows matches by type, unmatched trades, and comprehensive statistics with multi-leg display
 - **Type Safety**: Complete mypy compliance with pandas-stubs integration
 
 🔄 **Planned for Implementation**:
 
-- **Rules 4-10**: Aggregation, product spreads, time-based matching, and complex scenarios
+- **Rules 5-10**: Aggregation, product spreads, time-based matching, and complex scenarios
 - **Additional Data Sets**: More diverse trading scenarios for comprehensive rule testing
 - **Scaling Optimization**: Further performance improvements for enterprise-scale datasets
+
+## 🏆 Rule 4 Implementation Summary
+
+**Successfully Completed**: Rule 4 - Complex Crack Matching (2-Leg with Brent Swap)
+
+### Implementation Highlights
+
+- **✅ Complete Integration**: Fully integrated into the matching pipeline following Rules 1-3
+- **✅ Configuration Management**: Uses ConfigManager for tolerances and confidence levels (80%)
+- **✅ Pool Management**: Proper encapsulation using `pool_manager.record_match()` method
+- **✅ Multi-Leg Display**: CLI shows both exchange trades (base product + brent swap) correctly
+- **✅ Type Safety**: Full MyPy compliance with proper type annotations
+- **✅ Real-World Testing**: Successfully matches T_0016 crack with E_0016 (base) + E_0015 (brent swap)
+
+### Architecture Improvements Made
+
+- **Refactored Trade Removal**: Replaced manual trade pool manipulation with encapsulated `record_match()` calls
+- **Enhanced CLI Display**: Added special handling for complex crack matches showing both exchange trades
+- **Configuration Integration**: Added complex crack tolerances and confidence to ConfigManager
+- **Import Organization**: Updated `__init__.py` and `main.py` with proper imports and integration
+
+### Key Technical Features
+
+- **Base Product Extraction**: Intelligent parsing of crack product names (e.g., "marine 0.5% crack" → "marine 0.5%")
+- **2-Leg Validation**: Matches single crack trade against base product + brent swap pairs
+- **B/S Direction Logic**: Enforces "Sell Crack = Sell Base + Buy Brent; Buy Crack = Buy Base + Sell Brent"
+- **Unit Conversion**: BBL ↔ MT conversion with ±100 MT tolerance
+- **Price Formula**: Validates (base_price ÷ 6.35) - brent_price = crack_price within ±0.01 tolerance
+- **Non-Duplication**: Triple validation ensures trades only match once across all rules
+
+## 📋 Rule 5 Implementation Guidelines
+
+**Next Development Target**: Rule 5 - Product Spread Matching
+
+### Context for Rule 5 Implementation
+
+Based on the established patterns and architecture, Rule 5 should follow these implementation guidelines:
+
+#### Architecture Consistency
+- **File Location**: Create `src/energy_match/matchers/product_spread_matcher.py`
+- **Class Pattern**: Follow `ProductSpreadMatcher` naming convention
+- **Integration**: Add to `__init__.py` and `main.py` following Rules 1-4 pattern
+- **Pool Management**: Use `pool_manager.record_match(match)` for proper trade removal
+
+#### Configuration Integration
+- **Config Manager**: Add Rule 5 confidence level and tolerances to `ConfigManager`
+- **Tolerance Settings**: Define product spread specific tolerances in configuration
+- **Rule Order**: Ensure Rule 5 processes after Rules 1-4 using `pool_manager.get_unmatched_*_trades()`
+
+#### Implementation Pattern
+- **Constructor**: Accept `config_manager` and `normalizer` parameters
+- **Main Method**: `find_matches(pool_manager: UnmatchedPoolManager) -> List[MatchResult]`
+- **Rule Info**: Implement `get_rule_info()` method for `--show-rules` functionality
+- **Validation**: Include comprehensive validation methods for spread logic
+- **Logging**: Follow established logging patterns with appropriate debug/info levels
+
+#### Product Spread Detection
+- **Hyphenated Products**: Look for products containing "-" (e.g., "marine 0.5%-380cst")
+- **Component Extraction**: Split hyphenated names into component products
+- **Match Validation**: Ensure component products exist in exchange data with proper relationships
+- **Price Relationship**: Implement spread price calculation and validation logic
+
+#### Data Model Integration
+- **MatchType**: Add `PRODUCT_SPREAD = "product_spread"` to `MatchType` enum
+- **MatchResult**: Use `additional_exchange_trades` for multi-leg product spread matches
+- **Trade Fields**: Leverage existing normalized fields and unit conversion capabilities
+
+#### Testing and Validation
+- **Sample Data**: Verify existing CSV data contains product spread examples
+- **Unit Tests**: Test component extraction, price validation, and match logic
+- **Integration Test**: Ensure Rule 5 doesn't interfere with Rules 1-4 results
+- **Performance**: Maintain O(N+M) complexity using indexing strategies like Rule 3
+
+#### Display Integration
+- **CLI Output**: Update `display.py` to handle product spread matches properly
+- **Multi-Leg Display**: Show all component trades in match results
+- **Statistics**: Include Rule 5 matches in summary statistics and rule breakdown
 
 ## 🚨 Error Handling
 
