@@ -80,6 +80,7 @@ class MatchingConfig(BaseModel):
         description="Complex crack matching price tolerance (±0.01)",
     )
 
+
     # Processing order (from rules.md)
     rule_processing_order: list[int] = Field(
         default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -214,6 +215,7 @@ class ConfigManager:
             Tolerance (default ±0.01)
         """
         return self._config.complex_crack_price_tolerance
+
 
     def update_config(self, **kwargs) -> "ConfigManager":
         """Create new ConfigManager with updated values.

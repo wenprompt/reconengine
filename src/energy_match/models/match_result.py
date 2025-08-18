@@ -3,7 +3,7 @@
 from decimal import Decimal
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel, Field, ConfigDict
 from .trade import Trade
 
@@ -14,15 +14,12 @@ class MatchType(str, Enum):
     SPREAD = "spread"  # Rule 2 - Spread matching
     CRACK = "crack"  # Rule 3 - Crack spread matching with unit conversion
     COMPLEX_CRACK = "complex_crack"  # Rule 4 - Complex crack matching (base product + brent swap)
-    PRICE_TOLERANCE = "price_tolerance"  # Rule 5
-    QUANTITY_TOLERANCE = "quantity_tolerance"  # Rule 6
-    BOTH_TOLERANCE = "both_tolerance"  # Rule 7
-    PRODUCT_SIMILAR = "product_similar"  # Rule 8
-    CONTRACT_ADJACENT = "contract_adjacent"  # Rule 9
-    PRODUCT_CONTRACT_TOLERANCES = "product_contract_tolerances"  # Rule 10
-    BROKER_DIFFERENT = "broker_different"  # Rule 11
-    EXCHANGE_DIFFERENT = "exchange_different"  # Rule 12
-    CLEARING_DIFFERENT = "clearing_different"  # Rule 13
+    PRODUCT_SPREAD = "product_spread"  # Rule 5 - Product spread matching (hyphenated products)
+    AGGREGATION = "aggregation"  # Rule 6 - Aggregation matching
+    AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 7 - Aggregated complex crack matching
+    CRACK_ROLL = "crack_roll"  # Rule 8 - Crack roll matching
+    CROSS_MONTH_DECOMPOSITION = "cross_month_decomposition"  # Rule 9 - Cross-month decomposition matching
+    COMPLEX_PRODUCT_SPREAD_DECOMPOSITION = "complex_product_spread_decomposition"  # Rule 10 - Complex product spread decomposition and netting
 
 
 class MatchResult(BaseModel):

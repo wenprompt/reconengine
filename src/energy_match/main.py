@@ -11,7 +11,7 @@ from .loaders import CSVTradeLoader
 from .normalizers import TradeNormalizer
 from .config import ConfigManager
 from .core import UnmatchedPoolManager
-from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher
+from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher, ProductSpreadMatcher
 from .cli import MatchDisplayer
 
 
@@ -158,6 +158,17 @@ class EnergyTradeMatchingEngine:
                     pool_manager.record_match(match)
                 
                 all_matches.extend(complex_crack_matches)
+                
+                progress.remove_task(task)
+            
+            # Rule 5: Product spread matching
+            self.logger.info("Applying Rule 5: Product spread matching...")
+            with self.displayer.create_progress_context("Finding product spread matches...") as progress:
+                task = progress.add_task("Matching...", total=None)
+                
+                product_spread_matcher = ProductSpreadMatcher(self.config_manager, self.normalizer)
+                product_spread_matches = product_spread_matcher.find_matches(pool_manager)
+                all_matches.extend(product_spread_matches)
                 
                 progress.remove_task(task)
             
@@ -308,10 +319,11 @@ Examples:
         exact_matcher = ExactMatcher(config_manager)
         spread_matcher = SpreadMatcher(config_manager, normalizer)
         crack_matcher = CrackMatcher(config_manager)
-        complex_crack_matcher = ComplexCrackMatcher(normalizer, config_manager) # Assuming it's fully implemented
+        complex_crack_matcher = ComplexCrackMatcher(normalizer, config_manager)
+        product_spread_matcher = ProductSpreadMatcher(config_manager, normalizer)
 
         # Collect all matchers that have a get_rule_info method
-        all_matchers = [exact_matcher, spread_matcher, crack_matcher, complex_crack_matcher]
+        all_matchers = [exact_matcher, spread_matcher, crack_matcher, complex_crack_matcher, product_spread_matcher]
 
         print("\n--- Energy Trade Matching Rules ---")
         for matcher in all_matchers:
