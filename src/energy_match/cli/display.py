@@ -55,7 +55,6 @@ class MatchDisplayer:
         config_table.add_column("Value", style="white")
         
         config_table.add_row("Conversion Ratio (BBL→MT)", str(config_summary["conversion_ratio"]))
-        config_table.add_row("Price Tolerance", config_summary["price_tolerance"])
         config_table.add_row("Quantity Tolerance", config_summary["quantity_tolerance"])
         config_table.add_row("Rule Count", str(config_summary["rule_count"]))
         config_table.add_row("Output Format", config_summary["output_format"])

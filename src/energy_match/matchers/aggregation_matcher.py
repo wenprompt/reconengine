@@ -340,9 +340,5 @@ class AggregationMatcher(BaseMatcher):
                 "Sum validation must be exact (no quantity tolerance)",
                 "Handles both many→one and one→many scenarios",
                 "No timestamp matching required"
-            ],
-            "tolerances": {
-                "quantity_matching": "exact sum required",
-                "field_matching": "exact"
-            }
+            ]
         }

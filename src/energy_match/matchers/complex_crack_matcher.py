@@ -36,11 +36,8 @@ class ComplexCrackMatcher(BaseMatcher):
             self.rule_number
         )  # Get confidence from config
         # Get unit-specific tolerances (shared with Rule 3)
-        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()   # ±50 MT
-        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl() # ±100 BBL
-        self.price_tolerance = (
-            config_manager.get_complex_crack_price_tolerance()
-        )  # Get price tolerance
+        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()   # ±70 MT
+        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl() # ±500 BBL
 
         self.matches_found: List[MatchResult] = []  # Added type annotation
 
@@ -289,19 +286,16 @@ class ComplexCrackMatcher(BaseMatcher):
             ) - brent_trade.price
 
             # Allow tolerance for calculation precision from config
-            price_tolerance = self.price_tolerance
-            price_diff = abs(calculated_crack_price - crack_trade.price)
-
-            if price_diff <= price_tolerance:
+            if calculated_crack_price == crack_trade.price:
                 logger.debug(
                     f"Price calculation valid (shared ratio): ({base_trade.price} ÷ {conversion_factor}) - {brent_trade.price} "
-                    f"= {calculated_crack_price} ≈ {crack_trade.price}"
+                    f"= {calculated_crack_price} = {crack_trade.price}"
                 )
                 return True
             else:
                 logger.debug(
                     f"Price calculation invalid: ({base_trade.price} ÷ {conversion_factor}) - {brent_trade.price} "
-                    f"= {calculated_crack_price} ≠ {crack_trade.price} (diff: {price_diff})"
+                    f"= {calculated_crack_price} ≠ {crack_trade.price}"
                 )
                 return False
 
@@ -333,7 +327,6 @@ class ComplexCrackMatcher(BaseMatcher):
             ],
             "tolerances": {
                 "quantity_mt": float(self.MT_TOLERANCE),
-                "quantity_bbl": float(self.BBL_TOLERANCE), 
-                "price": float(self.price_tolerance),
+                "quantity_bbl": float(self.BBL_TOLERANCE)
             },
         }

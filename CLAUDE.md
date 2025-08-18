@@ -220,6 +220,90 @@ The CSV loader now uses the normalizer for consistent data processing:
 - **Error Handling**: Graceful handling of malformed data
 - **Spread Detection**: Identifies spread trades based on tradeid presence
 
+### Universal Matching Fields System
+
+The system implements a sophisticated universal field matching architecture that ensures consistency across all matching rules:
+
+#### Architecture Overview
+
+- **JSON-Driven Configuration**: All universal fields are defined in `normalizer_config.json` under `universal_matching_fields`
+- **BaseMatcher Inheritance**: All matchers inherit from `BaseMatcher` class providing universal field capabilities
+- **Dynamic Field Access**: Uses `getattr()` with configurable field mappings for flexible field access
+- **Single Source of Truth**: ConfigManager provides centralized access to universal field configuration
+- **Type-Safe Implementation**: Full mypy compliance with proper type annotations
+
+#### Current Universal Fields
+
+```json
+"universal_matching_fields": {
+  "required_fields": ["brokergroupid", "exchclearingacctid"],
+  "field_mappings": {
+    "brokergroupid": "broker_group_id",
+    "exchclearingacctid": "exch_clearing_acct_id"
+  }
+}
+```
+
+**Universal Field Requirements**:
+- **brokergroupid** → `broker_group_id`: Broker group identifier that must match exactly
+- **exchclearingacctid** → `exch_clearing_acct_id`: Exchange clearing account identifier that must match exactly
+
+#### Adding New Universal Fields
+
+To add new universal fields that apply to ALL matching rules:
+
+1. **Update JSON Configuration**: Add field to `required_fields` array in `normalizer_config.json`
+2. **Add Field Mapping**: Map config field name to Trade model attribute in `field_mappings`
+3. **Ensure Trade Model**: Verify the Trade model has the corresponding attribute
+4. **Zero Code Changes**: No matcher code changes required - all matchers inherit universal capabilities
+
+Example adding `traderid` field:
+```json
+"required_fields": ["brokergroupid", "exchclearingacctid", "traderid"],
+"field_mappings": {
+  "brokergroupid": "broker_group_id", 
+  "exchclearingacctid": "exch_clearing_acct_id",
+  "traderid": "trader_id"
+}
+```
+
+#### Implementation Architecture
+
+**BaseMatcher Class**:
+- `create_universal_signature()`: Creates matching signatures with universal fields
+- `validate_universal_fields()`: Validates universal field matches
+- `get_universal_matched_fields()`: Returns complete field lists for match results
+- `_get_trade_field_value()`: Dynamic field value extraction using mappings
+
+**ConfigManager Integration**:
+- `get_universal_matching_fields()`: Returns required universal field list
+- `get_universal_field_mappings()`: Returns config-to-attribute field mappings
+- Cached JSON loading for performance optimization
+
+**Benefits**:
+- **Maintainability**: Single point to add/modify universal requirements
+- **Consistency**: Guaranteed application across all matching rules
+- **Performance**: Cached configuration loading prevents disk I/O on each request
+- **Extensibility**: Easy to add new universal fields without code changes
+- **Type Safety**: Full compile-time validation with mypy
+
+#### Rule Integration
+
+All implemented matchers automatically include universal field validation:
+- **Rule 1 (ExactMatcher)**: Exact universal field matching
+- **Rule 2 (SpreadMatcher)**: Universal fields in spread grouping
+- **Rule 3 (CrackMatcher)**: Universal fields in crack matching
+- **Rule 4 (ComplexCrackMatcher)**: Universal fields in 2-leg matching  
+- **Rule 5 (ProductSpreadMatcher)**: Universal fields in component matching
+- **Rule 6 (AggregationMatcher)**: Universal fields in aggregation grouping
+- **Rule 7 (AggregatedComplexCrackMatcher)**: Universal fields in complex aggregation
+
+Universal fields are automatically included in:
+- Matching signatures for trade grouping
+- Validation logic for match verification  
+- Match result metadata for audit trails
+- Rule information for documentation
+
 ## 🧱 Code Quality Standards
 
 ### File and Function Limits

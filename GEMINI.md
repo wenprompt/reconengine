@@ -9,6 +9,7 @@ This is an **Energy Trade Matching System** that matches trades between trader a
 ### Key Features
 
 - **Universal Data Normalization**: `TradeNormalizer` standardizes product names, contract months, buy/sell indicators, and unit conversions.
+- **Universal Matching Fields**: A data-driven system ensures specified fields (e.g., `brokergroupid`) must match across ALL matching rules, providing system-wide consistency.
 - **Configuration Management**: Centralized settings with rule confidence levels, tolerances, and conversion ratios.
 - **Sequential Rule Processing**: Implements rules in priority order (exact matches first) with non-duplication.
 - **Rich CLI Interface**: Beautiful terminal output with progress indicators and detailed results.
@@ -63,8 +64,8 @@ src/energy_match/
 ├── core/
 │   └── unmatched_pool.py # State manager for all trades, preventing duplicate matches.
 ├── config/
-│   ├── config_manager.py # Centralized system settings (tolerances, conversion ratios, rule confidences).
-│   └── normalizer_config.json # External JSON file for normalization mappings (products, months).
+│   ├── config_manager.py # Centralized system settings and normalization rules. Single source of truth for all configurations.
+│   └── normalizer_config.json # External JSON file for normalization mappings (products, months, universal fields).
 ├── cli/
 │   └── display.py   # Rich terminal output and progress display.
 ├── data/
@@ -74,3 +75,29 @@ src/energy_match/
 └── docs/
     └── rules.md        # The complete 10-rule specification. The primary source for business logic.
 ```
+
+## ⚙️ Universal Matching Fields System
+
+The system implements a sophisticated universal field matching architecture that ensures consistency across all matching rules. This is a key feature for data integrity, ensuring that fundamental trade attributes like the broker or clearing account are consistent for any match, regardless of the rule that finds it.
+
+### Architecture Overview
+
+- **JSON-Driven Configuration**: All universal fields are defined in `src/energy_match/config/normalizer_config.json` under the `universal_matching_fields` key. This allows for easy modification of universal requirements without code changes.
+- **Centralized Management**: The `ConfigManager` is the single source of truth for all configuration, including universal field rules. It loads the `normalizer_config.json` once and provides the settings to all other components, ensuring consistency and performance.
+- **BaseMatcher Inheritance**: All matcher classes (e.g., `ExactMatcher`, `SpreadMatcher`) inherit from a common `BaseMatcher`. This base class contains the logic to dynamically build matching signatures and validate trades against the universal fields defined in the configuration.
+- **Dynamic Field Access**: The system uses `getattr()` along with a field mapping configuration to dynamically access the correct attributes on the `Trade` model. This makes the system highly extensible.
+
+### Current Universal Fields
+
+The following fields are currently configured as universal and must match for any trade reconciliation:
+
+- **`brokergroupid`** → `broker_group_id`
+- **`exchclearingacctid`** → `exch_clearing_acct_id`
+
+### How to Add a New Universal Field
+
+1.  **Update `normalizer_config.json`**:
+    -   Add the new field's name (as it appears in the source CSV) to the `required_fields` array.
+    -   Add a mapping from the CSV field name to the corresponding `Trade` model attribute name in the `field_mappings` object.
+2.  **Verify `Trade` Model**: Ensure the `Trade` model in `src/energy_match/models/trade.py` has the corresponding attribute.
+3.  **No Code Changes Needed**: The `BaseMatcher` architecture ensures that no changes are needed in the individual matcher files. The new universal field will be automatically applied to all matching rules.

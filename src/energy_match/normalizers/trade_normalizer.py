@@ -17,7 +17,7 @@ class TradeNormalizer:
     
     Handles product name normalization, contract month standardization,
     quantity unit conversions, and other data standardization tasks.
-    Loads normalization mappings from external configuration files.
+    Loads normalization mappings from the central ConfigManager.
     """
     
     def __init__(self, config_manager: ConfigManager):
@@ -25,70 +25,24 @@ class TradeNormalizer:
         self.config_manager = config_manager
         self.BBL_TO_MT_RATIO = config_manager.get_conversion_ratio()
         
-        # Load mappings from configuration file
-        self._load_normalizer_config()
+        # Load mappings from the central configuration manager
+        self.product_mappings = self.config_manager.get_product_mappings()
+        self.month_patterns = self.config_manager.get_month_patterns()
+        self.product_conversion_ratios = self.config_manager.get_product_conversion_ratios()
+        self.traders_product_unit_defaults = self.config_manager.get_traders_product_unit_defaults()
+
+        # Convert comma-separated keys in variation map to tuples for internal use
+        variation_config = self.config_manager.get_product_variation_map()
+        self.product_variation_map = {
+            tuple(key.split(",")): value 
+            for key, value in variation_config.items()
+        }
         
         logger.info(f"Loaded {len(self.product_mappings)} product mappings, "
                    f"{len(self.month_patterns)} month patterns, "
                    f"{len(self.product_variation_map)} product variations, "
-                   f"{len(self.traders_product_unit_defaults)} trader unit defaults")
-    
-    def _load_normalizer_config(self):
-        """Load normalizer configuration from JSON file."""
-        config_path = Path(__file__).parent.parent / "config" / "normalizer_config.json"
-        
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            
-            # Load product mappings
-            self.product_mappings = config.get("product_mappings", {})
-            
-            # Load month patterns
-            self.month_patterns = config.get("month_patterns", {})
-            
-            # Load product variation map - convert comma-separated keys back to tuples
-            variation_config = config.get("product_variation_map", {})
-            self.product_variation_map = {
-                tuple(key.split(",")): value 
-                for key, value in variation_config.items()
-            }
-            
-            # Load product conversion ratios
-            self.product_conversion_ratios = config.get("product_conversion_ratios", {})
-            
-            # Load trader product unit defaults
-            self.traders_product_unit_defaults = config.get("traders_product_unit_defaults", {})
-            
-            logger.debug(f"Successfully loaded normalizer config from {config_path}")
-            
-        except FileNotFoundError:
-            logger.error(f"Normalizer config file not found: {config_path}")
-            # Fallback to empty mappings
-            self.product_mappings = {}
-            self.month_patterns = {}
-            self.product_variation_map = {}
-            self.product_conversion_ratios = {}
-            self.traders_product_unit_defaults = {"default": "mt"}
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in normalizer config: {e}")
-            # Fallback to empty mappings
-            self.product_mappings = {}
-            self.month_patterns = {}
-            self.product_variation_map = {}
-            self.product_conversion_ratios = {}
-            self.traders_product_unit_defaults = {"default": "mt"}
-            
-        except Exception as e:
-            logger.error(f"Error loading normalizer config: {e}")
-            # Fallback to empty mappings
-            self.product_mappings = {}
-            self.month_patterns = {}
-            self.product_variation_map = {}
-            self.product_conversion_ratios = {}
-            self.traders_product_unit_defaults = {"default": "mt"}
-    
+                   f"{len(self.traders_product_unit_defaults)} trader unit defaults from ConfigManager")
+
     def normalize_product_name(self, product_name: str) -> str:
         """Normalize product name for consistent matching."""
         if not product_name:

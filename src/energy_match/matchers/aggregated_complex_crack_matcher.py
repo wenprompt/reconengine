@@ -42,7 +42,6 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         # Use the same tolerances as ComplexCrackMatcher (Rule 4)
         self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()
         self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl()
-        self.price_tolerance = config_manager.get_complex_crack_price_tolerance()
         
         logger.info(f"Initialized AggregatedComplexCrackMatcher with {self.confidence}% confidence")
 
@@ -288,7 +287,6 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             ],
             "tolerances": {
                 "quantity_mt": float(self.MT_TOLERANCE),
-                "quantity_bbl": float(self.BBL_TOLERANCE),
-                "price": float(self.price_tolerance),
+                "quantity_bbl": float(self.BBL_TOLERANCE)
             },
         }

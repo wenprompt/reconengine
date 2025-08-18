@@ -23,14 +23,6 @@ class MatchingConfig(BaseModel):
         default=Decimal("6.35"), description="Default conversion ratio from BBL to MT"
     )
 
-    # Price tolerances (for future rules)
-    price_tolerance_percentage: Decimal = Field(
-        default=Decimal("2.0"),
-        ge=0,
-        le=100,
-        description="Price tolerance as percentage for Rule 2",
-    )
-
     # Quantity tolerances (for future rules)
     quantity_tolerance_percentage: Decimal = Field(
         default=Decimal("5.0"),
@@ -65,6 +57,7 @@ class MatchingConfig(BaseModel):
             8: Decimal("65"),  # Crack roll match
             9: Decimal("60"),  # Cross-month decomposition match
             10: Decimal("60"),  # Complex product spread decomposition and netting match
+            11: Decimal("60"),  # Time-based matching
         },
         description="Confidence levels for each matching rule",
     )
@@ -76,16 +69,9 @@ class MatchingConfig(BaseModel):
         description="Complex crack matching quantity tolerance in MT (±100 MT)",
     )
 
-    complex_crack_price_tolerance: Decimal = Field(
-        default=Decimal("0.01"),
-        ge=0,
-        description="Complex crack matching price tolerance (±0.01)",
-    )
-
-
     # Processing order (from rules.md)
     rule_processing_order: list[int] = Field(
-        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         description="Order in which rules should be processed",
     )
 
@@ -155,7 +141,7 @@ class ConfigManager:
         """Get confidence level for a specific rule.
 
         Args:
-            rule_number: Rule number (1-10)
+            rule_number: Rule number (1-11)
 
         Returns:
             Confidence level as percentage
@@ -175,14 +161,6 @@ class ConfigManager:
             List of rule numbers in processing order
         """
         return self._config.rule_processing_order.copy()
-
-    def get_price_tolerance(self) -> Decimal:
-        """Get price tolerance percentage.
-
-        Returns:
-            Price tolerance as percentage (e.g., 2.0 for 2%)
-        """
-        return self._config.price_tolerance_percentage
 
     def get_quantity_tolerance(self) -> Decimal:
         """Get quantity tolerance percentage.
@@ -204,7 +182,7 @@ class ConfigManager:
         """Get crack matching tolerance in BBL.
 
         Returns:
-            Tolerance in BBL (default ±100 BBL)
+            Tolerance in BBL (default ±500 BBL)
         """
         return self._config.crack_tolerance_bbl
 
@@ -212,7 +190,7 @@ class ConfigManager:
         """Get crack matching tolerance in MT.
 
         Returns:
-            Tolerance in MT (default ±50 MT)
+            Tolerance in MT (default ±70 MT)
         """
         return self._config.crack_tolerance_mt
 
@@ -223,14 +201,6 @@ class ConfigManager:
             Tolerance in MT (default ±100 MT)
         """
         return self._config.complex_crack_quantity_tolerance
-
-    def get_complex_crack_price_tolerance(self) -> Decimal:
-        """Get complex crack matching price tolerance.
-
-        Returns:
-            Tolerance (default ±0.01)
-        """
-        return self._config.complex_crack_price_tolerance
 
     def get_universal_matching_fields(self) -> List[str]:
         """Get universal matching fields that must match across ALL rules.
@@ -338,7 +308,6 @@ class ConfigManager:
         """
         return {
             "conversion_ratio": float(self._config.bbl_to_mt_ratio),
-            "price_tolerance": f"{self._config.price_tolerance_percentage}%",
             "quantity_tolerance": f"{self._config.quantity_tolerance_percentage}%",
             "rule_count": len(self._config.rule_confidence_levels),
             "processing_order": self._config.rule_processing_order,

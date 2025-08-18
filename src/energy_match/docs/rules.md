@@ -57,22 +57,50 @@
 
 **Note**: These normalizations are applied to the actual data columns, not just for comparison. All subsequent matching operations work with the normalized data.
 
-## Universal Matching Fields
+## Universal Matching Fields System
 
-**IMPORTANT**: In addition to rule-specific matching criteria, ALL matching rules require the following universal fields to match exactly between trader and exchange data:
+**IMPORTANT**: In addition to rule-specific matching criteria, ALL matching rules automatically enforce universal fields that must match exactly between trader and exchange data. This system provides a single point of configuration for fields that must be consistent across all match types.
 
-### Required Universal Fields (from `config/normalizer_config.json`)
+### Architecture Overview
 
-- **brokergroupid** - Broker group identifier must match exactly across all trades in any match
-- **exchclearingacctid** - Exchange clearing account identifier must match exactly across all trades in any match
+The universal matching fields system is implemented through:
 
-### Optional Universal Fields
+1. **JSON Configuration**: All universal fields are defined in `config/normalizer_config.json`
+2. **BaseMatcher Class**: All matchers inherit from BaseMatcher which automatically handles universal fields
+3. **Dynamic Field Mapping**: Config field names are mapped to Trade model attributes for flexibility
+4. **Zero Code Changes**: Adding new universal fields requires only JSON configuration updates
 
-- **traderid** - Trader identifier (can be enabled for additional matching precision)
+### Current Universal Fields (from `config/normalizer_config.json`)
 
-These universal matching fields are configured in `src/energy_match/config/normalizer_config.json` under the `universal_matching_fields` section, allowing easy addition or modification of fields that must be consistent across all matching rules.
+```json
+"universal_matching_fields": {
+  "required_fields": ["brokergroupid", "exchclearingacctid"],
+  "field_mappings": {
+    "brokergroupid": "broker_group_id",
+    "exchclearingacctid": "exch_clearing_acct_id"
+  }
+}
+```
 
-**Implementation Note**: Every matching rule implementation should validate these universal fields in addition to its specific matching criteria. This ensures consistent broker and clearing account relationships across all match types.
+- **brokergroupid** → `broker_group_id` - Broker group identifier must match exactly across all trades in any match
+- **exchclearingacctid** → `exch_clearing_acct_id` - Exchange clearing account identifier must match exactly across all trades in any match
+
+### Adding New Universal Fields
+
+To add new universal fields (e.g., `traderid`):
+
+1. **Add to required_fields**: `["brokergroupid", "exchclearingacctid", "traderid"]`
+2. **Add field mapping**: `"traderid": "trader_id"`
+3. **Zero code changes needed** - all matchers automatically use the new field
+
+### Implementation Architecture
+
+- **BaseMatcher**: Provides `create_universal_signature()`, `validate_universal_fields()`, and `get_universal_matched_fields()` methods
+- **Automatic Integration**: Every matcher inherits these capabilities and uses them transparently
+- **Dynamic Access**: Uses `getattr()` with configurable field mappings for maximum flexibility
+- **Performance**: ConfigManager caches JSON configuration for efficient repeated access
+
+**Benefits**: This system eliminates code duplication, ensures consistency across all matching rules, and provides a single point of configuration for universal matching criteria.
 
 ## Processing Order by Confidence Level
 
@@ -105,22 +133,18 @@ The matching engine processes trades in order of confidence level to ensure the 
 
 ### Definition
 
-An **exact match** occurs when trades from both data sources have identical values across all required matching fields after normalization. This is the highest confidence match type (100%) and is processed first to establish the clearest trade relationships.
+An **exact match** occurs when trades from both data sources have identical values across all required fields after normalization. This is the highest confidence match type (100%) and is processed first to capture the clearest trade relationships.
 
 ### Required Matching Fields
 
-For a trade to qualify as an exact match, the following fields must match exactly after normalization:
+All fields must match exactly after normalization:
 
-**Rule-Specific Fields:**
-1. **productname** - Product identifier/name (case-insensitive after normalization)
-2. **contractmonth** - Contract delivery month (standardized to "MMM-YY" format)
-3. **quantityunits** - Trade quantity in units (numeric values only, commas removed)
+1. **productname** - Product identifier (case-insensitive after normalization)
+2. **contractmonth** - Contract delivery month (standardized to "MMM-YY" format)  
+3. **quantityunits** - Trade quantity (numeric values, commas removed)
 4. **b/s** - Buy/Sell indicator (normalized to "Bought" or "Sold")
 5. **price** - Trade execution price (exact numeric match)
 
-**Universal Fields:** (as configured in `normalizer_config.json`)
-- **brokergroupid** - Broker group identifier (exact numeric match)
-- **exchclearingacctid** - Exchange clearing account identifier (exact numeric match)
 
 ### Processing Logic
 
@@ -162,14 +186,11 @@ For a trade to qualify as an exact match, the following fields must match exactl
 
 ### Definition
 
-A **spread match** occurs when a trader executes a spread trade (buying one contract and selling another related contract simultaneously) that appears as two separate trades in the exchange data but as a calculated spread in the trader data. This is a high-confidence match type (95%) that handles complex trading strategies.
+A **spread match** occurs when a trader executes a calendar spread (buying one contract month and selling another) that appears as two separate trades in exchange data but as a calculated spread in trader data. This high-confidence match type (95%) handles contract month spread trading strategies.
 
-**Processing Order**: Spread matching is performed AFTER exact matching has been completed and those trades have been removed from the matching pool. This makes spread identification easier by reducing the dataset to unmatched trades only.
-
-**Key Insight**: Spreads represent **single trading strategies** that appear differently in each data source:
-
-- **Trader data**: Shows the spread as 2 related trades (one with calculated spread price, one with price = 0)
-- **Exchange data**: Shows the spread as 2 separate individual trades with actual market prices
+**Key Pattern**: Spreads appear differently in each data source:
+- **Trader data**: 2 related trades (one with calculated spread price, one with price = 0)
+- **Exchange data**: 2 separate trades with actual market prices for each contract month
 
 ### Spread Trade Identification
 
@@ -192,16 +213,12 @@ A **spread match** occurs when a trader executes a spread trade (buying one cont
 
 ### Required Matching Fields for Spreads
 
-**Rule-Specific Fields:**
-1. **productname** - Base product must match between all legs (after normalization)
-2. **quantityunits** - Quantity must be identical for all legs (2 trader + 2 exchange)
+1. **productname** - Base product must match between all legs
+2. **quantityunits** - Quantity must be identical for all 4 trades (2 trader + 2 exchange)
 3. **contractmonth** - Contract months must correspond between trader and exchange legs
-4. **b/s directions** - Each leg's direction must match between sources (opposite directions within each source)
+4. **b/s directions** - Each leg's direction must match between sources
 5. **spread price calculation** - Exchange price differential must equal trader spread price
 
-**Universal Fields:** (automatically validated for all spread components)
-- **brokergroupid** - Broker group must match across all trades
-- **exchclearingacctid** - Exchange clearing account must match across all trades
 
 ### Spread Matching Logic
 
@@ -266,7 +283,7 @@ A **spread match** occurs when a trader executes a spread trade (buying one cont
 
 #### Matching Tolerances:
 
-- **Price tolerance**: Price calculation validation must be exact
+- **Price validation**: Price calculation must be exact
 - **No time window requirement**: Spread legs do NOT need to match by timestamp
 
 #### Processing Notes:
@@ -279,37 +296,30 @@ A **spread match** occurs when a trader executes a spread trade (buying one cont
 
 ### Definition
 
-A **crack match** occurs when a trader executes a crack spread trade (price differential between refined products and crude oil) that appears in both data sources but may require unit conversion between metric tons (MT) and barrels (BBL). This is a high-confidence match type (90%) that handles specialized energy trading products.
-
-**Processing Order**: Crack matching is performed AFTER exact matching and spread matching have been completed. This handles remaining unmatched crack spread trades that require unit normalization.
+A **crack match** occurs when a trader executes a crack spread trade that appears in both data sources but requires unit conversion between metric tons (MT) and barrels (BBL). This high-confidence match type (90%) handles specialized energy trading products with unit normalization.
 
 **Key Characteristics**:
-
 - **Product identification**: Only trades with "crack" in the product name are eligible
-- **Unit conversion**: Automatic handling of MT ↔ BBL conversions using 6.35 ratio
-- **Conversion tolerances**: ±100 BBL or ±50 MT difference allowed for rounding
+- **Unit conversion**: Automatic MT ↔ BBL conversion using product-specific ratios
+- **Conversion tolerance**: ±500 BBL or ±70 MT difference allowed for rounding
 - **One-to-one matching**: Each crack match removes 1 trader trade and 1 exchange trade
 
 ### Crack Trade Identification
-
-#### Key Characteristics:
 
 - **Product type**: Contains "crack" in productname (e.g., "marine 0.5% crack")
 - **Unit mismatch**: One source in MT, other in BBL requiring conversion
 - **Price matching**: Same price after normalization
 - **Same contract month**: Identical delivery period
-- **Same brokergroupid**: Same broker handling the trade
 
 ### Required Matching Fields for Cracks
 
-All 6 fields must match exactly (with unit conversion applied where needed):
+All fields must match exactly (with unit conversion tolerance where applicable):
 
 1. **productname** - Must contain "crack" and match exactly after normalization
 2. **contractmonth** - Contract delivery month must match exactly
-3. **price** - Trade execution price must be identical (no price tolerance for crack matches)
-4. **brokergroupid** - Broker group must match exactly
-5. **quantityunits** - Quantity must match after unit conversion within tolerance (±100 BBL or ±50 MT)
-6. **b/s** - Buy/Sell indicator must match exactly after normalization
+3. **price** - Trade execution price must match exactly
+4. **quantityunits** - Quantity within unit conversion tolerance (±500 BBL or ±70 MT)
+5. **b/s** - Buy/Sell indicator must match exactly after normalization
 
 ### Crack Matching Logic
 
@@ -410,17 +420,15 @@ Rule 3 specifically handles MT→BBL conversion scenarios where:
 
 ### Definition
 
-A **complex crack match** occurs when a trader executes a crack spread trade that corresponds to a combination of two separate exchange trades: the base product trade and a Brent swap trade. This represents a more sophisticated crack trading strategy where the crack spread is calculated from the differential between the refined product and crude oil (Brent) prices.
+A **complex crack match** occurs when a trader executes a crack spread trade that corresponds to two separate exchange trades: a base product trade and a Brent swap trade. This high-confidence match type (80%) handles sophisticated crack trading strategies where the crack spread is calculated from the price differential between refined product and crude oil.
 
-**Processing Order**: Complex crack matching is performed AFTER other simplier matching types have been completed. This handles more complex scenarios where crack products need to be matched against combinations of base product + Brent swap trades.
+**Key Formula**: `Crack Price = (Base Product Price ÷ Conversion Ratio) - Brent Swap Price`
 
 ### Complex Crack Trade Identification
 
-#### Key Relationship:
-
-- **Crack Product Formula**: `Crack Product = Base Product - Brent Swap`
-- **Universal Application**: This relationship holds for any crack product (e.g., "380cst crack" = "380cst" - "brent swap")
-- **2-Leg Exchange Structure**: Exchange shows two separate trades (base product + brent swap), trader shows single crack trade
+- **Pattern**: 1 trader crack trade ↔ 2 exchange trades (base product + brent swap)
+- **Product Relationship**: "380cst crack" matches "380cst" + "brent swap"
+- **Price Relationship**: Crack price calculated from base product and brent swap differential
 
 #### Required Exchange Components:
 
@@ -437,28 +445,19 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 
 ### Required Matching Fields for Complex Cracks
 
-1. **Product Relationship**: Trader crack product base name must match exchange base product
+1. **Product Relationship**: Crack product base name matches exchange base product
+   - "380cst crack" ↔ "380cst" + "brent swap"
 
-   - `"380cst crack"` matches with `"380cst"` + `"brent swap"`
-   - `"marine 0.5% crack"` matches with `"marine 0.5%"` + `"brent swap"`
+2. **Contract Month**: All trades must have identical contract months
 
-2. **Contract Month**: All three trades (base product, brent swap, crack) must have identical contract months
+3. **Quantity Matching**: Quantities must align within tolerance (±500 BBL or ±70 MT)
 
-3. **Quantity Matching**: After unit conversion, quantities must align:
+4. **B/S Direction Logic**: 
+   - Sell Crack = Sell Base + Buy Brent
+   - Buy Crack = Buy Base + Sell Brent
 
-   - Exchange base product quantity = trader crack quantity
-   - Exchange brent swap quantity (converted from BBL to MT) ≈ trader crack quantity
+5. **Price Calculation**: Must match exactly using product-specific conversion ratios
 
-4. **B/S Direction Logic**:
-
-   - **Sell Crack** = **Sell Base Product** + **Buy Brent Swap**
-   - **Buy Crack** = **Buy Base Product** + **Sell Brent Swap**
-
-5. **Price Calculation**: `(Base Product Price ÷ Product_Ratio) - Brent Swap Price = Crack Price`
-
-   - Uses product-specific conversion ratios (6.35 for marine 0.5%/380cst, 8.9 for naphtha, 7.0 default)
-
-6. **Broker Group**: All trades must have matching brokergroupid
 
 ### Unit Conversion for Complex Cracks
 
@@ -529,8 +528,6 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
    - Trader crack price: 3.35
    - **Perfect match**: 3.35 = 3.35
 
-6. **Broker Group**: ✅
-   - All trades: brokergroupid = 3
 
 **Result:** ✅ **COMPLEX CRACK MATCH**
 
@@ -549,7 +546,6 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 #### Matching Tolerance:
 
 - **Quantity Tolerance**: ±100 MT difference allowed for unit conversion rounding
-- **Price Tolerance**: ±0.01 difference allowed for calculation precision
 - **Product Name Matching**: Case-insensitive, normalized comparison
 
 ### Processing Notes
@@ -563,50 +559,31 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 
 ### Definition
 
-A **product spread match** occurs when a trader executes a spread trade between two different products that appears as separate individual product trades in the exchange data but as a combined product spread notation in the trader data. This handles cases where product combinations are represented differently between data sources.
+A **product spread match** occurs when exchange data shows a hyphenated product (e.g., "marine 0.5%-380cst") that corresponds to separate component trades in trader data. This medium-confidence match type (75%) handles product combination spreads where data sources represent the same trade differently.
 
-**Processing Order**: Product spread matching is performed AFTER exact matching, spread matching, crack matching, and aggregation matching have been completed. This handles remaining unmatched trades that represent product combinations rather than contract month spreads.
+**Key Pattern**: 1 exchange hyphenated product ↔ 2 trader component product trades
 
 ### Product Spread Trade Identification
 
-#### Key Characteristics:
-
-- **Product combination notation**: Exchange uses hyphenated product names (e.g., "marine 0.5%-380cst")
-- **Separate product trades**: Trader data shows individual trades for each component product
-- **Price relationship**: Spread price calculation matches the price differential between products. **Usually** 1 leg of the price is the spread price and the other leg is 0
-- **Opposite B/S directions**: Component products have opposite buy/sell directions
-- **Same fundamental details**: Contract month, quantity, and broker group must match
-
-#### Exchange Data Indicators:
-
-- **Hyphenated product name**: Contains "-" separator indicating product spread (e.g., "marine 0.5%-380cst")
-- **Single trade entry**: Shows as one consolidated spread trade
-- **Spread price**: Price represents the differential between the two products
-
-#### Trader Data Indicators:
-
-- **Separate product trades**: Two individual trades for each component product
-- **Opposite B/S directions**: One product "Bought", the other "Sold"
-- **Same quantity**: Both component trades have identical quantity
-- **Price calculation**: Price differential matches exchange price
+- **Exchange Pattern**: Hyphenated product names ("marine 0.5%-380cst")  
+- **Trader Pattern**: Separate trades for each component (one with price, one with price=0)
+- **Price Relationship**: First component price - second component price = spread price
+- **Direction Logic**: Opposite B/S directions between components
 
 **IMPORTANT**: Timestamp matching is NOT required for product spread matching. Traders may enter component trades at different times due to manual entry processes or operational workflows.
 
 ### Required Matching Fields for Product Spreads
 
-1. **Product relationship**: Exchange hyphenated name must match trader component products
-
-   - "marine 0.5%-380cst" matches "marine 0.5%" + "380cst"
+1. **Product relationship**: Hyphenated product matches component products
+   - "marine 0.5%-380cst" ↔ "marine 0.5%" + "380cst"
 
 2. **Contract month**: All trades must have identical contract months
 
-3. **Quantity**: All trades must have identical quantities
+3. **Quantity**: All trades must have identical quantities  
 
-4. **Broker group**: All trades must have matching brokergroupid
+4. **B/S direction logic**: Component trades must have opposite directions
 
-5. **B/S direction logic**: Component trades must have opposite directions
-
-6. **Price calculation**: Exchange price must equal trader price differential
+5. **Price calculation**: Exchange price must equal trader price differential exactly
 
 ### Product Spread Direction Logic
 
@@ -658,11 +635,7 @@ A **product spread match** occurs when a trader executes a spread trade between 
 
    - All trades: 3000
 
-4. **Broker Group**: ✅
-
-   - All trades: brokergroupid = 3
-
-5. **B/S Direction Logic**: ✅
+4. **B/S Direction Logic**: ✅
 
    - Exchange: **Sell** marine 0.5%-380cst spread
    - Trader: **Sell** marine 0.5% + **Buy** 380cst
@@ -720,19 +693,15 @@ A **product spread match** occurs when a trader executes a spread trade between 
 
 ### Definition
 
-An **aggregation match** occurs when the same trade is represented differently between sources - either split into multiple smaller entries in one source and combined in the other, or vice versa. This handles cases where trade quantities are disaggregated or aggregated between the two data sources.
+An **aggregation match** occurs when the same trade appears split into multiple entries in one source and as a single combined entry in the other source. This medium-confidence match type (72%) handles quantity disaggregation/aggregation between data sources.
 
-**Processing Order**: Aggregation matching is performed AFTER exact matching, spread matching, and crack matching have been completed. This handles remaining unmatched trades that may be split or combined representations of the same underlying trade.
+**Key Pattern**: Multiple small trades ↔ Single large trade (bidirectional)
 
 ### Aggregation Trade Identification
 
-#### Key Characteristics:
-
-- **Same fundamental trade details**: Product, contract month, price, broker group, and B/S direction must match
-- **Quantity relationship**: Sum of smaller trades equals the larger single trade
-- **Same brokergroupid**: All trades must be from the same broker group
-
-**IMPORTANT**: Timestamp matching is NOT strictly required for aggregation matching. Traders may enter aggregated trades at different times due to manual entry processes, system delays, or operational workflows.
+- **Identical details**: Product, contract month, price, B/S direction must match exactly
+- **Quantity relationship**: Sum of multiple trades = single trade quantity
+- **No timestamp requirement**: Aggregated entries may have different timestamps
 
 ### Types of Aggregation Scenarios
 
@@ -751,9 +720,8 @@ An **aggregation match** occurs when the same trade is represented differently b
 1. **productname** - Must match exactly (after normalization)
 2. **contractmonth** - Contract delivery month must be identical
 3. **price** - Trade execution price must be identical across all entries
-4. **brokergroupid** - Broker group must match for all entries
-5. **b/s** - Buy/Sell indicator must match (after normalization)
-6. **Quantity sum validation** - Sum of split trades must equal aggregated trade
+4. **b/s** - Buy/Sell indicator must match (after normalization)
+5. **Quantity sum validation** - Sum of split trades must equal aggregated trade exactly
 
 ### Example: Aggregation Match (Multiple Traders → Single Exchange)
 
@@ -822,9 +790,9 @@ An **aggregation match** occurs when the same trade is represented differently b
 
 ### Definition
 
-An **aggregated complex crack match** occurs when a trader executes a crack spread trade that corresponds to a combination of multiple exchange trades: multiple split base product trades and a Brent swap trade. This represents the most complex trading scenario where base products are aggregated before applying complex crack matching logic.
+An **aggregated complex crack match** occurs when a trader crack trade corresponds to multiple split base product trades plus a Brent swap trade in exchange data. This low-confidence match type (65%) combines aggregation logic with complex crack matching for the most sophisticated trading scenarios.
 
-**Processing Order**: Aggregated complex crack matching is performed AFTER all other matching types have been completed, including simple complex crack matching. This ensures we only attempt this complex scenario when simpler matches have failed.
+**Key Pattern**: 1 trader crack trade ↔ Multiple exchange base product trades + 1 brent swap trade
 
 ### Aggregated Complex Crack Trade Identification
 
@@ -860,7 +828,6 @@ An **aggregated complex crack match** occurs when a trader executes a crack spre
 4. **Quantity Matching**: After aggregation and unit conversion, quantities must align
 5. **B/S Direction Logic**: Same as simple complex crack matching
 6. **Price Calculation**: `(Aggregated Base Product Price ÷ 6.35) - Brent Swap Price = Crack Price`
-7. **Broker Group**: All trades must have matching brokergroupid
 
 ### Example: Aggregated Complex Crack Match
 
@@ -909,8 +876,8 @@ An **aggregated complex crack match** occurs when a trader executes a crack spre
    - Trader crack price: 11.05
    - **Perfect match**: 11.05 = 11.05
 
-5. **Contract Month & Broker Group**: ✅
-   - All trades: Aug-25, brokergroupid = 3
+5. **Contract Month**: ✅
+   - All trades: Aug-25
 
 **Result:** ✅ **AGGREGATED COMPLEX CRACK MATCH**
 
@@ -921,13 +888,12 @@ An **aggregated complex crack match** occurs when a trader executes a crack spre
 1. **Process Last**: Handle aggregated complex cracks only after other simplier matching types have been completed
 2. **Preserve Simple Logic**: Never interfere with standard complex crack matching
 3. **Aggregation First**: Group potential base product trades by characteristics before attempting crack matching
-4. **Higher Tolerances**: Apply increased tolerances for quantity (±100 MT) and price (±0.01) due to complexity
+4. **Higher Tolerances**: Apply increased tolerances for quantity (±100 MT) due to complexity
 5. **Lower Confidence**: Apply reduced confidence score (65%) due to multiple complexity factors
 
 #### Matching Tolerance:
 
 - **Quantity Tolerance**: ±100 MT difference allowed for aggregation + unit conversion precision
-- **Price Tolerance**: ±0.01 difference allowed for aggregated calculation complexity
 - **Product Name Matching**: Case-insensitive, normalized comparison
 
 #### Edge Case Priority:
@@ -948,9 +914,9 @@ An **aggregated complex crack match** occurs when a trader executes a crack spre
 
 ### Definition
 
-An **aggregated spread match** occurs when a trader executes a spread trade (contract month spread) that appears as a calculated spread in trader data (one leg with price, other with 0.00) but corresponds to multiple disaggregated exchange trades per contract month that must first be aggregated before standard spread matching logic can be applied. This combines the aggregation logic from Rule 6 with the spread matching logic from Rule 2.
+An **aggregated spread match** occurs when a trader spread trade corresponds to multiple exchange trades per contract month that must first be aggregated before applying spread matching logic. This medium-confidence match type (70%) combines aggregation and spread matching techniques.
 
-**Processing Order**: Aggregated spread matching is performed AFTER aggregated complex crack matching but BEFORE crack roll matching. This handles spread scenarios where exchange data contains multiple smaller trades per contract month that need aggregation first.
+**Key Pattern**: 2 trader spread trades ↔ Multiple exchange trades (grouped by contract month)
 
 ### Aggregated Spread Trade Identification
 
@@ -1004,7 +970,6 @@ An **aggregated spread match** occurs when a trader executes a spread trade (con
 3. **B/S Direction Logic**: Aggregated exchange directions must match trader spread directions
 4. **Quantity Validation**: Aggregated exchange quantities must equal trader spread quantities
 5. **Price Differential**: Price difference between aggregated groups must equal trader spread price
-6. **Broker Group**: All trades must have matching brokergroupid
 
 ### Example: Aggregated Spread Match
 
@@ -1060,10 +1025,7 @@ An **aggregated spread match** occurs when a trader executes a spread trade (con
    - Trader: Jul-25 Bought, Sep-25 Sold
    - Exchange: Jul-25 Bought, Sep-25 Sold
 
-5. **Broker Group**: ✅
-   - All trades: brokergroupid = 3
-
-6. **Price Differential Calculation**: ✅
+5. **Price Differential Calculation**: ✅
    - Exchange spread: 412.00 - 389.00 = 23.00
    - Trader spread: 23.00 - 0.00 = 23.00
    - **Perfect match**: 23.00 = 23.00
@@ -1086,7 +1048,7 @@ An **aggregated spread match** occurs when a trader executes a spread trade (con
 #### Matching Tolerance:
 
 - **Aggregation Tolerance**: No tolerance - quantities must sum exactly
-- **Price Tolerance**: Spread price calculation must be exact
+- **Price validation**: Spread price calculation must be exact
 - **Quantity Matching**: Aggregated quantities must equal trader quantities exactly
 
 #### Critical Implementation Notes:
@@ -1109,9 +1071,9 @@ An **aggregated spread match** occurs when a trader executes a spread trade (con
 
 ### Definition
 
-A **crack roll match** occurs when a trader executes a calendar spread of crack positions (rolling from one contract month to another) that appears as consecutive crack trades in trader data but corresponds to two complete crack positions (base product + brent swap) in exchange data for each contract month.
+A **crack roll match** occurs when a trader executes a calendar spread of crack positions that appears as consecutive crack trades (one with price, one with 0.0) but corresponds to two complete crack positions in exchange data. This low-confidence match type (65%) handles crack calendar spread scenarios with enhanced tolerance.
 
-**Processing Order**: Crack roll matching is performed as the second-to-last step, after all other matching types except the complex decomposition netting rule. This handles sophisticated crack calendar spread scenarios.
+**Key Pattern**: 2 consecutive trader crack trades ↔ 4 exchange trades (2 complete crack positions)
 
 ### Crack Roll Trade Identification
 
@@ -1162,7 +1124,6 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
    - One calculated crack price matches trader non-zero price
    - Price difference between calculated cracks matches trader spread
 
-6. **Broker Group**: All trades must have matching brokergroupid
 
 ### Unit Conversion with Enhanced Tolerance
 
@@ -1227,8 +1188,7 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 2. **Contract Months**: Jul-25 and Sep-25 match ✅
 3. **Quantities**: All 6000 MT (with conversion tolerance) ✅
 4. **B/S Pattern**: Opposite directions (Sold/Bought) ✅
-5. **Broker Group**: All trades brokergroupid = 3 ✅
-6. **Price Calculation**: Roll spread matches trader pattern ✅
+5. **Price Calculation**: Roll spread matches trader pattern ✅
 
 **Result:** ✅ **CRACK ROLL MATCH**
 
@@ -1245,7 +1205,6 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 #### Matching Tolerance:
 
 - **Quantity Tolerance**: ±145 MT minimum for unit conversion differences
-- **Price Tolerance**: ±0.01 difference allowed for calculation precision
 - **Index Proximity**: Allow some flexibility in consecutive indexing (±2 indices)
 
 #### Critical Implementation Notes:
@@ -1267,9 +1226,9 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 
 ### Definition
 
-A **cross-month decomposition match** occurs when a trader executes a complex position across different contract months that appears as consecutive trades with a price pattern (one actual price, one 0.0 price) in trader data, but corresponds to separate component trades in exchange data that need to be pieced together using crack-like calculation logic.
+A **cross-month decomposition match** occurs when a trader executes a complex cross-month position that appears as consecutive trades (one with price, one with 0.0) but corresponds to separate component trades in exchange data using crack-like calculations. This low-confidence match type (60%) handles sophisticated cross-month scenarios.
 
-**Processing Order**: Cross-month decomposition matching is performed as one of the final steps, after crack roll matching but before the complex decomposition netting rule. This handles sophisticated cross-month trading scenarios that use similar calculation patterns to crack spreads but are not necessarily crack products.
+**Key Pattern**: 2 consecutive trader trades (different months) ↔ 2 exchange component trades
 
 ### Cross-Month Decomposition Trade Identification
 
@@ -1318,13 +1277,12 @@ A **cross-month decomposition match** occurs when a trader executes a complex po
 4. **Price Calculation Validation**: Calculated exchange price must match trader's non-zero price
 
    - Use formula: (base_product_price ÷ 6.35) - swap_price = trader_price
-   - Must match within standard price tolerance
+   - Must match exactly
 
 5. **B/S Direction Logic**: Exchange components must have appropriate buy/sell directions
 
    - For crack-like calculations: opposite directions between base product and swap
 
-6. **Broker Group**: All trades must have matching brokergroupid
 
 ### Example: Cross-Month Decomposition Match
 
@@ -1379,7 +1337,7 @@ A **cross-month decomposition match** occurs when a trader executes a complex po
 - Formula: (380cst_price ÷ 6.35) - brent_swap_price
 - Calculation: (466.09 ÷ 6.35) - 75.0 = 73.39 - 75.0 = -1.61 ≈ -1.6
 - Trader price: -1.6
-- **Price match**: -1.61 ≈ -1.6 (within tolerance) ✅
+- **Price match**: -1.61 ≈ -1.6 ✅
 
 **Step 6: Final Validations**
 
@@ -1387,8 +1345,7 @@ A **cross-month decomposition match** occurs when a trader executes a complex po
 2. **Contract Months**: Aug-25 and Jul-25 match ✅
 3. **Quantities**: 10,000 MT equivalent (with conversion tolerance) ✅
 4. **B/S Pattern**: Matching directions ✅
-5. **Broker Group**: All trades brokergroupid = 3 ✅
-6. **Price Calculation**: Formula result matches trader price ✅
+5. **Price Calculation**: Formula result matches trader price ✅
 
 **Result:** ✅ **CROSS-MONTH DECOMPOSITION MATCH**
 
@@ -1406,7 +1363,6 @@ A **cross-month decomposition match** occurs when a trader executes a complex po
 #### Matching Tolerance:
 
 - **Quantity Tolerance**: ±145 MT minimum for unit conversion differences
-- **Price Tolerance**: ±0.01 difference allowed for calculation precision
 - **Index Proximity**: Allow some flexibility in consecutive indexing
 - **Unit Conversion**: Enhanced tolerance for BBL ↔ MT conversions
 
@@ -1430,9 +1386,9 @@ A **cross-month decomposition match** occurs when a trader executes a complex po
 
 ### Definition
 
-A **complex product spread decomposition and netting match** occurs when exchange data contains both product spread trades (hyphenated products) and individual component product trades, which when mathematically decomposed and netted, reveal residual positions that match trader spread positions. This represents the most sophisticated matching scenario where multiple exchange trades are decomposed, netted against each other, and the residual positions matched to trader data.
+A **complex product spread decomposition and netting match** occurs when exchange data contains both hyphenated products and individual component trades that, when mathematically decomposed and netted, reveal residual positions matching trader data. This lowest-confidence match type (60%) represents the most sophisticated scenario, processed only when all other matches fail.
 
-**Processing Order**: This matching is performed as the FINAL step after ALL other matching types have been completed. This ensures we only attempt this extremely complex scenario when all simpler matches have failed.
+**Key Pattern**: Multiple exchange trades (spreads + components) ↔ Trader residual positions after netting
 
 ### Complex Decomposition Trade Identification
 
@@ -1561,12 +1517,11 @@ A **complex product spread decomposition and netting match** occurs when exchang
 
 **All Validations:**
 
-1. **Broker Group**: All trades have brokergroupid = 3 ✅
-2. **Contract Months**: Jul-25 and Aug-25 consistently ✅
-3. **Quantities**: All trades 5000 units ✅
-4. **Perfect Component Netting**: marine 0.5% positions net to zero ✅
-5. **Residual Position Matching**: 380cst pattern matches trader exactly ✅
-6. **Price Calculation**: Derived spread (5.0) matches trader spread (5.0) ✅
+1. **Contract Months**: Jul-25 and Aug-25 consistently ✅
+2. **Quantities**: All trades 5000 units ✅
+3. **Perfect Component Netting**: marine 0.5% positions net to zero ✅
+4. **Residual Position Matching**: 380cst pattern matches trader exactly ✅
+5. **Price Calculation**: Derived spread (5.0) matches trader spread (5.0) ✅
 
 **Result:** ✅ **COMPLEX PRODUCT SPREAD DECOMPOSITION AND NETTING MATCH**
 
@@ -1585,7 +1540,6 @@ A **complex product spread decomposition and netting match** occurs when exchang
 
 #### Matching Tolerance:
 
-- **Price Tolerance**: ±0.01 difference allowed for calculation precision
 - **Quantity Matching**: Must be exact (no tolerance for this complex scenario)
 - **Netting Requirement**: Component positions must net to exactly zero (no tolerance)
 
