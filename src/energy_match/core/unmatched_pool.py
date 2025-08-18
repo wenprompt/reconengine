@@ -3,6 +3,7 @@
 from typing import List, Set, Dict, Optional, Tuple, Any
 from collections import defaultdict
 import logging
+from decimal import Decimal
 
 from ..models import Trade, TradeSource, MatchResult
 
@@ -208,7 +209,7 @@ class UnmatchedPoolManager:
             "match_rates": {
                 "trader": f"{trader_match_rate:.1f}%",
                 "exchange": f"{exchange_match_rate:.1f}%",
-                "overall": f"{(len(self._match_history) * 2) / (trader_original + exchange_original) * 100:.1f}%"
+                "overall": f"{(Decimal(str(trader_match_rate)) * Decimal('0.5') + Decimal(str(exchange_match_rate)) * Decimal('0.5')):.1f}%"
             },
             "matches_by_rule": dict(match_by_rule)
         }
