@@ -204,6 +204,15 @@ The AggregatedSpreadMatcher implements sophisticated two-phase spread matching w
 - **Configuration-Driven**: Leverages ConfigManager for confidence levels (70%) and universal field mappings
 - **Real-World Testing**: Successfully matches complex scenarios like T_0032 + T_0033 spread against aggregated E_0055 + E_0056 + additional trades
 
+### Universal Fields Integration in Rule 8
+
+The AggregatedSpreadMatcher demonstrates advanced universal fields usage:
+
+- **Dynamic Grouping**: Uses `create_universal_signature()` with rule-specific fields for trader grouping
+- **Validation Logic**: Uses `validate_universal_fields()` in spread pair validation for universal field consistency
+- **Match Results**: Uses `get_universal_matched_fields()` for comprehensive field reporting in match results
+- **Clean Implementation**: Removed unused imports, maintained type safety, and followed established architectural patterns
+
 ### ConfigManager
 
 Centralized configuration management with Pydantic validation:

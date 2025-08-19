@@ -106,6 +106,18 @@ To add new universal fields (e.g., `traderid`):
 
 The matching engine processes trades in order of confidence level to ensure the most certain matches are identified first, leaving more complex scenarios for later processing:
 
+### Rule Directionality Summary
+
+**Important Design Note**: The matching rules have different directional capabilities depending on real-world trading patterns:
+
+- **✅ BIDIRECTIONAL RULES**: Rule 6 (Aggregation) - Handles both trader→exchange and exchange→trader scenarios
+- **❌ UNIDIRECTIONAL RULES**: Rules 7, 8, 9 - Handle only specific directional scenarios based on typical trading patterns
+  - Rule 7: Trader crack → Exchange aggregated base products + brent swap
+  - Rule 8: Trader spread → Exchange aggregated trades  
+  - Rule 9: Single crack trade → Multiple crack trades (typically trader MT → exchange BBL)
+
+**Future Enhancement**: Rules 7-9 could be extended to support bidirectional matching if additional trading scenarios are identified.
+
 1. **Exact Matches** (Confidence: 100%) - Highest certainty, processed first
 2. **Spread Matches** (Confidence: 95%) - Calendar spreads between contract months
 3. **Crack Matches** (Confidence: 90%) - Crack spread trades with unit conversion
@@ -698,6 +710,8 @@ An **aggregation match** occurs when the same trade appears split into multiple 
 
 **Key Pattern**: Multiple small trades ↔ Single large trade (bidirectional)
 
+**Directionality**: ✅ **BIDIRECTIONAL** - Handles both trader→exchange and exchange→trader aggregation scenarios
+
 ### Aggregation Trade Identification
 
 - **Identical details**: Product, contract month, price, B/S direction must match exactly
@@ -794,6 +808,8 @@ An **aggregation match** occurs when the same trade appears split into multiple 
 An **aggregated complex crack match** occurs when a trader crack trade corresponds to multiple split base product trades plus a Brent swap trade in exchange data. This low-confidence match type (65%) combines aggregation logic with complex crack matching for the most sophisticated trading scenarios.
 
 **Key Pattern**: 1 trader crack trade ↔ Multiple exchange base product trades + 1 brent swap trade
+
+**Directionality**: ❌ **UNIDIRECTIONAL** - Only handles trader crack → exchange aggregated base products + brent swap
 
 ### Aggregated Complex Crack Trade Identification
 
@@ -918,6 +934,8 @@ An **aggregated complex crack match** occurs when a trader crack trade correspon
 An **aggregated spread match** occurs when a trader spread trade corresponds to multiple exchange trades per contract month that must first be aggregated before applying spread matching logic. This medium-confidence match type (70%) combines aggregation and spread matching techniques.
 
 **Key Pattern**: 2 trader spread trades ↔ Multiple exchange trades (grouped by contract month)
+
+**Directionality**: ❌ **UNIDIRECTIONAL** - Only handles trader spread → exchange aggregated trades
 
 ### Aggregated Spread Trade Identification
 
@@ -1074,6 +1092,8 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 An **aggregated crack match** occurs when a single crack trade from one source corresponds to multiple crack trades from the other source, requiring both quantity aggregation and unit conversion with tolerance. This rule combines the logic of Rule 3 (Crack Matching) and Rule 6 (Aggregation).
 
 **Key Pattern**: 1 trade (in MT) ↔ N trades (in BBL) for the same crack product.
+
+**Directionality**: ❌ **UNIDIRECTIONAL** - Only handles one direction of aggregation (typically trader MT → exchange multiple BBL)
 
 ### Aggregated Crack Trade Identification
 - **Identical Details**: All trades involved (one and many) must have the same `productname` (containing "crack"), `contractmonth`, `price`, and `b/s` direction after normalization.
