@@ -9,5 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
-# data files
-# src/energy_match/data/
+# data files (sensitive)
+src/energy_match/data/*
+/traderfiles/input/*
+/traderfiles/output/*

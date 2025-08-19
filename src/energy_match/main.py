@@ -218,11 +218,6 @@ class EnergyTradeMatchingEngine:
                 aggregated_complex_crack_matches = (
                     aggregated_complex_crack_matcher.find_matches(pool_manager)
                 )
-
-                # Record matches in pool manager using proper integration
-                for match in aggregated_complex_crack_matches:
-                    pool_manager.record_match(match)
-
                 all_matches.extend(aggregated_complex_crack_matches)
 
                 progress.remove_task(task)
