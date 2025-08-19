@@ -9,8 +9,9 @@ This is a **Reconciliation Engine** that contains multiple specialized matching 
 ### Energy Match Module Summary
 
 The energy matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 9 implemented rules:
+
 - **Rules 1-3**: Basic matching (exact, spread, crack)
-- **Rules 4-6**: Complex matching (complex crack, product spread, aggregation) 
+- **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
 - **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, aggregated crack)
 
 Each matching system will have its own `docs/rules.md` file for detailed rule specifications.
@@ -128,7 +129,6 @@ src/energy_match/
 - **User Experience**: Beautiful formatting for complex matching results
 - **Debugging Support**: Detailed logging and error reporting
 
-
 ## 🧱 Code Quality Standards
 
 ### File and Function Limits
@@ -184,6 +184,11 @@ uv run python -m mypy src/energy_match
 # Run energy match system (example - adapt path for other modules)
 uv run python -m src.energy_match.main
 uv run python -m src.energy_match.main --help  # See all options
+uv run python -m src.energy_match.main --show-rules  # Display detailed rule information
+
+###  logging and debugging
+uv run python -m src.energy_match.main --show-logs  # Show detailed logging output
+uv run python -m src.energy_match.main --show-logs --log-level DEBUG  # Enable debug logging
 ```
 
 ## 📋 Style & Conventions
@@ -255,13 +260,14 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 # 📊 Energy Match Module Implementation Progress
 
-*The following sections document the specific implementation progress and updates for the `src/energy_match/` module.*
+_The following sections document the specific implementation progress and updates for the `src/energy_match/` module._
 
 ## ✅ Current Implementation Status
 
 **Energy Match Module Completed**:
+
 - **9 Sequential Rules**: Implemented with 90.5% match rate on sample data
-- **Universal Field Validation**: JSON-driven configuration system  
+- **Universal Field Validation**: JSON-driven configuration system
 - **Pydantic v2 Models**: Complete type safety and validation
 - **Performance Optimized**: O(N+M) algorithms with intelligent indexing
 - **Rich CLI Interface**: Beautiful terminal output with detailed statistics
@@ -285,14 +291,13 @@ The energy module implements a shared, product-specific unit conversion architec
 The energy CSV loader uses the normalizer for consistent data processing:
 
 - **Automatic Normalization**: All fields normalized during loading
-- **Type Safety**: Proper pandas DataFrame type handling  
+- **Type Safety**: Proper pandas DataFrame type handling
 - **Error Handling**: Graceful handling of malformed data
 - **Spread Detection**: Identifies spread trades based on tradeid presence
 
-
 ---
 
-*End of Energy Match Module specific documentation*
+_End of Energy Match Module specific documentation_
 
 ## 🏗️ Pydantic v2 Data Validation Architecture
 
@@ -305,23 +310,23 @@ from typing import Optional, List
 
 class Trade(BaseModel):
     """Immutable trade model with strict validation."""
-    
+
     model_config = ConfigDict(
         frozen=True,  # Immutable for thread safety
         validate_assignment=True,  # Validate on field updates
         str_strip_whitespace=True  # Auto-clean string inputs
     )
-    
+
     trade_id: str = Field(..., min_length=1, max_length=50)
     product_name: str = Field(..., min_length=1)
     quantity_mt: Decimal = Field(..., gt=0, decimal_places=2)
     price: Decimal = Field(..., decimal_places=2)
     buy_sell: str = Field(..., pattern=r'^[BS]$')
-    
+
     # Universal fields - must match across all rules
     broker_group_id: Optional[int] = None
     exch_clearing_acct_id: Optional[str] = None
-    
+
     @property
     def quantity_bbl(self) -> Decimal:
         """Dynamic conversion property."""
@@ -333,15 +338,15 @@ class Trade(BaseModel):
 ```python
 class MatchingConfig(BaseModel):
     """Centralized configuration with validation."""
-    
+
     model_config = ConfigDict(frozen=True, validate_assignment=True)
-    
+
     rule_confidence_levels: Dict[int, Decimal] = Field(
         default_factory=lambda: {1: Decimal("100"), 2: Decimal("95")}
     )
     quantity_tolerance_bbl: Decimal = Field(default=Decimal("100"), gt=0)
     processing_order: List[int] = Field(default=[1, 2, 3, 4, 5, 6, 7, 8, 9])
-    
+
     @field_validator('rule_confidence_levels')
     def validate_confidence_levels(cls, v):
         for rule, confidence in v.items():
@@ -355,7 +360,7 @@ class MatchingConfig(BaseModel):
 ```python
 class MatchResult(BaseModel):
     """Structured match output with metadata."""
-    
+
     match_id: str
     match_type: MatchType  # Enum for type safety
     confidence: Decimal = Field(..., ge=0, le=100)
@@ -378,7 +383,7 @@ Universal fields ensure consistency across ALL matching rules. They are configur
 {
   "universal_matching_fields": {
     "description": "Fields that must match across ALL matching rules",
-    "required_fields": ["brokergroupid", "exchclearingacctid"], 
+    "required_fields": ["brokergroupid", "exchclearingacctid"],
     "field_mappings": {
       "brokergroupid": "broker_group_id",
       "exchclearingacctid": "exch_clearing_acct_id"
@@ -395,12 +400,12 @@ Universal fields ensure consistency across ALL matching rules. They are configur
 ```python
 class BaseMatcher:
     """Base matcher providing universal field validation to all matchers."""
-    
+
     def __init__(self, config_manager: ConfigManager):
         self.config_manager = config_manager
         self.universal_fields = config_manager.get_universal_matching_fields()
         self.field_mappings = config_manager.get_universal_field_mappings()
-    
+
     def validate_universal_fields(self, trade1: Trade, trade2: Trade) -> bool:
         """Validate universal fields match between trades."""
         for config_field in self.universal_fields:
@@ -410,7 +415,7 @@ class BaseMatcher:
             if value1 != value2:
                 return False
         return True
-    
+
     def create_universal_signature(self, trade: Trade, rule_specific_fields: List) -> Tuple:
         """Create matching signature including universal fields."""
         signature_parts = rule_specific_fields.copy()
@@ -418,7 +423,7 @@ class BaseMatcher:
             trade_attribute = self.field_mappings[config_field]
             signature_parts.append(getattr(trade, trade_attribute))
         return tuple(signature_parts)
-    
+
     def get_universal_matched_fields(self, rule_fields: List[str]) -> List[str]:
         """Combine rule-specific fields with universal fields for match results."""
         return rule_fields + [self.field_mappings[f] for f in self.universal_fields]
@@ -429,16 +434,18 @@ class BaseMatcher:
 To add universal fields that apply to ALL matching rules:
 
 1. **Update JSON Configuration**:
+
 ```json
 "required_fields": ["brokergroupid", "exchclearingacctid", "traderid"],
 "field_mappings": {
   "brokergroupid": "broker_group_id",
-  "exchclearingacctid": "exch_clearing_acct_id", 
+  "exchclearingacctid": "exch_clearing_acct_id",
   "traderid": "trader_id"
 }
 ```
 
 2. **Update Trade Model**:
+
 ```python
 class Trade(BaseModel):
     # Existing fields...
@@ -485,15 +492,15 @@ from ...energy_match.matchers.base_matcher import BaseMatcher as EnergyBaseMatch
 
 class FFABaseMatcher(EnergyBaseMatcher):
     """FFA-specific base matcher inheriting universal field validation."""
-    
+
     def __init__(self, config_manager: FFAConfigManager):
         super().__init__(config_manager)
         # FFA-specific initialization
-        
-# In ffa_match/matchers/ffa_exact_matcher.py  
+
+# In ffa_match/matchers/ffa_exact_matcher.py
 class FFAExactMatcher(FFABaseMatcher):
     """FFA exact matching with inherited universal field validation."""
-    
+
     def find_matches(self, pool_manager) -> List[FFAMatchResult]:
         # FFA-specific matching logic
         # Universal fields automatically validated via parent class
@@ -605,4 +612,3 @@ def get_settings() -> Settings:
 # Usage
 settings = get_settings()
 ```
-

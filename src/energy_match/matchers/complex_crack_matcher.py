@@ -70,6 +70,7 @@ class ComplexCrackMatcher(BaseMatcher):
             match = self._find_complex_crack_match(crack_trade, exchange_trades, pool_manager)
             if match:
                 self.matches_found.append(match)
+                pool_manager.record_match(match)  # Record match to remove trades from pool
                 logger.info(
                     f"Found complex crack match: {crack_trade.product_name} "
                     f"{crack_trade.contract_month} {crack_trade.quantity}"

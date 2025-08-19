@@ -121,140 +121,77 @@ class EnergyTradeMatchingEngine:
 
             # Rule 1: Exact matching
             self.logger.info("Applying Rule 1: Exact matching...")
-            with self.displayer.create_progress_context(
-                "Finding exact matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                exact_matcher = ExactMatcher(self.config_manager)
-                exact_matches = exact_matcher.find_matches(pool_manager)
-                all_matches.extend(exact_matches)
-
-                progress.remove_task(task)
+            exact_matcher = ExactMatcher(self.config_manager)
+            exact_matches = exact_matcher.find_matches(pool_manager)
+            all_matches.extend(exact_matches)
 
             # Rule 2: Spread matching
             self.logger.info("Applying Rule 2: Spread matching...")
-            with self.displayer.create_progress_context(
-                "Finding spread matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                spread_matcher = SpreadMatcher(self.config_manager, self.normalizer)
-                spread_matches = spread_matcher.find_matches(pool_manager)
-                all_matches.extend(spread_matches)
-
-                progress.remove_task(task)
+            spread_matcher = SpreadMatcher(self.config_manager, self.normalizer)
+            spread_matches = spread_matcher.find_matches(pool_manager)
+            all_matches.extend(spread_matches)
 
             # Rule 3: Crack matching
             self.logger.info("Applying Rule 3: Crack matching...")
-            with self.displayer.create_progress_context(
-                "Finding crack matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                crack_matcher = CrackMatcher(self.config_manager, self.normalizer)
-                crack_matches = crack_matcher.find_matches(pool_manager)
-                all_matches.extend(crack_matches)
-
-                progress.remove_task(task)
+            crack_matcher = CrackMatcher(self.config_manager, self.normalizer)
+            crack_matches = crack_matcher.find_matches(pool_manager)
+            all_matches.extend(crack_matches)
 
             # Rule 4: Complex crack matching
             self.logger.info("Applying Rule 4: Complex crack matching...")
-            with self.displayer.create_progress_context(
-                "Finding complex crack matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                complex_crack_matcher = ComplexCrackMatcher(
-                    self.normalizer, self.config_manager
-                )
-                complex_crack_matches = complex_crack_matcher.find_matches(
-                    pool_manager  # Pass pool_manager directly
-                )
-                all_matches.extend(complex_crack_matches)
-
-                progress.remove_task(task)
+            complex_crack_matcher = ComplexCrackMatcher(
+                self.normalizer, self.config_manager
+            )
+            complex_crack_matches = complex_crack_matcher.find_matches(
+                pool_manager  # Pass pool_manager directly
+            )
+            all_matches.extend(complex_crack_matches)
 
             # Rule 5: Product spread matching
             self.logger.info("Applying Rule 5: Product spread matching...")
-            with self.displayer.create_progress_context(
-                "Finding product spread matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                product_spread_matcher = ProductSpreadMatcher(
-                    self.config_manager, self.normalizer
-                )
-                product_spread_matches = product_spread_matcher.find_matches(
-                    pool_manager
-                )
-                all_matches.extend(product_spread_matches)
-
-                progress.remove_task(task)
+            product_spread_matcher = ProductSpreadMatcher(
+                self.config_manager, self.normalizer
+            )
+            product_spread_matches = product_spread_matcher.find_matches(
+                pool_manager
+            )
+            all_matches.extend(product_spread_matches)
 
             # Rule 6: Aggregation matching
             self.logger.info("Applying Rule 6: Aggregation matching...")
-            with self.displayer.create_progress_context(
-                "Finding aggregation matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                aggregation_matcher = AggregationMatcher(self.config_manager)
-                aggregation_matches = aggregation_matcher.find_matches(pool_manager)
-                all_matches.extend(aggregation_matches)
-
-                progress.remove_task(task)
+            aggregation_matcher = AggregationMatcher(self.config_manager)
+            aggregation_matches = aggregation_matcher.find_matches(pool_manager)
+            all_matches.extend(aggregation_matches)
 
             # Rule 7: Aggregated complex crack matching
             self.logger.info("Applying Rule 7: Aggregated complex crack matching...")
-            with self.displayer.create_progress_context(
-                "Finding aggregated complex crack matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                aggregated_complex_crack_matcher = AggregatedComplexCrackMatcher(
-                    self.config_manager, self.normalizer
-                )
-                aggregated_complex_crack_matches = (
-                    aggregated_complex_crack_matcher.find_matches(pool_manager)
-                )
-                all_matches.extend(aggregated_complex_crack_matches)
-
-                progress.remove_task(task)
+            aggregated_complex_crack_matcher = AggregatedComplexCrackMatcher(
+                self.config_manager, self.normalizer
+            )
+            aggregated_complex_crack_matches = (
+                aggregated_complex_crack_matcher.find_matches(pool_manager)
+            )
+            all_matches.extend(aggregated_complex_crack_matches)
 
             # Rule 8: Aggregated spread matching
             self.logger.info("Applying Rule 8: Aggregated spread matching...")
-            with self.displayer.create_progress_context(
-                "Finding aggregated spread matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                aggregated_spread_matcher = AggregatedSpreadMatcher(
-                    self.config_manager, self.normalizer
-                )
-                aggregated_spread_matches = aggregated_spread_matcher.find_matches(
-                    pool_manager
-                )
-                all_matches.extend(aggregated_spread_matches)
-
-                progress.remove_task(task)
+            aggregated_spread_matcher = AggregatedSpreadMatcher(
+                self.config_manager, self.normalizer
+            )
+            aggregated_spread_matches = aggregated_spread_matcher.find_matches(
+                pool_manager
+            )
+            all_matches.extend(aggregated_spread_matches)
 
             # Rule 9: Aggregated crack matching
             self.logger.info("Applying Rule 9: Aggregated crack matching...")
-            with self.displayer.create_progress_context(
-                "Finding aggregated crack matches..."
-            ) as progress:
-                task = progress.add_task("Matching...", total=None)
-
-                aggregated_crack_matcher = AggregatedCrackMatcher(
-                    self.config_manager, self.normalizer
-                )
-                aggregated_crack_matches = aggregated_crack_matcher.find_matches(
-                    pool_manager
-                )
-                all_matches.extend(aggregated_crack_matches)
-
-                progress.remove_task(task)
+            aggregated_crack_matcher = AggregatedCrackMatcher(
+                self.config_manager, self.normalizer
+            )
+            aggregated_crack_matches = aggregated_crack_matcher.find_matches(
+                pool_manager
+            )
+            all_matches.extend(aggregated_crack_matches)
 
             # Step 5: Display results
             self.logger.info("Displaying results...")
