@@ -81,8 +81,211 @@ class SpreadMatcher(BaseMatcher):
             ((trade1.spread == "S" or trade2.spread == "S") or (trade1.price == 0 or trade2.price == 0))
         )
     
+    def _is_dealid_data_usable(self, exchange_trades: List[Trade]) -> bool:
+        """
+        Check if dealid data quality is sufficient for dealid/tradeid-based grouping.
+        
+        This method prevents attempting dealid/tradeid grouping when CSV parsing
+        has corrupted the data (e.g., converting large numbers to scientific notation).
+        
+        Returns:
+            bool: True if dealid data is distinct and usable, False if corrupted/identical
+        
+        Quality checks performed:
+            - At least some trades have dealid values (not all empty/None)
+            - Not all dealid values are identical (indicates parsing failure like 1.9E+13)
+            - No scientific notation patterns detected in dealid values
+            - Dealid values are reasonable length strings (not just 'nan' or similar)
+        """
+        # Extract dealid values from raw data, filtering out None/empty
+        dealids = []
+        for trade in exchange_trades:
+            dealid = trade.raw_data.get('dealid')
+            if dealid and str(dealid).strip() and str(dealid).lower() != 'nan':
+                dealids.append(str(dealid).strip())
+        
+        # Need at least some dealid values to be useful
+        if len(dealids) < 2:
+            logger.debug("Insufficient dealid data: less than 2 valid dealid values found")
+            return False
+        
+        # Check if all dealids are identical (indicates parsing failure)
+        unique_dealids = set(dealids)
+        if len(unique_dealids) == 1:
+            logger.debug(f"All dealids are identical ({list(unique_dealids)[0]}), indicating parsing failure")
+            return False
+        
+        # Check for scientific notation patterns (E+ or e+)
+        scientific_notation_count = sum(1 for d in dealids if 'E+' in d or 'e+' in d or 'E-' in d or 'e-' in d)
+        if scientific_notation_count > 0:
+            logger.debug(f"Scientific notation detected in {scientific_notation_count} dealid values")
+            return False
+        
+        logger.debug(f"DealID data quality check passed: {len(unique_dealids)} unique dealids found")
+        return True
+
+    def _group_exchange_spreads_by_dealid(self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> Dict[Tuple, List[Trade]]:
+        """
+        Group exchange trades using dealid/tradeid for enhanced spread detection.
+        
+        This method identifies spread pairs by looking for trades that share the same
+        dealid but have different tradeids - a pattern indicating linked spread legs.
+        
+        Process:
+            1. Group trades by dealid (same dealid = related trades)
+            2. Within each dealid group, find pairs with different tradeids
+            3. Validate each pair meets spread criteria:
+               - Same product name and quantity
+               - Opposite buy/sell directions  
+               - Different contract months
+               - Same universal fields (broker, clearing account)
+            4. Return validated spread groups using same key structure as fallback method
+            
+        Args:
+            exchange_trades: List of unmatched exchange trades
+            pool_manager: Pool manager for checking if trades are already matched
+            
+        Returns:
+            Dict mapping group keys to lists of validated spread pairs
+            Empty dict if no valid dealid-based groups are found
+            
+        Note:
+            Uses same key structure as _group_exchange_spreads() for compatibility
+            with existing _find_spread_match() logic.
+        """
+        trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
+        
+        # Step 1: Group trades by dealid
+        dealid_groups: Dict[str, List[Trade]] = defaultdict(list)
+        for trade in exchange_trades:
+            if pool_manager.is_trade_matched(trade):
+                continue
+                
+            # Extract dealid from raw data  
+            dealid = trade.raw_data.get('dealid')
+            tradeid = trade.raw_data.get('tradeid')
+            
+            # Only include trades that have both dealid and tradeid
+            if dealid and tradeid and str(dealid).strip() and str(tradeid).strip():
+                dealid_str = str(dealid).strip()
+                if dealid_str.lower() != 'nan':
+                    dealid_groups[dealid_str].append(trade)
+        
+        # Step 2: Within each dealid group, find valid spread pairs
+        for dealid, trades_in_group in dealid_groups.items():
+            if len(trades_in_group) < 2:
+                continue
+                
+            # Check all pairs within this dealid group
+            for i in range(len(trades_in_group)):
+                for j in range(i + 1, len(trades_in_group)):
+                    trade1, trade2 = trades_in_group[i], trades_in_group[j]
+                    
+                    # Extract tradeids for comparison
+                    tradeid1 = str(trade1.raw_data.get('tradeid', '')).strip()
+                    tradeid2 = str(trade2.raw_data.get('tradeid', '')).strip()
+                    
+                    # Must have different tradeids (same dealid + different tradeid = spread pair)
+                    if tradeid1 == tradeid2 or not tradeid1 or not tradeid2:
+                        continue
+                    
+                    # Step 3: Validate spread characteristics
+                    if self._validate_dealid_spread_pair(trade1, trade2):
+                        # Step 4: Add to results using same key structure as fallback method
+                        # This ensures compatibility with existing _find_spread_match() logic
+                        if trade1.product_name.lower() in ["brent swap", "brent_swap"]:
+                            quantity_for_key = trade1.quantity_bbl
+                        else:
+                            quantity_for_key = trade1.quantity_mt
+                        
+                        group_key = self.create_universal_signature(trade1, [trade1.product_name, quantity_for_key])
+                        trade_groups[group_key].extend([trade1, trade2])
+                        
+                        logger.debug(f"Found valid dealid spread pair: {trade1.trade_id}/{trade2.trade_id} "
+                                   f"(dealid: {dealid}, tradeids: {tradeid1}/{tradeid2})")
+        
+        return trade_groups
+
+    def _validate_dealid_spread_pair(self, trade1: Trade, trade2: Trade) -> bool:
+        """
+        Validate that two trades with same dealid/different tradeid form a valid spread pair.
+        
+        Validation criteria for spread pairs:
+            - Same product name (exact match)
+            - Same quantity (in appropriate units)
+            - Opposite buy/sell directions (one buy, one sell)
+            - Different contract months (spread across months)
+            - Universal fields match (broker group, clearing account, etc.)
+            
+        Args:
+            trade1, trade2: Two trades to validate as spread pair
+            
+        Returns:
+            bool: True if trades form valid spread pair, False otherwise
+        """
+        # Must be same product
+        if trade1.product_name != trade2.product_name:
+            return False
+        
+        # Must have same quantity (use appropriate unit for comparison)
+        if trade1.product_name.lower() in ["brent swap", "brent_swap"]:
+            # Use BBL for brent swap products
+            if trade1.quantity_bbl != trade2.quantity_bbl:
+                return False
+        else:
+            # Use MT for other products
+            if trade1.quantity_mt != trade2.quantity_mt:
+                return False
+        
+        # Must have opposite buy/sell directions (one buy, one sell for spread)
+        if trade1.buy_sell == trade2.buy_sell:
+            return False
+        
+        # Must have different contract months (spread is across months)
+        if trade1.contract_month == trade2.contract_month:
+            return False
+        
+        # Universal fields must match (use BaseMatcher validation)
+        if not self.validate_universal_fields(trade1, trade2):
+            return False
+        
+        return True
+
     def _group_exchange_spreads(self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> Dict[Tuple, List[Trade]]:
-        """Group exchange trades by criteria for spread matching."""
+        """
+        Group exchange trades by criteria for spread matching.
+        
+        Enhanced with two-tier approach for better spread detection:
+        
+        TIER 1 (PRIMARY): DealID/TradeID-based grouping
+            - Uses dealid/tradeid fields when data quality is sufficient
+            - More accurate spread pair detection via exchange's native grouping
+            - Same dealid + different tradeid = spread pair indicator
+            
+        TIER 2 (FALLBACK): Product/quantity-based grouping  
+            - Uses existing product/quantity matching logic
+            - Applied when dealid data is corrupted, missing, or yields no results
+            - Maintains compatibility with all existing functionality
+            
+        This approach ensures we get enhanced spread detection when possible,
+        while preserving existing behavior as a reliable fallback.
+        """
+        
+        # TIER 1: Try dealid/tradeid method first (if data quality allows)
+        if self._is_dealid_data_usable(exchange_trades):
+            logger.debug("DealID data quality sufficient - attempting dealid/tradeid-based spread grouping")
+            dealid_groups = self._group_exchange_spreads_by_dealid(exchange_trades, pool_manager)
+            
+            if dealid_groups:  # If we found valid groups using dealid method, use them
+                logger.debug(f"Found {len(dealid_groups)} spread groups using dealid/tradeid method")
+                return dealid_groups
+            else:
+                logger.debug("No valid spread groups found using dealid/tradeid method")
+        else:
+            logger.debug("DealID data quality insufficient - skipping dealid/tradeid method")
+        
+        # TIER 2: Fall back to existing product/quantity-based method
+        logger.debug("Using fallback spread grouping method (product/quantity-based)")
         trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
         for trade in exchange_trades:
             if not pool_manager.is_trade_matched(trade):

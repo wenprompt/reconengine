@@ -34,7 +34,9 @@ class CSVTradeLoader:
             raise FileNotFoundError(f"Trader CSV file not found: {file_path}")
         
         try:
-            df = pd.read_csv(file_path, encoding='utf-8-sig')
+            # Force dealid and tradeid to be read as strings to prevent scientific notation conversion
+            dtype_spec = {'dealid': 'str', 'tradeid': 'str'}
+            df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)
             df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from trader CSV")
             
@@ -64,7 +66,9 @@ class CSVTradeLoader:
             raise FileNotFoundError(f"Exchange CSV file not found: {file_path}")
         
         try:
-            df = pd.read_csv(file_path, encoding='utf-8-sig')
+            # Force dealid and tradeid to be read as strings to prevent scientific notation conversion
+            dtype_spec = {'dealid': 'str', 'tradeid': 'str'}
+            df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)
             df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from exchange CSV")
             
