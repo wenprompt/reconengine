@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
 from decimal import Decimal
 import logging
 
@@ -35,8 +35,8 @@ class CSVTradeLoader:
         
         try:
             # Force dealid and tradeid to be read as strings to prevent scientific notation conversion
-            dtype_spec = {'dealid': 'str', 'tradeid': 'str'}
-            df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)
+            dtype_spec: Dict[str, Any] = {'dealid': 'str', 'tradeid': 'str'}
+            df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)  # type: ignore[arg-type]
             df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from trader CSV")
             
@@ -67,8 +67,8 @@ class CSVTradeLoader:
         
         try:
             # Force dealid and tradeid to be read as strings to prevent scientific notation conversion
-            dtype_spec = {'dealid': 'str', 'tradeid': 'str'}
-            df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)
+            dtype_spec: Dict[str, Any] = {'dealid': 'str', 'tradeid': 'str'}
+            df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)  # type: ignore[arg-type]
             df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from exchange CSV")
             
