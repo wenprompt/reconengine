@@ -91,15 +91,13 @@ class CrackMatcher(BaseMatcher):
                     match_result = self._create_crack_match_result(trader_trade, exchange_trade)
                     matches.append(match_result)
                     
-                    # Remove matched trades from pools (prevents duplicates)
-                    success = pool_manager.remove_matched_trades(
-                        trader_trade, exchange_trade, MatchType.CRACK.value
-                    )
+                    # Record the match in the pool manager to prevent re-matching
+                    success = pool_manager.record_match(match_result)
                     
                     if not success:
-                        logger.error("Failed to remove crack matched trades from pool")
+                        logger.error(f"Failed to record crack match in pool")
                     else:
-                        logger.debug(f"Created crack match: {match_result}")
+                        logger.debug(f"Created and recorded crack match: {match_result}")
                     
                     break  # Move to next trader trade
         

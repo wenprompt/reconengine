@@ -82,55 +82,7 @@ class UnmatchedPoolManager:
         """
         return self._original_trader_count, self._original_exchange_count
     
-    def remove_matched_trades(self, trader_trade: Trade, exchange_trade: Trade, 
-                            match_type: str) -> bool:
-        """Remove matched trades from the unmatched pools.
-        
-        Args:
-            trader_trade: The matched trader trade
-            exchange_trade: The matched exchange trade
-            match_type: Type of match rule that created this match
-            
-        Returns:
-            True if both trades were successfully removed, False otherwise
-        """
-        trader_id = trader_trade.trade_id
-        exchange_id = exchange_trade.trade_id
-        
-        # Validate trades exist in pools
-        if trader_id not in self._trader_pool:
-            logger.warning(f"Trader trade {trader_id} not found in unmatched pool")
-            return False
-        
-        if exchange_id not in self._exchange_pool:
-            logger.warning(f"Exchange trade {exchange_id} not found in unmatched pool")
-            return False
-        
-        # Validate trades haven't been matched already
-        if trader_id in self._matched_trader_ids:
-            logger.error(f"Trader trade {trader_id} was already matched!")
-            return False
-        
-        if exchange_id in self._matched_exchange_ids:
-            logger.error(f"Exchange trade {exchange_id} was already matched!")
-            return False
-        
-        # Remove from pools
-        del self._trader_pool[trader_id]
-        del self._exchange_pool[exchange_id]
-        
-        # Add to matched sets
-        self._matched_trader_ids.add(trader_id)
-        self._matched_exchange_ids.add(exchange_id)
-        
-        # Record in history
-        self._match_history.append((trader_id, exchange_id, match_type))
-        
-        logger.debug(f"Removed matched trades: {trader_id} <-> {exchange_id} via {match_type}")
-        logger.debug(f"Remaining unmatched: {len(self._trader_pool)} trader, "
-                    f"{len(self._exchange_pool)} exchange")
-        
-        return True
+    
     
     def is_trade_matched(self, trade: Trade) -> bool:
         """Check if a trade has already been matched.

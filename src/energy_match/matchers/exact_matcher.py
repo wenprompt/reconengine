@@ -66,17 +66,13 @@ class ExactMatcher(BaseMatcher):
             if match_result:
                 matches.append(match_result)
                 
-                # Remove matched trades from pools
-                success = pool_manager.remove_matched_trades(
-                    trader_trade, 
-                    match_result.exchange_trade,
-                    match_result.match_type.value
-                )
+                # Record the match in the pool manager to prevent re-matching
+                success = pool_manager.record_match(match_result)
                 
                 if not success:
-                    logger.error(f"Failed to remove matched trades from pool")
+                    logger.error(f"Failed to record exact match in pool")
                 else:
-                    logger.debug(f"Created exact match: {match_result}")
+                    logger.debug(f"Created and recorded exact match: {match_result}")
         
         logger.info(f"Found {len(matches)} exact matches")
         return matches
