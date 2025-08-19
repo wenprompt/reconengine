@@ -11,7 +11,7 @@ from .loaders import CSVTradeLoader
 from .normalizers import TradeNormalizer
 from .config import ConfigManager
 from .core import UnmatchedPoolManager
-from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher, ProductSpreadMatcher, AggregationMatcher, AggregatedComplexCrackMatcher, AggregatedSpreadMatcher
+from .matchers import ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher, ProductSpreadMatcher, AggregationMatcher, AggregatedComplexCrackMatcher, AggregatedSpreadMatcher, AggregatedCrackMatcher
 from .cli import MatchDisplayer
 
 
@@ -210,6 +210,17 @@ class EnergyTradeMatchingEngine:
                 
                 progress.remove_task(task)
             
+            # Rule 9: Aggregated crack matching
+            self.logger.info("Applying Rule 9: Aggregated crack matching...")
+            with self.displayer.create_progress_context("Finding aggregated crack matches...") as progress:
+                task = progress.add_task("Matching...", total=None)
+                
+                aggregated_crack_matcher = AggregatedCrackMatcher(self.config_manager, self.normalizer)
+                aggregated_crack_matches = aggregated_crack_matcher.find_matches(pool_manager)
+                all_matches.extend(aggregated_crack_matches)
+                
+                progress.remove_task(task)
+            
             # Step 5: Display results
             self.logger.info("Displaying results...")
             
@@ -362,9 +373,10 @@ Examples:
         aggregation_matcher = AggregationMatcher(config_manager)
         aggregated_complex_crack_matcher = AggregatedComplexCrackMatcher(config_manager, normalizer)
         aggregated_spread_matcher = AggregatedSpreadMatcher(config_manager, normalizer)
+        aggregated_crack_matcher = AggregatedCrackMatcher(config_manager, normalizer)
 
         # Collect all matchers that have a get_rule_info method
-        all_matchers = [exact_matcher, spread_matcher, crack_matcher, complex_crack_matcher, product_spread_matcher, aggregation_matcher, aggregated_complex_crack_matcher, aggregated_spread_matcher]
+        all_matchers = [exact_matcher, spread_matcher, crack_matcher, complex_crack_matcher, product_spread_matcher, aggregation_matcher, aggregated_complex_crack_matcher, aggregated_spread_matcher, aggregated_crack_matcher]
 
         print("\n--- Energy Trade Matching Rules ---")
         for matcher in all_matchers:

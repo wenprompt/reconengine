@@ -28,17 +28,6 @@
     "(?i)^balmo$": "Balmo",
     "(?i)bal month": "Balmo"
   },
-  "product_variation_map": {
-    "marine,0.5,crack": "marine 0.5% crack",
-    "marine,0.5": "marine 0.5%",
-    "380,cst,crack": "380cst crack",
-    "380,cst": "380cst",
-    "brent,swap": "brent swap",
-    "naphtha,japan,crack": "naphtha japan crack",
-    "naphtha,japan": "naphtha japan",
-    "naphtha,nwe,crack": "naphtha nwe crack",
-    "naphtha,nwe": "naphtha nwe"
-  },
   "product_conversion_ratios": {
     "marine 0.5% crack": 6.35,
     "380cst crack": 6.35,
@@ -51,16 +40,16 @@
     "default": "mt"
   },
   "universal_matching_fields": {
-    "description": "Fields that must match across ALL matching rules - these are checked in addition to rule-specific fields",
+    "description": "Fields that must match across ALL matching rules",
     "required_fields": ["brokergroupid", "exchclearingacctid"],
     "field_mappings": {
       "brokergroupid": "broker_group_id",
       "exchclearingacctid": "exch_clearing_acct_id"
     },
     "notes": {
-      "brokergroupid": "Broker group identifier - must match exactly across all trades in any match",
-      "exchclearingacctid": "Exchange clearing account identifier - must match exactly across all trades in any match",
-      "field_mappings": "Maps config field names to Trade model attribute names for dynamic access"
+      "brokergroupid": "Broker group identifier",
+      "exchclearingacctid": "Exchange clearing account identifier",
+      "field_mappings": "Maps config field (file columns) names to Trade model names"
     }
   }
 }

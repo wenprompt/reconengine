@@ -18,6 +18,7 @@ class MatchType(str, Enum):
     AGGREGATION = "aggregation"  # Rule 6 - Aggregation matching
     AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 7 - Aggregated complex crack matching
     AGGREGATED_SPREAD = "aggregated_spread"  # Rule 8 - Aggregated spread matching
+    AGGREGATED_CRACK = "aggregated_crack"  # Rule 9 - Aggregated crack matching
 
 
 class MatchResult(BaseModel):
@@ -58,7 +59,7 @@ class MatchResult(BaseModel):
     
     # Metadata
     matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
-    rule_order: int = Field(..., ge=1, le=8, description="Order of rule that created this match (1-8)")
+    rule_order: int = Field(..., ge=1, le=9, description="Order of rule that created this match (1-9)")
     
     def __str__(self) -> str:
         """Human-readable string representation."""

@@ -31,16 +31,9 @@ class TradeNormalizer:
         self.product_conversion_ratios = self.config_manager.get_product_conversion_ratios()
         self.traders_product_unit_defaults = self.config_manager.get_traders_product_unit_defaults()
 
-        # Convert comma-separated keys in variation map to tuples for internal use
-        variation_config = self.config_manager.get_product_variation_map()
-        self.product_variation_map = {
-            tuple(key.split(",")): value 
-            for key, value in variation_config.items()
-        }
         
         logger.info(f"Loaded {len(self.product_mappings)} product mappings, "
                    f"{len(self.month_patterns)} month patterns, "
-                   f"{len(self.product_variation_map)} product variations, "
                    f"{len(self.traders_product_unit_defaults)} trader unit defaults from ConfigManager")
 
     def normalize_product_name(self, product_name: str) -> str:
@@ -50,16 +43,10 @@ class TradeNormalizer:
         product_lower = product_name.strip().lower()
         if product_lower in self.product_mappings:
             return self.product_mappings[product_lower]
-        normalized = self._handle_product_variations(product_lower)
-        logger.debug(f"Normalized product '{product_name}' -> '{normalized}'")
-        return normalized
-    
-    def _handle_product_variations(self, product_lower: str) -> str:
-        """Handle product name variations using a data-driven map."""
-        for keywords, normalized_name in self.product_variation_map.items():
-            if all(keyword in product_lower for keyword in keywords):
-                return normalized_name
+        # Return as-is if no mapping found
+        logger.debug(f"No mapping found for product '{product_name}', returning as-is")
         return product_lower
+    
     
     def normalize_contract_month(self, contract_month: str) -> str:
         """Normalize contract month to standard format."""

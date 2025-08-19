@@ -299,7 +299,7 @@ class AggregationMatcher(BaseMatcher):
                     trade.contract_month != first_trade.contract_month or
                     trade.price != first_trade.price or
                     trade.buy_sell != first_trade.buy_sell or
-                    trade.broker_group_id != first_trade.broker_group_id):
+                    not self.validate_universal_fields(trade, first_trade)):
                     logger.debug("Aggregation validation failed: many_trades have different fundamental fields")
                     return False
             

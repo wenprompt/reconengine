@@ -102,7 +102,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             if (
                 exchange_trade.product_name.lower() == base_product.lower()
                 and exchange_trade.contract_month == crack_trade.contract_month
-                and exchange_trade.broker_group_id == crack_trade.broker_group_id
+                and self.validate_universal_fields(crack_trade, exchange_trade)
             ):
                 base_candidates.append(exchange_trade)
 
@@ -110,7 +110,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             elif (
                 exchange_trade.product_name.lower() in ["brent swap", "brent_swap"]
                 and exchange_trade.contract_month == crack_trade.contract_month
-                and exchange_trade.broker_group_id == crack_trade.broker_group_id
+                and self.validate_universal_fields(crack_trade, exchange_trade)
             ):
                 brent_candidates.append(exchange_trade)
 

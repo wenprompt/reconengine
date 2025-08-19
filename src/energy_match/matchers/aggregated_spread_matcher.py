@@ -169,10 +169,9 @@ class AggregatedSpreadMatcher(BaseMatcher):
         """
         price_trade, zero_price_trade = trader_spread_pair
         
-        # Phase 1: Aggregate exchange trades by contract month
-        broker_id = price_trade.broker_group_id or 0  # Handle None case
+        # Phase 1: Aggregate exchange trades by contract month using universal field validation
         aggregated_positions = self._aggregate_exchange_trades_by_contract(
-            exchange_trades, pool_manager, price_trade.product_name, broker_id
+            exchange_trades, pool_manager, price_trade.product_name, price_trade
         )
         
         if not aggregated_positions:
@@ -199,7 +198,7 @@ class AggregatedSpreadMatcher(BaseMatcher):
         exchange_trades: List[Trade], 
         pool_manager: UnmatchedPoolManager,
         target_product: str,
-        target_broker: int
+        reference_trader_trade: Trade
     ) -> Dict[str, List[Tuple[List[Trade], Decimal, Decimal]]]:
         """Aggregate exchange trades by contract month and characteristics.
         
@@ -207,7 +206,7 @@ class AggregatedSpreadMatcher(BaseMatcher):
             exchange_trades: Exchange trades to aggregate
             pool_manager: Pool manager to check availability
             target_product: Product name to filter by
-            target_broker: Broker group to filter by
+            reference_trader_trade: Reference trader trade for universal field validation
             
         Returns:
             Dict mapping contract_month -> list of (trades_list, total_quantity, price)
@@ -219,13 +218,13 @@ class AggregatedSpreadMatcher(BaseMatcher):
             if pool_manager.is_trade_matched(trade):
                 continue
             
-            # Only consider trades for the target product and broker
+            # Only consider trades for the target product with matching universal fields
             if (trade.product_name != target_product or 
-                trade.broker_group_id != target_broker):
+                not self.validate_universal_fields(reference_trader_trade, trade)):
                 continue
             
             # Group by aggregation characteristics (contract, price, B/S)
-            # Note: universal fields are already filtered by target_product and target_broker
+            # Note: universal fields are already validated above
             group_key = (
                 trade.contract_month,
                 trade.price,

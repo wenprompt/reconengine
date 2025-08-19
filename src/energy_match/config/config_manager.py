@@ -55,6 +55,7 @@ class MatchingConfig(BaseModel):
             6: Decimal("72"),  # Aggregation match
             7: Decimal("65"),  # Aggregated complex crack match
             8: Decimal("70"),  # Aggregated spread match
+            9: Decimal("68"),  # Aggregated crack match
         },
         description="Confidence levels for each matching rule (implemented rules)",
     )
@@ -68,7 +69,7 @@ class MatchingConfig(BaseModel):
 
     # Processing order (from rules.md) - implemented rules
     rule_processing_order: list[int] = Field(
-        default=[1, 2, 3, 4, 5, 6, 7, 8],
+        default=[1, 2, 3, 4, 5, 6, 7, 8, 9],
         description="Order in which rules should be processed (implemented rules)",
     )
 
@@ -138,7 +139,7 @@ class ConfigManager:
         """Get confidence level for a specific rule.
 
         Args:
-            rule_number: Rule number (1-8)
+            rule_number: Rule number (1-9)
 
         Returns:
             Confidence level as percentage
@@ -239,9 +240,6 @@ class ConfigManager:
         """Get contract month normalization regex patterns."""
         return self._normalizer_config.get("month_patterns", {})
 
-    def get_product_variation_map(self) -> Dict[str, str]:
-        """Get product variation mappings."""
-        return self._normalizer_config.get("product_variation_map", {})
 
     def get_product_conversion_ratios(self) -> Dict[str, float]:
         """Get product-specific MT to BBL conversion ratios."""

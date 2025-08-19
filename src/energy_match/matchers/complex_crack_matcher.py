@@ -111,12 +111,12 @@ class ComplexCrackMatcher(BaseMatcher):
 
             # Check if this could be the brent swap component
             # For brent swap, B/S direction should be opposite to crack (handled in validation)
-            # So we only match contract_month and broker_group_id
+            # So we only match contract_month and universal fields
             elif (
                 exchange_trade.product_name.lower() in ["brent swap", "brent_swap"]
                 and exchange_key[1] == crack_key[1]  # contract_month matches
-                and exchange_key[3] == crack_key[3]
-            ):  # broker_group_id matches
+                and self.validate_universal_fields(crack_trade, exchange_trade)
+            ):
                 brent_candidates.append(exchange_trade)
 
         # Try to find valid base + brent combinations
