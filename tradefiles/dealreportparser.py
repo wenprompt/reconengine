@@ -25,7 +25,7 @@ def extract_cleared_deals(file_path):
 
 if __name__ == "__main__":
     csv_file_path = "/home/wenhaowang/projects/reconengine/tradefiles/DealReport 27062025.csv"
-    output_csv_path = "/home/wenhaowang/projects/reconengine/test/sourceExchange.csv"
+    output_csv_path = "/home/wenhaowang/projects/reconengine/tradefiles/sourceExchange.csv"
 
     cleared_deals = extract_cleared_deals(csv_file_path)
 
