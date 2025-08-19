@@ -10,6 +10,6 @@ wheels/
 .venv
 
 # data files (sensitive)
-src/energy_match/data/*
-/traderfiles/input/*
-/traderfiles/output/*
+src/energy_match/data/
+tradefiles/input/
+tradefiles/output/
