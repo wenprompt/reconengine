@@ -139,6 +139,11 @@ class TradeNormalizer:
     def get_month_order_tuple(self, contract_month: str) -> Optional[tuple[int, int]]:
         """Parse contract month into a comparable (year, month_order) tuple."""
         normalized_month = self.normalize_contract_month(contract_month)
+        
+        # Handle Balance of Month (Balmo) as the earliest possible month
+        if normalized_month == "Balmo":
+            return (0, 0)  # Earlier than any (year, month) combination like (2025, 1)
+        
         month_year_parts = self.extract_month_year(normalized_month)
         if not month_year_parts:
             return None
