@@ -64,4 +64,4 @@ all sgx traders file to match by product name first instead of ID for standardis
 - aggregated matching for spreads []
 - too insert after 8
 
-spread matches fked up on 25/6. the 5.75 spread was not read right
+spread matches fked up on 25/6. the 5.75 spread was not read right. i think need to read tradeid and fallback using the current method.

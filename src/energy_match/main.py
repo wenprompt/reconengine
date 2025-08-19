@@ -171,11 +171,6 @@ class EnergyTradeMatchingEngine:
                 complex_crack_matches = complex_crack_matcher.find_matches(
                     pool_manager  # Pass pool_manager directly
                 )
-
-                # Remove matched trades from pool using proper record_match method
-                for match in complex_crack_matches:
-                    pool_manager.record_match(match)
-
                 all_matches.extend(complex_crack_matches)
 
                 progress.remove_task(task)
