@@ -16,12 +16,22 @@ logger = logging.getLogger(__name__)
 
 
 class ProductSpreadMatcher(BaseMatcher):
-    """Matches product spread trades (hyphenated products vs separate component trades).
+    """Matches product spread trades between trader and exchange data.
 
     Handles Rule 5: Product Spread Match Rules
-    - Exchange data: Shows hyphenated product names (e.g., "marine 0.5%-380cst")
-    - Trader data: Shows separate trades for component products
-    - Key pattern: Usually one leg has spread price, other has price = 0
+    Two matching paths:
+    
+    Path 1 (Original):
+    - Exchange data: Hyphenated product names (e.g., "marine 0.5%-380cst")
+    - Trader data: Separate trades for component products
+    
+    Path 2 (Enhanced):
+    - Exchange data: Separate 2-leg trades for component products
+    - Trader data: Separate 2-leg trades for component products
+    
+    Key patterns:
+    - Trader: Usually one leg has spread price, other has price = 0
+    - Exchange 2-leg: Both legs have actual product prices
     - Validates B/S direction logic and price calculation
     """
 
@@ -50,9 +60,40 @@ class ProductSpreadMatcher(BaseMatcher):
         """
         logger.info("Starting product spread matching (Rule 5)")
         
-        matches = []
+        matches: List[MatchResult] = []
         trader_trades = pool_manager.get_unmatched_trader_trades()
         exchange_trades = pool_manager.get_unmatched_exchange_trades()
+        
+        # Path 1: Match trader 2-leg against exchange hyphenated products
+        matches.extend(self._find_hyphenated_exchange_matches(
+            trader_trades, exchange_trades, pool_manager
+        ))
+        
+        # Path 2: Match trader 2-leg against exchange 2-leg spreads
+        matches.extend(self._find_two_leg_exchange_matches(
+            trader_trades, exchange_trades, pool_manager
+        ))
+        
+        logger.info(f"Found {len(matches)} total product spread matches")
+        return matches
+
+    def _find_hyphenated_exchange_matches(
+        self, 
+        trader_trades: List[Trade], 
+        exchange_trades: List[Trade], 
+        pool_manager: UnmatchedPoolManager
+    ) -> List[MatchResult]:
+        """Find matches where exchange has hyphenated products and trader has 2-leg trades.
+        
+        Args:
+            trader_trades: List of trader trades
+            exchange_trades: List of exchange trades
+            pool_manager: Pool manager for validation
+            
+        Returns:
+            List of matches found for hyphenated exchange products
+        """
+        matches: List[MatchResult] = []
         
         # Filter exchange trades to only hyphenated products
         hyphenated_trades = [
@@ -62,7 +103,7 @@ class ProductSpreadMatcher(BaseMatcher):
         
         if not hyphenated_trades:
             logger.debug("No hyphenated products found in exchange data")
-            return []
+            return matches
         
         logger.info(f"Processing {len(hyphenated_trades)} hyphenated products "
                    f"against {len(trader_trades)} trader trades")
@@ -76,14 +117,68 @@ class ProductSpreadMatcher(BaseMatcher):
         trader_index = self._create_trader_index(trader_trades)
         
         for exchange_trade in hyphenated_trades:
+            if pool_manager.is_trade_matched(exchange_trade):
+                continue
+                
             match = self._find_product_spread_match(exchange_trade, trader_index, pool_manager)
             if match:
                 matches.append(match)
                 # Record the match to remove trades from unmatched pools
                 pool_manager.record_match(match)
-                logger.debug(f"Found product spread match: {match}")
+                logger.debug(f"Found hyphenated product spread match: {match}")
         
-        logger.info(f"Found {len(matches)} product spread matches")
+        logger.info(f"Found {len(matches)} hyphenated product spread matches")
+        return matches
+
+    def _find_two_leg_exchange_matches(
+        self, 
+        trader_trades: List[Trade], 
+        exchange_trades: List[Trade], 
+        pool_manager: UnmatchedPoolManager
+    ) -> List[MatchResult]:
+        """Find matches where both trader and exchange have 2-leg spread trades.
+        
+        Args:
+            trader_trades: List of trader trades
+            exchange_trades: List of exchange trades
+            pool_manager: Pool manager for validation
+            
+        Returns:
+            List of matches found for 2-leg exchange spreads
+        """
+        matches: List[MatchResult] = []
+        
+        # Group trader trades into 2-leg spread pairs
+        trader_spread_pairs = self._group_trader_spreads(trader_trades, pool_manager)
+        
+        # Group exchange trades into 2-leg spread pairs
+        exchange_spread_pairs = self._group_exchange_spreads(exchange_trades, pool_manager)
+        
+        if not trader_spread_pairs or not exchange_spread_pairs:
+            logger.debug(f"Limited 2-leg spreads found - trader pairs: {len(trader_spread_pairs)}, "
+                        f"exchange pairs: {len(exchange_spread_pairs)}")
+            return matches
+        
+        logger.info(f"Processing {len(trader_spread_pairs)} trader spread pairs against "
+                   f"{len(exchange_spread_pairs)} exchange spread pairs")
+        
+        # Try to match trader spread pairs with exchange spread pairs
+        for trader_pair in trader_spread_pairs:
+            if any(pool_manager.is_trade_matched(trade) for trade in trader_pair):
+                continue
+                
+            for exchange_pair in exchange_spread_pairs:
+                if any(pool_manager.is_trade_matched(trade) for trade in exchange_pair):
+                    continue
+                    
+                match = self._find_two_leg_spread_match(trader_pair, exchange_pair, pool_manager)
+                if match:
+                    matches.append(match)
+                    pool_manager.record_match(match)
+                    logger.debug(f"Found 2-leg product spread match: {match}")
+                    break  # Move to next trader pair
+        
+        logger.info(f"Found {len(matches)} 2-leg product spread matches")
         return matches
 
     def _parse_hyphenated_product(self, product_name: str) -> Optional[Tuple[str, str]]:
@@ -129,6 +224,89 @@ class ProductSpreadMatcher(BaseMatcher):
         
         logger.debug(f"Created trader index with {len(index)} unique signatures")
         return index
+
+    def _group_trader_spreads(self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[Tuple[Trade, Trade]]:
+        """Group trader trades into 2-leg spread pairs.
+        
+        Args:
+            trader_trades: List of trader trades to group
+            pool_manager: Pool manager for checking matched status
+            
+        Returns:
+            List of trader trade pairs that form spreads
+        """
+        spread_pairs = []
+        
+        # Group trades by signature (contract month, quantity, universal fields)
+        groups = defaultdict(list)
+        for trade in trader_trades:
+            if pool_manager.is_trade_matched(trade):
+                continue
+            signature = self._create_trader_signature(trade)
+            groups[signature].append(trade)
+        
+        # Find 2-leg spread patterns within each group
+        for signature, trades in groups.items():
+            if len(trades) < 2:
+                continue
+                
+            # Look for pairs with spread pattern
+            for i in range(len(trades)):
+                for j in range(i + 1, len(trades)):
+                    trade1, trade2 = trades[i], trades[j]
+                    
+                    if self._is_product_spread_pattern(trade1, trade2):
+                        spread_pairs.append((trade1, trade2))
+                        logger.debug(f"Found trader spread pair: {trade1.trade_id} + {trade2.trade_id} "
+                                   f"({trade1.product_name}/{trade2.product_name})")
+        
+        logger.debug(f"Found {len(spread_pairs)} trader spread pairs")
+        return spread_pairs
+
+    def _group_exchange_spreads(self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[Tuple[Trade, Trade]]:
+        """Group exchange trades into 2-leg spread pairs.
+        
+        Args:
+            exchange_trades: List of exchange trades to group
+            pool_manager: Pool manager for checking matched status
+            
+        Returns:
+            List of exchange trade pairs that form spreads
+        """
+        spread_pairs = []
+        
+        # Filter out hyphenated products (they're handled separately)
+        non_hyphenated_trades = [
+            t for t in exchange_trades 
+            if pool_manager.is_trade_matched(t) == False and 
+               (("-" not in t.product_name) or self._parse_hyphenated_product(t.product_name) is None)
+        ]
+        
+        # Group trades by signature (contract month, quantity, universal fields)
+        groups = defaultdict(list)
+        for trade in non_hyphenated_trades:
+            signature = self._create_exchange_signature(trade)
+            groups[signature].append(trade)
+        
+        # Find 2-leg spread patterns within each group
+        for signature, trades in groups.items():
+            if len(trades) < 2:
+                continue
+                
+            # Look for pairs with opposite B/S directions (potential spreads)
+            for i in range(len(trades)):
+                for j in range(i + 1, len(trades)):
+                    trade1, trade2 = trades[i], trades[j]
+                    
+                    # Check if they have opposite B/S directions and different products
+                    if (trade1.buy_sell != trade2.buy_sell and 
+                        trade1.product_name != trade2.product_name):
+                        spread_pairs.append((trade1, trade2))
+                        logger.debug(f"Found exchange spread pair: {trade1.trade_id} + {trade2.trade_id} "
+                                   f"({trade1.product_name}/{trade2.product_name})")
+        
+        logger.debug(f"Found {len(spread_pairs)} exchange spread pairs")
+        return spread_pairs
     
     def _create_trader_signature(self, trade: Trade) -> tuple:
         """Create signature for trader trade grouping."""
@@ -229,6 +407,143 @@ class ProductSpreadMatcher(BaseMatcher):
         
         # Create match result
         return self._create_match_result(exchange_trade, first_trade, second_trade)
+
+    def _find_two_leg_spread_match(
+        self, 
+        trader_pair: Tuple[Trade, Trade], 
+        exchange_pair: Tuple[Trade, Trade], 
+        pool_manager: UnmatchedPoolManager
+    ) -> Optional[MatchResult]:
+        """Find match between trader 2-leg spread and exchange 2-leg spread.
+        
+        Args:
+            trader_pair: Tuple of two trader trades forming a spread
+            exchange_pair: Tuple of two exchange trades forming a spread
+            pool_manager: Pool manager for validation
+            
+        Returns:
+            MatchResult if valid match found, None otherwise
+        """
+        trader1, trader2 = trader_pair
+        exchange1, exchange2 = exchange_pair
+        
+        logger.debug(f"Attempting 2-leg match: Trader({trader1.trade_id}+{trader2.trade_id}) "
+                    f"vs Exchange({exchange1.trade_id}+{exchange2.trade_id})")
+        
+        # Try both product orderings since we don't know which exchange trade corresponds to which trader product
+        # Option 1: trader1 product -> exchange1, trader2 product -> exchange2
+        if self._validate_two_leg_spread_match(trader_pair, exchange_pair, (exchange1, exchange2)):
+            return self._create_two_leg_match_result(trader_pair, exchange_pair, (exchange1, exchange2))
+        
+        # Option 2: trader1 product -> exchange2, trader2 product -> exchange1  
+        if self._validate_two_leg_spread_match(trader_pair, exchange_pair, (exchange2, exchange1)):
+            return self._create_two_leg_match_result(trader_pair, exchange_pair, (exchange2, exchange1))
+        
+        logger.debug("❌ No valid 2-leg spread match found")
+        return None
+
+    def _validate_two_leg_spread_match(
+        self, 
+        trader_pair: Tuple[Trade, Trade], 
+        exchange_pair: Tuple[Trade, Trade],
+        exchange_order: Tuple[Trade, Trade]
+    ) -> bool:
+        """Validate that trader and exchange 2-leg spreads can match.
+        
+        Args:
+            trader_pair: Tuple of two trader trades
+            exchange_pair: Tuple of two exchange trades
+            exchange_order: Specific ordering of exchange trades to try
+            
+        Returns:
+            True if valid match, False otherwise
+        """
+        trader1, trader2 = trader_pair
+        exchange1_ordered, exchange2_ordered = exchange_order
+        
+        try:
+            # Check product alignment
+            if (trader1.product_name != exchange1_ordered.product_name or 
+                trader2.product_name != exchange2_ordered.product_name):
+                logger.debug(f"❌ Product mismatch: {trader1.product_name}!={exchange1_ordered.product_name} "
+                           f"or {trader2.product_name}!={exchange2_ordered.product_name}")
+                return False
+            
+            # Check B/S direction alignment
+            if (trader1.buy_sell != exchange1_ordered.buy_sell or 
+                trader2.buy_sell != exchange2_ordered.buy_sell):
+                logger.debug(f"❌ B/S direction mismatch: {trader1.buy_sell}!={exchange1_ordered.buy_sell} "
+                           f"or {trader2.buy_sell}!={exchange2_ordered.buy_sell}")
+                return False
+            
+            # Calculate and validate spread prices
+            # Trader spread: non-zero price from the trader pair
+            trader_spread_price = trader1.price if trader1.price != 0 else trader2.price
+            
+            # Exchange spread: first_price - second_price
+            exchange_spread_price = exchange1_ordered.price - exchange2_ordered.price
+            
+            # Prices must match exactly
+            if trader_spread_price != exchange_spread_price:
+                logger.debug(f"❌ Spread price mismatch: trader={trader_spread_price}, "
+                           f"exchange={exchange_spread_price} ({exchange1_ordered.price}-{exchange2_ordered.price})")
+                return False
+            
+            logger.debug(f"✅ 2-leg spread validation passed: spread_price={trader_spread_price}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error validating 2-leg spread match: {e}")
+            return False
+
+    def _create_two_leg_match_result(
+        self, 
+        trader_pair: Tuple[Trade, Trade], 
+        exchange_pair: Tuple[Trade, Trade],
+        exchange_order: Tuple[Trade, Trade]
+    ) -> MatchResult:
+        """Create MatchResult for 2-leg spread match.
+        
+        Args:
+            trader_pair: Tuple of matched trader trades
+            exchange_pair: Tuple of matched exchange trades 
+            exchange_order: Specific ordering used for the match
+            
+        Returns:
+            MatchResult for the 2-leg spread match
+        """
+        trader1, trader2 = trader_pair
+        exchange1_ordered, exchange2_ordered = exchange_order
+        
+        # Generate unique match ID
+        match_id = f"PROD_SPREAD_2LEG_{uuid.uuid4().hex[:8].upper()}"
+        
+        # Rule-specific fields that match exactly
+        rule_specific_fields = [
+            "contract_month",
+            "quantity_mt",
+            "product_names",
+            "buy_sell_directions"
+        ]
+        
+        # Get complete matched fields with universal fields
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
+        
+        # Price is calculated/derived
+        differing_fields = ["price"]
+        
+        return MatchResult(
+            match_id=match_id,
+            match_type=MatchType.PRODUCT_SPREAD,
+            confidence=self.confidence,
+            trader_trade=trader1,  # Primary trader trade
+            exchange_trade=exchange1_ordered,  # Primary exchange trade
+            additional_trader_trades=[trader2],  # Additional trader trade
+            additional_exchange_trades=[exchange2_ordered],  # Additional exchange trade
+            matched_fields=matched_fields,
+            differing_fields=differing_fields,
+            rule_order=self.rule_number
+        )
 
     def _is_product_spread_pattern(self, first_trade: Trade, second_trade: Trade) -> bool:
         """Check if two trader trades form a product spread pattern.
@@ -411,14 +726,15 @@ class ProductSpreadMatcher(BaseMatcher):
             "rule_name": "Product Spread Match",
             "match_type": MatchType.PRODUCT_SPREAD.value,
             "confidence": float(self.confidence),
-            "description": "Matches hyphenated exchange products with separate component trader trades",
+            "description": "Matches product spreads between trader and exchange data (both hyphenated and 2-leg formats)",
             "fields_matched": self.get_universal_matched_fields([
                 "contract_month",
                 "quantity_mt"
             ]),
             "requirements": [
-                "Exchange product must be hyphenated (e.g., 'marine 0.5%-380cst')",
-                "Trader must have separate trades for each component product",
+                "Path 1: Exchange hyphenated products (e.g., 'marine 0.5%-380cst') vs trader 2-leg trades",
+                "Path 2: Exchange 2-leg trades vs trader 2-leg trades", 
+                "Trader: separate trades for each component product (one with price, one with 0.0)",
                 "B/S direction logic: Sell spread = Sell first + Buy second",
                 "Price calculation: first_price - second_price = spread_price",
                 "Same contract month, quantity, and broker group"

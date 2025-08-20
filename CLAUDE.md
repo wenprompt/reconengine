@@ -8,11 +8,12 @@ This is a **Reconciliation Engine** that contains multiple specialized matching 
 
 ### Energy Match Module Summary
 
-The energy matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 9 implemented rules:
+The energy matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 10 implemented rules:
 
 - **Rules 1-3**: Basic matching (exact, spread, crack)
 - **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
 - **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, aggregated crack)
+- **Rule 10**: Complex crack roll matching (calendar spreads of crack positions)
 
 Each matching system will have its own `docs/rules.md` file for detailed rule specifications.
 
@@ -40,7 +41,11 @@ src/energy_match/
 │   └── csv_loader.py     # Handles both trader and exchange CSV files
 ├── normalizers/          # Data normalization and standardization
 │   └── trade_normalizer.py # Product names, contract months, buy/sell, units
-├── matchers/            # Matching rule implementations (9 rules)
+├── utils/               # Utility functions separated by dependency type
+│   ├── __init__.py     # Module exports and documentation
+│   ├── trade_helpers.py # Pure utility functions (no config dependencies)
+│   └── conversion_helpers.py # Config-dependent utility functions
+├── matchers/            # Matching rule implementations (10 rules)
 │   ├── exact_matcher.py # Rule 1: Exact matching
 │   ├── spread_matcher.py # Rule 2: Spread matching
 │   ├── crack_matcher.py # Rule 3: Crack matching
@@ -49,7 +54,8 @@ src/energy_match/
 │   ├── aggregation_matcher.py # Rule 6: Aggregation matching
 │   ├── aggregated_complex_crack_matcher.py # Rule 7: Aggregated complex crack
 │   ├── aggregated_spread_matcher.py # Rule 8: Aggregated spread matching
-│   └── aggregated_crack_matcher.py # Rule 9: Aggregated crack matching
+│   ├── aggregated_crack_matcher.py # Rule 9: Aggregated crack matching
+│   └── complex_crack_roll_matcher.py # Rule 10: Complex crack roll matching
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -109,11 +115,24 @@ src/energy_match/
 - **Error Handling**: Graceful handling of malformed data and missing fields
 - **Format Flexibility**: Supports different CSV schemas from various exchanges
 
+**`utils/`** - **Utility Functions Layer**
+
+- **trade_helpers.py**: Pure utility functions with no configuration dependencies
+  - `extract_base_product()` - Extract base product from crack products
+  - `extract_month_year()` - Parse contract month components  
+  - `get_month_order_tuple()` - Convert months to sortable tuples
+- **conversion_helpers.py**: Configuration-dependent utility functions
+  - `get_product_conversion_ratio()` - Product-specific MT↔BBL ratios
+  - `convert_mt_to_bbl_with_product_ratio()` - MT to BBL conversion
+  - `validate_mt_to_bbl_quantity_match()` - Quantity validation with conversion
+- **Architectural Benefits**: Separates helper functions from business logic, improves testability and reusability
+
 **`matchers/`** - **Business Logic Engine**
 
 - **Rules 1-3**: Basic matching (exact, spread, crack with unit conversion)
 - **Rules 4-6**: Complex matching (2-leg crack, product spread, aggregation)
 - **Rules 7-9**: Advanced aggregated matching (complex crack + aggregation, spread + aggregation, crack + aggregation)
+- **Rule 10**: Complex crack roll matching (calendar spreads of crack positions)
 - **BaseMatcher**: Universal field validation and shared matcher functionality
 - **Extensible Design**: Easy to add new rules following established patterns
 
@@ -266,7 +285,9 @@ _The following sections document the specific implementation progress and update
 
 **Energy Match Module Completed**:
 
-- **9 Sequential Rules**: Implemented with 96.0% match rate on sample data
+- **10 Sequential Rules**: Implemented with 88.5% match rate on sample data
+- **Complex Crack Roll Matching**: Rule 10 for calendar spreads of crack positions
+- **Refactored Utils Architecture**: Separated pure utilities from config-dependent functions
 - **3-Tier Spread Matching**: Enhanced spread detection with DealID/TradeID, time-based, and product/quantity tiers
 - **Universal Field Validation**: JSON-driven configuration system
 - **Pydantic v2 Models**: Complete type safety and validation
@@ -284,9 +305,10 @@ The energy module implements a shared, product-specific unit conversion architec
 - **One-Way Conversion**: Always MT→BBL (trader MT data converts to compare with exchange BBL)
 - **Unit Logic**: Trader data defaults to MT, exchange data uses unit column
 - **Exact Matching**: Product names are pre-normalized, allowing exact ratio lookup instead of "contains" matching
-- **Shared Methods**: `convert_mt_to_bbl_with_product_ratio()` and `validate_mt_to_bbl_quantity_match()`
-- **Rules 3 & 4 Integration**: Both CrackMatcher and ComplexCrackMatcher use identical conversion logic
+- **Shared Methods**: `convert_mt_to_bbl_with_product_ratio()` and `validate_mt_to_bbl_quantity_match()` in `utils/conversion_helpers.py`
+- **Rules 3, 4 & 10 Integration**: CrackMatcher, ComplexCrackMatcher, and ComplexCrackRollMatcher use identical conversion logic
 - **JSON Configuration**: Conversion ratios stored in `normalizer_config.json` for maintainability
+- **Modular Architecture**: Utility functions separated from TradeNormalizer for better code organization
 
 ### Energy CSV Integration
 
@@ -347,7 +369,7 @@ class MatchingConfig(BaseModel):
         default_factory=lambda: {1: Decimal("100"), 2: Decimal("95")}
     )
     quantity_tolerance_bbl: Decimal = Field(default=Decimal("100"), gt=0)
-    processing_order: List[int] = Field(default=[1, 2, 3, 4, 5, 6, 7, 8, 9])
+    processing_order: List[int] = Field(default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
     @field_validator('rule_confidence_levels')
     def validate_confidence_levels(cls, v):
@@ -458,55 +480,7 @@ class Trade(BaseModel):
 
 ## 📁 File Organization Patterns
 
-### Modular Architecture Template
-
-For `ffa_match` or other future modules, follow this structure:
-
-```
-src/ffa_match/                     # New matching module
-├── main.py                        # Module entry point
-├── models/                        # Pydantic models specific to FFA
-│   ├── ffa_trade.py              # FFA-specific trade model
-│   └── ffa_match_result.py       # FFA match result extensions
-├── matchers/                      # FFA-specific matching rules
-│   ├── base_matcher.py           # Inherit universal patterns
-│   ├── ffa_exact_matcher.py      # FFA Rule 1
-│   └── ffa_complex_matcher.py    # FFA Rule 2, etc.
-├── normalizers/                   # FFA data normalization
-│   └── ffa_normalizer.py         # FFA-specific normalization
-├── config/                        # FFA configuration
-│   ├── config_manager.py         # FFA-specific config
-│   └── ffa_config.json           # FFA normalization/universal fields
-├── core/                          # Shared core components
-│   └── ffa_pool.py               # FFA-specific pool management
-├── cli/                           # FFA CLI interface
-│   └── ffa_display.py            # FFA-specific display logic
-├── data/                          # FFA sample data
-└── docs/
-    └── rules.md                   # FFA-specific rules documentation
-```
-
-### Inheritance and Code Reuse Pattern
-
-```python
-# In ffa_match/matchers/base_matcher.py
-from ...energy_match.matchers.base_matcher import BaseMatcher as EnergyBaseMatcher
-
-class FFABaseMatcher(EnergyBaseMatcher):
-    """FFA-specific base matcher inheriting universal field validation."""
-
-    def __init__(self, config_manager: FFAConfigManager):
-        super().__init__(config_manager)
-        # FFA-specific initialization
-
-# In ffa_match/matchers/ffa_exact_matcher.py
-class FFAExactMatcher(FFABaseMatcher):
-    """FFA exact matching with inherited universal field validation."""
-
-    def find_matches(self, pool_manager) -> List[FFAMatchResult]:
-        # FFA-specific matching logic
-        # Universal fields automatically validated via parent class
-```
+The current energy match module demonstrates the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure with dedicated folders for models, matchers, normalizers, utils, config, core, cli, data, and docs.
 
 ## 🚨 Error Handling
 
