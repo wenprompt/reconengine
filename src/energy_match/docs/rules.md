@@ -139,7 +139,7 @@ The matching engine processes trades in order of confidence level to ensure the 
 - **Spreads and cracks** handle trades with clear indicators and unit conversion needs
 - **Aggregation** resolves quantity mismatches between sources
 - **Product spreads** handle different product combination representations
-- **Complex cracks** handle sophisticated 2-leg crack trading strategies
+- **Complex cracks and crack rolls** handle sophisticated 2-leg crack trading strategies
 - **Advanced scenarios** handle the most complex decomposition and netting cases
 
 ## 1. Exact Match Rules

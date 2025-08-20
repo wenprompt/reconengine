@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# serena
+.serena/
+
 # data files (sensitive)
 src/energy_match/data/
 tradefiles/input/

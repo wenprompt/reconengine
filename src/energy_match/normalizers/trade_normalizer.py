@@ -8,6 +8,11 @@ from typing import Dict, Any, Optional
 import logging
 
 from ..config import ConfigManager
+from ..utils.conversion_helpers import (
+    get_product_conversion_ratio,
+    convert_mt_to_bbl_with_product_ratio,
+    validate_mt_to_bbl_quantity_match,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,104 +105,20 @@ class TradeNormalizer:
             logger.warning(f"Unknown unit '{unit}', treating as BBL")
             return quantity
 
-    def are_adjacent_months(self, month1: str, month2: str) -> bool:
-        """Check if two contract months are adjacent."""
-        month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        month1_parts = self.extract_month_year(month1)
-        month2_parts = self.extract_month_year(month2)
-        if not month1_parts or not month2_parts:
-            return False
-        month1_name, year1 = month1_parts
-        month2_name, year2 = month2_parts
-        if year1 == year2:
-            try:
-                idx1 = month_order.index(month1_name)
-                idx2 = month_order.index(month2_name)
-                return abs(idx1 - idx2) == 1
-            except ValueError:
-                return False
-        if abs(year1 - year2) == 1:
-            if year1 < year2:
-                return month1_name == "Dec" and month2_name == "Jan"
-            else:
-                return month2_name == "Dec" and month1_name == "Jan"
-        return False
-    
-    def extract_month_year(self, contract_month: str) -> Optional[tuple[str, int]]:
-        """Extract month name and year from contract month."""
-        if not contract_month or contract_month == "Balmo":
-            return None
-        # This regex assumes the month is already normalized to MMM-YY
-        match = re.match(r'^([A-Za-z]{3})-(\d{2})$', contract_month)
-        if match:
-            month_name = match.group(1)
-            year_short = int(match.group(2))
-            year_full = 2000 + year_short
-            return month_name, year_full
-        return None
-
-    def get_month_order_tuple(self, contract_month: str) -> Optional[tuple[int, int]]:
-        """Parse contract month into a comparable (year, month_order) tuple."""
-        normalized_month = self.normalize_contract_month(contract_month)
-        
-        # Handle Balance of Month (Balmo) as the earliest possible month
-        if normalized_month == "Balmo":
-            return (0, 0)  # Earlier than any (year, month) combination like (2025, 1)
-        
-        month_year_parts = self.extract_month_year(normalized_month)
-        if not month_year_parts:
-            return None
-            
-        month_abbr, year = month_year_parts
-        month_order_map = {
-            'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-            'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
-        }
-        month_num = month_order_map.get(month_abbr)
-        
-        if year and month_num:
-            return (year, month_num)
-        
-        return None
     
     def get_product_conversion_ratio(self, product_name: str) -> Decimal:
         """Get product-specific MT to BBL conversion ratio from configuration.
         
-        Since product names are already normalized, we can use exact matching.
-        
-        Args:
-            product_name: Normalized product name to get conversion ratio for
-            
-        Returns:
-            Product-specific conversion ratio, fallback to default 7.0
+        Delegates to utility function for consistency.
         """
-        product_lower = product_name.lower().strip()
-        
-        # Direct exact match since product names are already normalized
-        if product_lower in self.product_conversion_ratios:
-            return Decimal(str(self.product_conversion_ratios[product_lower]))
-        
-        # Fallback to default ratio
-        default_ratio = self.product_conversion_ratios.get("default", 7.0)
-        return Decimal(str(default_ratio))
+        return get_product_conversion_ratio(product_name, self.config_manager)
     
     def convert_mt_to_bbl_with_product_ratio(self, quantity_mt: Decimal, product_name: str) -> Decimal:
         """Convert MT quantity to BBL using product-specific conversion ratio.
         
-        This is the shared MT→BBL conversion method used by Rules 3 and 4.
-        
-        Args:
-            quantity_mt: Quantity in metric tons
-            product_name: Product name to determine conversion ratio
-            
-        Returns:
-            Converted quantity in barrels (BBL)
+        Delegates to utility function for consistency.
         """
-        product_ratio = self.get_product_conversion_ratio(product_name)
-        converted_bbl = quantity_mt * product_ratio
-        
-        logger.debug(f"MT→BBL conversion: {quantity_mt} MT × {product_ratio} = {converted_bbl} BBL for {product_name}")
-        return converted_bbl
+        return convert_mt_to_bbl_with_product_ratio(quantity_mt, product_name, self.config_manager)
     
     def validate_mt_to_bbl_quantity_match(
         self, 
@@ -208,31 +129,11 @@ class TradeNormalizer:
     ) -> bool:
         """Validate MT vs BBL quantity match using product-specific conversion.
         
-        This is the shared validation method used by Rules 3 and 4.
-        
-        Args:
-            trader_quantity_mt: Trader quantity in MT
-            exchange_quantity_bbl: Exchange quantity in BBL
-            product_name: Product name for conversion ratio
-            bbl_tolerance: BBL tolerance (e.g., ±100 BBL)
-            
-        Returns:
-            True if quantities match within BBL tolerance after conversion
+        Delegates to utility function for consistency.
         """
-        # Convert trader MT to BBL using product-specific ratio
-        trader_quantity_bbl = self.convert_mt_to_bbl_with_product_ratio(trader_quantity_mt, product_name)
-        
-        # Compare BBL vs BBL with tolerance
-        qty_diff_bbl = abs(trader_quantity_bbl - exchange_quantity_bbl)
-        is_match = qty_diff_bbl <= bbl_tolerance
-        
-        logger.debug(
-            f"MT→BBL quantity validation: {trader_quantity_mt} MT → {trader_quantity_bbl} BBL "
-            f"vs {exchange_quantity_bbl} BBL = {qty_diff_bbl} BBL diff "
-            f"(tolerance: ±{bbl_tolerance} BBL) → {'MATCH' if is_match else 'NO MATCH'}"
+        return validate_mt_to_bbl_quantity_match(
+            trader_quantity_mt, exchange_quantity_bbl, product_name, bbl_tolerance, self.config_manager
         )
-        
-        return is_match
 
     def get_trader_product_unit_default(self, product_name: str) -> str:
         """Get default unit for trader product based on configuration.

@@ -12,6 +12,7 @@ from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
 from .multi_leg_base_matcher import MultiLegBaseMatcher
+from ..utils.trade_helpers import get_month_order_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -548,8 +549,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
     ) -> Optional[Decimal]:
         """Calculate spread price from exchange pair (earlier month - later month)."""
         try:
-            month1_tuple = self.normalizer.get_month_order_tuple(trade1.contract_month)
-            month2_tuple = self.normalizer.get_month_order_tuple(trade2.contract_month)
+            month1_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(trade1.contract_month))
+            month2_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(trade2.contract_month))
 
             if not month1_tuple or not month2_tuple:
                 return None
@@ -879,11 +880,11 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
         # Calculate exchange spread price (earlier month - later month)
         exchange_trade1, exchange_trade2 = exchange_trades
-        month1_tuple = self.normalizer.get_month_order_tuple(
-            exchange_trade1.contract_month
+        month1_tuple = get_month_order_tuple(
+            self.normalizer.normalize_contract_month(exchange_trade1.contract_month)
         )
-        month2_tuple = self.normalizer.get_month_order_tuple(
-            exchange_trade2.contract_month
+        month2_tuple = get_month_order_tuple(
+            self.normalizer.normalize_contract_month(exchange_trade2.contract_month)
         )
 
         if not month1_tuple or not month2_tuple:

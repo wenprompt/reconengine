@@ -10,7 +10,7 @@ from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
 from .multi_leg_base_matcher import MultiLegBaseMatcher
-from ..utils.trade_helpers import extract_base_product
+from ..utils.trade_helpers import extract_base_product, get_month_order_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -394,8 +394,8 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         crack_price2 = crack_prices[trader2.contract_month]
         
         # Calculate roll spread (earlier month - later month)
-        month1_tuple = self.normalizer.get_month_order_tuple(trader1.contract_month)
-        month2_tuple = self.normalizer.get_month_order_tuple(trader2.contract_month)
+        month1_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(trader1.contract_month))
+        month2_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(trader2.contract_month))
         
         if not month1_tuple or not month2_tuple:
             return False
