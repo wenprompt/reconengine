@@ -3,7 +3,7 @@
 import logging
 import uuid
 from decimal import Decimal
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Any
 from collections import defaultdict
 
 from ..models import Trade, MatchResult, MatchType
@@ -98,18 +98,27 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
         
         logger.info(f"Processing {len(trader_spread_pairs)} trader spread pairs for exchange aggregation")
         
-        # For each trader spread pair, find aggregated exchange trades
-        for spread_pair in trader_spread_pairs:
-            if any(pool_manager.is_trade_matched(trade) for trade in spread_pair):
+        # For each trader spread pair, try to find aggregated exchange trades (Scenario A)
+        for trader_spread_pair in trader_spread_pairs:
+            if any(pool_manager.is_trade_matched(trade) for trade in trader_spread_pair):
                 continue
                 
             match = self._find_exchange_aggregation_for_trader_spread(
-                spread_pair, exchange_trades, pool_manager
+                trader_spread_pair, exchange_trades, pool_manager
             )
             if match:
                 matches.append(match)
                 pool_manager.record_match(match)
                 logger.info(f"Found aggregated exchange→trader match: {match.match_id}")
+        
+        # Also try cross-spread aggregation (Scenario C)
+        cross_match = self._find_cross_spread_aggregation_match(
+            trader_spread_pairs, exchange_trades, pool_manager
+        )
+        if cross_match:
+            matches.append(cross_match)
+            pool_manager.record_match(cross_match)
+            logger.info(f"Found cross-spread aggregation match: {cross_match.match_id}")
         
         logger.info(f"Found {len(matches)} aggregated exchange→trader matches")
         return matches
@@ -215,23 +224,313 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
         
         return spread_trades
 
+    def _find_cross_spread_aggregation_match(
+        self, 
+        trader_spread_pairs: List[Tuple[Trade, Trade]], 
+        exchange_trades: List[Trade], 
+        pool_manager: UnmatchedPoolManager
+    ) -> Optional[MatchResult]:
+        """Find match by aggregating trader spread components across multiple spread pairs.
+        
+        This handles the scenario where multiple trader spread pairs need to be aggregated
+        by product component to match individual exchange trades.
+        
+        Example:
+        - Trader spread pair 1: marine 1000 B + 380cst 1000 S (Jul-25)
+        - Trader spread pair 2: marine 2000 B + 380cst 2000 S (Jul-25)
+        - Aggregated: marine 3000 B + 380cst 3000 S (Jul-25)
+        - Matches: E_0062 (marine 3000 B Jul-25) + E_0061 (380cst 3000 S Jul-25)
+        """
+        if not trader_spread_pairs:
+            return None
+        
+        # Group spread pairs by contract month to ensure consistency
+        from collections import defaultdict
+        month_groups = defaultdict(list)
+        for spread_pair in trader_spread_pairs:
+            price_trade, zero_trade = spread_pair
+            # Both trades in a spread pair should have same contract month
+            if price_trade.contract_month == zero_trade.contract_month:
+                month_groups[price_trade.contract_month].append(spread_pair)
+        
+        # Try each month group separately for cross-spread aggregation
+        for contract_month, month_spread_pairs in month_groups.items():
+            if len(month_spread_pairs) < 2:  # Need at least 2 spread pairs for aggregation
+                continue
+                
+            logger.debug(f"Attempting cross-spread aggregation for {len(month_spread_pairs)} spread pairs in {contract_month}")
+            
+            # Check if any trades in this month group are already matched
+            month_trades: List[Trade] = []
+            for spread_pair in month_spread_pairs:
+                month_trades.extend(spread_pair)
+            
+            if any(pool_manager.is_trade_matched(trade) for trade in month_trades):
+                logger.debug(f"Some trader spread trades already matched in {contract_month}, skipping")
+                continue
+            
+            # Try cross-spread aggregation for this month group
+            result = self._attempt_cross_spread_aggregation(
+                month_spread_pairs, exchange_trades, pool_manager, contract_month
+            )
+            if result:
+                return result
+        
+        return None
+
+    def _attempt_cross_spread_aggregation(
+        self, 
+        trader_spread_pairs: List[Tuple[Trade, Trade]], 
+        exchange_trades: List[Trade], 
+        pool_manager: UnmatchedPoolManager,
+        contract_month: str
+    ) -> Optional[MatchResult]:
+        """Attempt cross-spread aggregation for spread pairs within the same contract month."""
+            
+        # Group trader trades by product across all spread pairs
+        from collections import defaultdict
+        product_groups = defaultdict(list)
+        
+        for price_trade, zero_trade in trader_spread_pairs:
+            product_groups[price_trade.product_name].append(price_trade)
+            product_groups[zero_trade.product_name].append(zero_trade)
+        
+        # Validate we have exactly 2 products 
+        if len(product_groups) != 2:
+            logger.debug(f"Expected 2 products for spread aggregation, found {len(product_groups)}")
+            return None
+            
+        product_names = list(product_groups.keys())
+        product1_trades = product_groups[product_names[0]]
+        product2_trades = product_groups[product_names[1]]
+        
+        logger.debug(f"Aggregating {product_names[0]} ({len(product1_trades)} trades) and {product_names[1]} ({len(product2_trades)} trades) in {contract_month}")
+        
+        # Calculate aggregated quantities and validate consistency
+        product1_total = sum(trade.quantity_mt for trade in product1_trades)
+        product2_total = sum(trade.quantity_mt for trade in product2_trades)
+        
+        # Must have same aggregated quantity for both products in a spread
+        if product1_total != product2_total:
+            logger.debug(f"❌ Cross-spread aggregation failed: Aggregated quantities don't match for {contract_month} - "
+                        f"{product_names[0]}={product1_total}MT vs {product_names[1]}={product2_total}MT")
+            return None
+            
+        # Validate all trades have consistent characteristics within each product (allowing price differences)
+        if not self._validate_product_group_consistency(product1_trades) or not self._validate_product_group_consistency(product2_trades):
+            return None
+            
+        # Find matching exchange trades for each product (must also match contract month)
+        product1_exchange = self._find_matching_exchange_trade_for_month(
+            product1_trades[0], Decimal(str(product1_total)), exchange_trades, pool_manager, contract_month
+        )
+        product2_exchange = self._find_matching_exchange_trade_for_month(
+            product2_trades[0], Decimal(str(product2_total)), exchange_trades, pool_manager, contract_month
+        )
+        
+        if not product1_exchange or not product2_exchange:
+            logger.debug(f"❌ Cross-spread aggregation failed for {contract_month}: Could not find matching exchange trades "
+                        f"for both products ({product_names[0]}: {product1_exchange is not None}, "
+                        f"{product_names[1]}: {product2_exchange is not None})")
+            return None
+            
+        # Validate the spread direction logic
+        if not self._validate_cross_spread_direction_logic(product1_trades, product2_trades, product1_exchange, product2_exchange):
+            return None
+            
+        # Create match result
+        return self._create_cross_spread_match_result(
+            trader_spread_pairs, product1_exchange, product2_exchange
+        )
+        
+    def _find_matching_exchange_trade_for_month(
+        self, 
+        reference_trade: Trade, 
+        target_quantity: Decimal, 
+        exchange_trades: List[Trade], 
+        pool_manager: UnmatchedPoolManager,
+        contract_month: str
+    ) -> Optional[Trade]:
+        """Find exchange trade that matches the aggregated trader component and contract month."""
+        for exchange_trade in exchange_trades:
+            if pool_manager.is_trade_matched(exchange_trade):
+                continue
+                
+            if (exchange_trade.product_name == reference_trade.product_name and
+                exchange_trade.contract_month == contract_month and
+                exchange_trade.quantity_mt == Decimal(str(target_quantity)) and
+                exchange_trade.buy_sell == reference_trade.buy_sell and
+                self.validate_universal_fields(reference_trade, exchange_trade)):
+                
+                logger.debug(f"Found matching exchange trade {exchange_trade.trade_id} for {reference_trade.product_name} quantity {target_quantity} in {contract_month}")
+                return exchange_trade
+                
+        logger.debug(f"No matching exchange trade found for {reference_trade.product_name} quantity {target_quantity} in {contract_month}")
+        return None
+        
+    def _validate_product_group_consistency(self, trades: List[Trade]) -> bool:
+        """Validate that all trades in a product group have consistent characteristics.
+        
+        For cross-spread aggregation, we only require matching product, contract month, 
+        and buy_sell direction. Price differences are allowed as they represent different
+        spread pairs being aggregated.
+        """
+        if not trades:
+            logger.debug("❌ Empty trades list provided for product group consistency validation")
+            return False
+            
+        if len(trades) == 1:
+            return True  # Single trade is always consistent
+            
+        first_trade = trades[0]
+        for trade in trades[1:]:
+            if (trade.product_name != first_trade.product_name or
+                trade.contract_month != first_trade.contract_month or
+                trade.buy_sell != first_trade.buy_sell):
+                logger.debug(f"Inconsistent product group: {trade.trade_id} vs {first_trade.trade_id} "
+                           f"(product: {trade.product_name}/{first_trade.product_name}, "
+                           f"month: {trade.contract_month}/{first_trade.contract_month}, "
+                           f"direction: {trade.buy_sell}/{first_trade.buy_sell})")
+                return False
+                
+        # Log price differences for debugging but don't fail validation
+        prices = [trade.price for trade in trades]
+        if len(set(prices)) > 1:
+            logger.debug(f"Price variation in product group {first_trade.product_name}: {prices} - allowed for cross-spread aggregation")
+                
+        return True
+        
+    def _find_matching_exchange_trade(
+        self, 
+        reference_trade: Trade, 
+        target_quantity: Decimal, 
+        exchange_trades: List[Trade], 
+        pool_manager: UnmatchedPoolManager
+    ) -> Optional[Trade]:
+        """Find exchange trade that matches the aggregated trader component."""
+        for exchange_trade in exchange_trades:
+            if pool_manager.is_trade_matched(exchange_trade):
+                continue
+                
+            if (exchange_trade.product_name == reference_trade.product_name and
+                exchange_trade.contract_month == reference_trade.contract_month and
+                exchange_trade.quantity_mt == Decimal(str(target_quantity)) and
+                exchange_trade.buy_sell == reference_trade.buy_sell and
+                self.validate_universal_fields(reference_trade, exchange_trade)):
+                
+                logger.debug(f"Found matching exchange trade {exchange_trade.trade_id} for {reference_trade.product_name} quantity {target_quantity}")
+                return exchange_trade
+                
+        logger.debug(f"No matching exchange trade found for {reference_trade.product_name} quantity {target_quantity}")
+        return None
+        
+    def _validate_cross_spread_direction_logic(
+        self, 
+        product1_trades: List[Trade], 
+        product2_trades: List[Trade], 
+        product1_exchange: Trade, 
+        product2_exchange: Trade
+    ) -> bool:
+        """Validate that the spread direction logic is correct."""
+        # Ensure opposite directions between products (spread pattern)
+        product1_direction = product1_trades[0].buy_sell
+        product2_direction = product2_trades[0].buy_sell
+        
+        if product1_direction == product2_direction:
+            logger.debug("Trader products have same direction, not a valid spread")
+            return False
+            
+        # Exchange trades must match trader directions
+        if (product1_exchange.buy_sell != product1_direction or 
+            product2_exchange.buy_sell != product2_direction):
+            logger.debug("Exchange directions don't match trader directions")
+            return False
+            
+        return True
+        
+    def _create_cross_spread_match_result(
+        self, 
+        trader_spread_pairs: List[Tuple[Trade, Trade]], 
+        product1_exchange: Trade, 
+        product2_exchange: Trade
+    ) -> MatchResult:
+        """Create match result for cross-spread aggregation."""
+        
+        # Flatten all trader trades
+        all_trader_trades: List[Trade] = []
+        for spread_pair in trader_spread_pairs:
+            all_trader_trades.extend(spread_pair)
+            
+        # Generate unique match ID
+        match_id = f"AGG_PROD_SPREAD_{uuid.uuid4().hex[:8].upper()}"
+        
+        # Create synthetic spread trade for display
+        product1_name = product1_exchange.product_name
+        product2_name = product2_exchange.product_name
+        
+        # Use the aggregated quantity, not individual trade quantity
+        aggregated_quantity = product1_exchange.quantity_mt  # Should be 3000
+        
+        display_trade = all_trader_trades[0].model_copy(update={
+            "product_name": f"{product1_name}/{product2_name}",
+            "quantity": aggregated_quantity  # Update base quantity field, not the property
+        })
+        
+        # Rule-specific fields
+        rule_specific_fields = [
+            "aggregated_product_spread",
+            "contract_month", 
+            "quantity_aggregation",
+            "buy_sell_spread_pattern",
+            "cross_spread_aggregation"
+        ]
+        
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
+        
+        return MatchResult(
+            match_id=match_id,
+            match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
+            confidence=self.confidence,
+            trader_trade=display_trade,
+            exchange_trade=product1_exchange,
+            additional_trader_trades=all_trader_trades[1:],
+            additional_exchange_trades=[product2_exchange],
+            matched_fields=matched_fields,
+            tolerances_applied={
+                "aggregation": f"{len(trader_spread_pairs)} trader spread pairs aggregated",
+                "quantity_match": "exact"
+            },
+            rule_order=self.rule_number
+        )
+
     def _find_exchange_aggregation_for_trader_spread(
         self, 
         trader_spread_pair: Tuple[Trade, Trade], 
         exchange_trades: List[Trade], 
         pool_manager: UnmatchedPoolManager
     ) -> Optional[MatchResult]:
-        """Find aggregated exchange trades that match trader spread pair."""
+        """Find aggregated exchange trades that match trader spread pair.
+        
+        Scenario A: Multiple exchange trades → Single trader spread pair
+        This is the reverse of cross-spread aggregation (Scenario C).
+        """
         price_trade, zero_trade = trader_spread_pair
+        
+        # Skip if trades are already matched
+        if (pool_manager.is_trade_matched(price_trade) or 
+            pool_manager.is_trade_matched(zero_trade)):
+            return None
         
         # Parse trader product components 
         if not self._is_different_products(price_trade, zero_trade):
             logger.debug("Trader spread pair doesn't have different products")
             return None
         
-        # Find exchange trades for each product component
-        price_product_candidates = []
-        zero_product_candidates = []
+        logger.debug(f"Finding exchange aggregation for trader spread: {price_trade.product_name}({price_trade.quantity_mt}) + {zero_trade.product_name}({zero_trade.quantity_mt})")
+        
+        # Group exchange trades by product that match trader spread components
+        product1_exchanges = []  # Matches price_trade product
+        product2_exchanges = []  # Matches zero_trade product
         
         for exchange_trade in exchange_trades:
             if pool_manager.is_trade_matched(exchange_trade):
@@ -241,41 +540,177 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
             if not self.validate_universal_fields(price_trade, exchange_trade):
                 continue
                 
-            # Must match contract month and quantity
-            if (exchange_trade.contract_month != price_trade.contract_month or 
-                exchange_trade.quantity_mt != price_trade.quantity_mt):
+            # Must match contract month
+            if exchange_trade.contract_month != price_trade.contract_month:
                 continue
             
-            # Group by product
+            # Group by product component
             if exchange_trade.product_name == price_trade.product_name:
-                price_product_candidates.append(exchange_trade)
+                # Must match buy/sell direction (price will be validated at spread level)
+                if exchange_trade.buy_sell == price_trade.buy_sell:
+                    product1_exchanges.append(exchange_trade)
             elif exchange_trade.product_name == zero_trade.product_name:
-                zero_product_candidates.append(exchange_trade)
+                # Must match buy/sell direction (price will be validated at spread level)
+                if exchange_trade.buy_sell == zero_trade.buy_sell:
+                    product2_exchanges.append(exchange_trade)
         
-        if not price_product_candidates or not zero_product_candidates:
-            logger.debug("Insufficient exchange candidates for trader spread components")
+        if not product1_exchanges or not product2_exchanges:
+            logger.debug(f"Insufficient exchange trades: {len(product1_exchanges)} for {price_trade.product_name}, {len(product2_exchanges)} for {zero_trade.product_name}")
             return None
         
-        # Try to find aggregation matches for each component
-        price_aggregation = self._find_component_aggregation(
-            price_product_candidates, price_trade, pool_manager
+        # Find aggregation combinations that sum to trader quantities
+        product1_aggregation = self._find_exchange_quantity_aggregation(
+            product1_exchanges, price_trade.quantity_mt
         )
-        zero_aggregation = self._find_component_aggregation(
-            zero_product_candidates, zero_trade, pool_manager
+        product2_aggregation = self._find_exchange_quantity_aggregation(
+            product2_exchanges, zero_trade.quantity_mt
         )
         
-        if not price_aggregation or not zero_aggregation:
+        if not product1_aggregation or not product2_aggregation:
+            logger.debug("Could not find quantity aggregations for both products")
             return None
         
-        # Validate the complete aggregated spread match
-        if self._validate_aggregated_spread_match(
-            trader_spread_pair, price_aggregation, zero_aggregation
+        # Validate spread price consistency
+        if not self._validate_exchange_aggregated_spread_price(
+            trader_spread_pair, product1_aggregation, product2_aggregation
         ):
-            return self._create_aggregated_spread_match_result(
-                trader_spread_pair, price_aggregation, zero_aggregation
-            )
+            logger.debug("Exchange aggregated spread price validation failed")
+            return None
         
+        # Validate and create match result
+        logger.info(f"Found exchange aggregation match: {len(product1_aggregation)}+{len(product2_aggregation)} exchange trades → trader spread pair")
+        return self._create_exchange_aggregated_spread_match_result(
+            trader_spread_pair, product1_aggregation, product2_aggregation
+        )
+
+    def _find_exchange_quantity_aggregation(
+        self, 
+        candidates: List[Trade], 
+        target_quantity: Decimal
+    ) -> Optional[List[Trade]]:
+        """Find combination of exchange trades that sum to target quantity.
+        
+        Uses a greedy approach to find trades that aggregate to the exact target quantity.
+        """
+        if not candidates:
+            logger.debug(f"❌ No candidate trades provided for quantity aggregation (target: {target_quantity}MT)")
+            return None
+            
+        if target_quantity <= 0:
+            logger.debug(f"❌ Invalid target quantity for aggregation: {target_quantity}MT")
+            return None
+            
+        # Try to find exact combinations that sum to target quantity
+        from itertools import combinations
+        
+        # Start with individual trades that match exactly
+        for trade in candidates:
+            if trade.quantity_mt == target_quantity:
+                return [trade]
+        
+        # Try combinations of 2, 3, etc. trades (up to reasonable limit)
+        for combo_size in range(2, min(len(candidates) + 1, 6)):  # Limit to 5 trades max
+            for combo in combinations(candidates, combo_size):
+                total_quantity = sum(trade.quantity_mt for trade in combo)
+                if total_quantity == target_quantity:
+                    logger.debug(f"Found {combo_size}-trade aggregation for quantity {target_quantity}")
+                    return list(combo)
+        
+        available_quantities = [str(trade.quantity_mt) for trade in candidates]
+        logger.debug(f"❌ No valid aggregation combination found for target {target_quantity}MT from {len(candidates)} candidates "
+                   f"with quantities: [{', '.join(available_quantities)}]MT")
         return None
+
+    def _validate_exchange_aggregated_spread_price(
+        self,
+        trader_spread_pair: Tuple[Trade, Trade],
+        product1_aggregation: List[Trade],
+        product2_aggregation: List[Trade]
+    ) -> bool:
+        """Validate that aggregated exchange trades maintain the correct spread price relationship."""
+        if not product1_aggregation or not product2_aggregation:
+            logger.debug("❌ Empty aggregation lists provided for spread price validation")
+            return False
+            
+        price_trade, zero_trade = trader_spread_pair
+        
+        # Calculate trader spread price
+        trader_spread_price = price_trade.price - zero_trade.price
+        
+        # For aggregated exchange trades, all should have the same price within each product group
+        # (since they're matching individual legs of the spread)
+        product1_prices = [trade.price for trade in product1_aggregation]
+        product2_prices = [trade.price for trade in product2_aggregation]
+        
+        # Validate price consistency within each aggregation group
+        if len(set(product1_prices)) > 1:
+            logger.debug(f"Inconsistent prices in product1 aggregation: {product1_prices}")
+            return False
+            
+        if len(set(product2_prices)) > 1:
+            logger.debug(f"Inconsistent prices in product2 aggregation: {product2_prices}")
+            return False
+        
+        # Calculate exchange spread price
+        exchange_product1_price = product1_prices[0]
+        exchange_product2_price = product2_prices[0]
+        exchange_spread_price = exchange_product1_price - exchange_product2_price
+        
+        # Validate spread price matches
+        if trader_spread_price != exchange_spread_price:
+            logger.debug(f"Spread price mismatch: trader {trader_spread_price} vs exchange {exchange_spread_price}")
+            return False
+        
+        logger.debug(f"Spread price validation passed: {trader_spread_price} = {exchange_spread_price}")
+        return True
+
+    def _create_exchange_aggregated_spread_match_result(
+        self,
+        trader_spread_pair: Tuple[Trade, Trade],
+        product1_aggregation: List[Trade],
+        product2_aggregation: List[Trade]
+    ) -> MatchResult:
+        """Create match result for aggregated exchange → trader spread (Scenario A)."""
+        
+        price_trade, zero_trade = trader_spread_pair
+        all_exchange_trades = product1_aggregation + product2_aggregation
+        
+        # Generate unique match ID
+        match_id = f"AGG_PROD_SPREAD_{uuid.uuid4().hex[:8].upper()}"
+        
+        # Rule-specific fields
+        rule_specific_fields = [
+            "exchange_aggregation",
+            "product_components", 
+            "contract_month",
+            "quantity_aggregation",
+            "buy_sell_spread",
+            "price_differential"
+        ]
+        
+        # Get complete matched fields with universal fields
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
+        
+        # Create synthetic spread trade for display purposes
+        display_trade = price_trade.model_copy(update={
+            "product_name": f"{price_trade.product_name}/{zero_trade.product_name}"
+        })
+        
+        return MatchResult(
+            match_id=match_id,
+            match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
+            confidence=self.confidence,
+            trader_trade=display_trade,  # Display trade showing spread format
+            exchange_trade=all_exchange_trades[0],  # Primary exchange trade
+            additional_trader_trades=[zero_trade],  # Zero price trader trade
+            additional_exchange_trades=all_exchange_trades[1:],  # Remaining exchange trades
+            matched_fields=matched_fields,
+            tolerances_applied={
+                "aggregation": f"{len(product1_aggregation)} + {len(product2_aggregation)} exchange trades aggregated",
+                "scenario": "A - Many exchange trades → One trader spread pair"
+            },
+            rule_order=self.rule_number
+        )
 
     def _find_trader_aggregation_for_exchange_spread(
         self, 
@@ -414,19 +849,23 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
 
     def _parse_hyphenated_product(self, product_name: str) -> Optional[Tuple[str, str]]:
         """Parse hyphenated product into component products."""
-        if "-" not in product_name:
+        if not product_name or "-" not in product_name:
+            logger.debug(f"❌ Invalid product for hyphenation parsing: '{product_name}'")
             return None
         
         parts = product_name.split("-", 1)
         if len(parts) != 2:
+            logger.debug(f"❌ Hyphenated product split failed: '{product_name}' -> {parts}")
             return None
         
         first_product = parts[0].strip()
         second_product = parts[1].strip()
         
-        if not first_product or not second_product:
+        if not first_product or not second_product or first_product == second_product:
+            logger.debug(f"❌ Invalid hyphenated product components: '{product_name}' -> '{first_product}'/'{second_product}'")
             return None
             
+        logger.debug(f"✅ Successfully parsed hyphenated product: '{product_name}' -> '{first_product}'/'{second_product}'")
         return (first_product, second_product)
 
     def _validate_aggregated_spread_match(
@@ -471,7 +910,10 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
         second_aggregation: List[Trade]
     ) -> bool:
         """Validate aggregated trader trades match exchange spread."""
-        
+        if not first_aggregation or not second_aggregation:
+            logger.debug(f"❌ Empty aggregation lists for exchange spread {exchange_spread.trade_id} validation")
+            return False
+            
         # Validate total quantities
         first_total = sum(trade.quantity_mt for trade in first_aggregation)
         second_total = sum(trade.quantity_mt for trade in second_aggregation)
@@ -542,11 +984,16 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
         # Get complete matched fields with universal fields
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
         
+        # Create a synthetic trade representing the spread for display purposes
+        display_trade = price_trade.model_copy(update={
+            "product_name": f"{price_trade.product_name}/{zero_trade.product_name}"
+        })
+        
         return MatchResult(
             match_id=match_id,
             match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
             confidence=self.confidence,
-            trader_trade=price_trade,  # Primary trader trade
+            trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=all_exchange_trades[0],  # Primary exchange trade
             additional_trader_trades=[zero_trade],  # Zero price trader trade
             additional_exchange_trades=all_exchange_trades[1:],  # Remaining exchange trades
@@ -583,11 +1030,16 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
         # Get complete matched fields with universal fields
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
         
+        # Create a synthetic trade representing the spread for display purposes
+        display_trade = all_trader_trades[0].model_copy(update={
+            "product_name": f"{first_aggregation[0].product_name}/{second_aggregation[0].product_name}"
+        })
+        
         return MatchResult(
             match_id=match_id,
             match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
             confidence=self.confidence,
-            trader_trade=all_trader_trades[0],  # Primary trader trade
+            trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=exchange_spread,
             additional_trader_trades=all_trader_trades[1:],  # Remaining trader trades
             matched_fields=matched_fields,
@@ -598,7 +1050,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher):
             rule_order=self.rule_number
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> Dict[str, Any]:
         """Get information about this matching rule."""
         return {
             "rule_number": self.rule_number,

@@ -60,5 +60,3 @@ every team will upload their netpos together instead of each trader by each trad
 all sgx traders file to match by product name first instead of ID for standardisation because petchem has BZF BZN and BZ
 
 **NOTES FOR ENERGY MATCHING**
-looks like debugging still not debugging well tier1-3 > try for 270625 file mainly tier1 issue
-update claude

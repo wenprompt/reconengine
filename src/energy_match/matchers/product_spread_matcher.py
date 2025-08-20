@@ -3,7 +3,7 @@
 import logging
 import uuid
 from decimal import Decimal
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Any
 from collections import defaultdict
 
 from ..models import Trade, MatchResult, MatchType
@@ -200,13 +200,14 @@ class ProductSpreadMatcher(BaseMatcher):
         first_product = parts[0].strip()
         second_product = parts[1].strip()
         
-        # Ensure both components are non-empty
-        if not first_product or not second_product:
+        # Ensure both components are non-empty and different
+        if not first_product or not second_product or first_product == second_product:
+            logger.debug(f"❌ Invalid hyphenated product parsing: '{product_name}' -> '{first_product}'/'{second_product}'")
             return None
             
         return (first_product, second_product)
 
-    def _create_trader_index(self, trader_trades: List[Trade]) -> Dict[tuple, List[Trade]]:
+    def _create_trader_index(self, trader_trades: List[Trade]) -> Dict[Tuple[Any, ...], List[Trade]]:
         """Create index of trader trades by matching signature.
         
         Args:
@@ -215,7 +216,7 @@ class ProductSpreadMatcher(BaseMatcher):
         Returns:
             Dictionary mapping signatures to trader trades
         """
-        index: Dict[tuple, List[Trade]] = defaultdict(list)
+        index: Dict[Tuple[Any, ...], List[Trade]] = defaultdict(list)
         
         for trade in trader_trades:
             # Index by contract month, quantity, and universal fields
@@ -308,34 +309,26 @@ class ProductSpreadMatcher(BaseMatcher):
         logger.debug(f"Found {len(spread_pairs)} exchange spread pairs")
         return spread_pairs
     
-    def _create_trader_signature(self, trade: Trade) -> tuple:
+    def _create_trader_signature(self, trade: Trade) -> Tuple[Any, ...]:
         """Create signature for trader trade grouping."""
-        # Rule-specific fields
-        rule_fields = [
-            trade.contract_month,
-            trade.quantity_mt
-        ]
-        
-        
-        # Use BaseMatcher method to add universal fields
-        return self.create_universal_signature(trade, rule_fields)
+        return self._create_base_signature(trade)
     
-    def _create_exchange_signature(self, trade: Trade) -> tuple:
+    def _create_exchange_signature(self, trade: Trade) -> Tuple[Any, ...]:
         """Create signature for exchange trade grouping."""
-        # Rule-specific fields
+        return self._create_base_signature(trade)
+        
+    def _create_base_signature(self, trade: Trade) -> Tuple[Any, ...]:
+        """Create base signature for trade grouping (shared between trader and exchange)."""
         rule_fields = [
             trade.contract_month,
             trade.quantity_mt
         ]
-        
-        
-        # Use BaseMatcher method to add universal fields
         return self.create_universal_signature(trade, rule_fields)
 
     def _find_product_spread_match(
         self, 
         exchange_trade: Trade, 
-        trader_index: Dict[tuple, List[Trade]], 
+        trader_index: Dict[Tuple[Any, ...], List[Trade]], 
         pool_manager: UnmatchedPoolManager
     ) -> Optional[MatchResult]:
         """Find product spread match for an exchange trade.
@@ -462,18 +455,26 @@ class ProductSpreadMatcher(BaseMatcher):
         exchange1_ordered, exchange2_ordered = exchange_order
         
         try:
+            # Check quantity alignment - CRITICAL CHECK THAT WAS MISSING
+            if (trader1.quantity_mt != exchange1_ordered.quantity_mt or 
+                trader2.quantity_mt != exchange2_ordered.quantity_mt):
+                logger.debug(f"❌ Quantity mismatch: trader({trader1.quantity_mt}+{trader2.quantity_mt}={trader1.quantity_mt + trader2.quantity_mt}MT) "
+                           f"vs exchange({exchange1_ordered.quantity_mt}+{exchange2_ordered.quantity_mt}={exchange1_ordered.quantity_mt + exchange2_ordered.quantity_mt}MT) "
+                           f"- should use Aggregated Product Spread Matcher (Rule 11)")
+                return False
+            
             # Check product alignment
             if (trader1.product_name != exchange1_ordered.product_name or 
                 trader2.product_name != exchange2_ordered.product_name):
-                logger.debug(f"❌ Product mismatch: {trader1.product_name}!={exchange1_ordered.product_name} "
-                           f"or {trader2.product_name}!={exchange2_ordered.product_name}")
+                logger.debug(f"❌ Product alignment failed: trader({trader1.product_name}/{trader2.product_name}) "
+                           f"vs exchange({exchange1_ordered.product_name}/{exchange2_ordered.product_name})")
                 return False
             
             # Check B/S direction alignment
             if (trader1.buy_sell != exchange1_ordered.buy_sell or 
                 trader2.buy_sell != exchange2_ordered.buy_sell):
-                logger.debug(f"❌ B/S direction mismatch: {trader1.buy_sell}!={exchange1_ordered.buy_sell} "
-                           f"or {trader2.buy_sell}!={exchange2_ordered.buy_sell}")
+                logger.debug(f"❌ B/S direction mismatch: trader({trader1.buy_sell}/{trader2.buy_sell}) "
+                           f"vs exchange({exchange1_ordered.buy_sell}/{exchange2_ordered.buy_sell})")
                 return False
             
             # Calculate and validate spread prices
@@ -485,8 +486,8 @@ class ProductSpreadMatcher(BaseMatcher):
             
             # Prices must match exactly
             if trader_spread_price != exchange_spread_price:
-                logger.debug(f"❌ Spread price mismatch: trader={trader_spread_price}, "
-                           f"exchange={exchange_spread_price} ({exchange1_ordered.price}-{exchange2_ordered.price})")
+                logger.debug(f"❌ Spread price validation failed: trader_spread={trader_spread_price} "
+                           f"vs exchange_spread={exchange_spread_price} ({exchange1_ordered.price}-{exchange2_ordered.price})")
                 return False
             
             logger.debug(f"✅ 2-leg spread validation passed: spread_price={trader_spread_price}")
@@ -532,11 +533,16 @@ class ProductSpreadMatcher(BaseMatcher):
         # Price is calculated/derived
         differing_fields = ["price"]
         
+        # Create a synthetic trade representing the spread for display purposes
+        display_trade = trader1.model_copy(update={
+            "product_name": f"{trader1.product_name}/{trader2.product_name}"
+        })
+        
         return MatchResult(
             match_id=match_id,
             match_type=MatchType.PRODUCT_SPREAD,
             confidence=self.confidence,
-            trader_trade=trader1,  # Primary trader trade
+            trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=exchange1_ordered,  # Primary exchange trade
             additional_trader_trades=[trader2],  # Additional trader trade
             additional_exchange_trades=[exchange2_ordered],  # Additional exchange trade
@@ -703,11 +709,16 @@ class ProductSpreadMatcher(BaseMatcher):
         # Product name and price are calculated/derived
         differing_fields = ["product_name", "price"]
         
+        # Create a synthetic trade representing the spread for display purposes
+        display_trade = first_trader_trade.model_copy(update={
+            "product_name": f"{first_trader_trade.product_name}/{second_trader_trade.product_name}"
+        })
+        
         return MatchResult(
             match_id=match_id,
             match_type=MatchType.PRODUCT_SPREAD,
             confidence=self.confidence,
-            trader_trade=first_trader_trade,  # Primary trader trade
+            trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=exchange_trade,
             additional_trader_trades=[second_trader_trade],  # Additional component trade
             matched_fields=matched_fields,
@@ -715,7 +726,7 @@ class ProductSpreadMatcher(BaseMatcher):
             rule_order=self.rule_number
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> Dict[str, Any]:
         """Get information about this matching rule.
         
         Returns:

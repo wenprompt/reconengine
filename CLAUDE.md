@@ -8,12 +8,12 @@ This is a **Reconciliation Engine** that contains multiple specialized matching 
 
 ### Energy Match Module Summary
 
-The energy matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 10 implemented rules:
+The energy matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 11 implemented rules:
 
 - **Rules 1-3**: Basic matching (exact, spread, crack)
 - **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
 - **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, aggregated crack)
-- **Rule 10**: Complex crack roll matching (calendar spreads of crack positions)
+- **Rules 10-11**: Advanced spread matching (complex crack roll, aggregated product spread)
 
 Each matching system will have its own `docs/rules.md` file for detailed rule specifications.
 
@@ -45,7 +45,7 @@ src/energy_match/
 │   ├── __init__.py     # Module exports and documentation
 │   ├── trade_helpers.py # Pure utility functions (no config dependencies)
 │   └── conversion_helpers.py # Config-dependent utility functions
-├── matchers/            # Matching rule implementations (10 rules)
+├── matchers/            # Matching rule implementations (11 rules)
 │   ├── exact_matcher.py # Rule 1: Exact matching
 │   ├── spread_matcher.py # Rule 2: Spread matching
 │   ├── crack_matcher.py # Rule 3: Crack matching
@@ -55,7 +55,8 @@ src/energy_match/
 │   ├── aggregated_complex_crack_matcher.py # Rule 7: Aggregated complex crack
 │   ├── aggregated_spread_matcher.py # Rule 8: Aggregated spread matching
 │   ├── aggregated_crack_matcher.py # Rule 9: Aggregated crack matching
-│   └── complex_crack_roll_matcher.py # Rule 10: Complex crack roll matching
+│   ├── complex_crack_roll_matcher.py # Rule 10: Complex crack roll matching
+│   └── aggregated_product_spread_matcher.py # Rule 11: Aggregated product spread matching
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -132,7 +133,7 @@ src/energy_match/
 - **Rules 1-3**: Basic matching (exact, spread, crack with unit conversion)
 - **Rules 4-6**: Complex matching (2-leg crack, product spread, aggregation)
 - **Rules 7-9**: Advanced aggregated matching (complex crack + aggregation, spread + aggregation, crack + aggregation)
-- **Rule 10**: Complex crack roll matching (calendar spreads of crack positions)
+- **Rules 10-11**: Advanced spread matching (complex crack roll, aggregated product spread)
 - **BaseMatcher**: Universal field validation and shared matcher functionality
 - **Extensible Design**: Easy to add new rules following established patterns
 
@@ -285,8 +286,9 @@ _The following sections document the specific implementation progress and update
 
 **Energy Match Module Completed**:
 
-- **10 Sequential Rules**: Implemented with 88.5% match rate on sample data
+- **11 Sequential Rules**: Implemented with enhanced match rate on sample data
 - **Complex Crack Roll Matching**: Rule 10 for calendar spreads of crack positions
+- **Aggregated Product Spread Matching**: Rule 11 for product spread matching with aggregation logic
 - **Refactored Utils Architecture**: Separated pure utilities from config-dependent functions
 - **3-Tier Spread Matching**: Enhanced spread detection with DealID/TradeID, time-based, and product/quantity tiers
 - **Universal Field Validation**: JSON-driven configuration system
@@ -369,7 +371,7 @@ class MatchingConfig(BaseModel):
         default_factory=lambda: {1: Decimal("100"), 2: Decimal("95")}
     )
     quantity_tolerance_bbl: Decimal = Field(default=Decimal("100"), gt=0)
-    processing_order: List[int] = Field(default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    processing_order: List[int] = Field(default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 
     @field_validator('rule_confidence_levels')
     def validate_confidence_levels(cls, v):
