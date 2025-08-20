@@ -21,6 +21,7 @@ from .matchers import (
     AggregatedComplexCrackMatcher,
     AggregatedSpreadMatcher,
     AggregatedCrackMatcher,
+    ComplexCrackRollMatcher,
 )
 from .cli import MatchDisplayer
 
@@ -51,7 +52,9 @@ class EnergyTradeMatchingEngine:
     """
 
     def __init__(
-        self, config_manager: Optional[ConfigManager] = None, show_logs: bool = False
+        self,
+        config_manager: Optional[ConfigManager] = None,
+        show_logs: bool = False,
     ):
         """Initialize the matching engine.
 
@@ -69,7 +72,9 @@ class EnergyTradeMatchingEngine:
         self.logger = logging.getLogger(__name__)
 
     def run_matching(
-        self, trader_csv_path: Path, exchange_csv_path: Path
+        self,
+        trader_csv_path: Path,
+        exchange_csv_path: Path,
     ) -> List[MatchResult]:
         """Run the complete matching process.
 
@@ -168,9 +173,7 @@ class EnergyTradeMatchingEngine:
             aggregated_complex_crack_matcher = AggregatedComplexCrackMatcher(
                 self.config_manager, self.normalizer
             )
-            aggregated_complex_crack_matches = (
-                aggregated_complex_crack_matcher.find_matches(pool_manager)
-            )
+            aggregated_complex_crack_matches = aggregated_complex_crack_matcher.find_matches(pool_manager)
             all_matches.extend(aggregated_complex_crack_matches)
 
             # Rule 8: Aggregated spread matching
@@ -192,6 +195,14 @@ class EnergyTradeMatchingEngine:
                 pool_manager
             )
             all_matches.extend(aggregated_crack_matches)
+
+            # Rule 10: Complex crack roll matching
+            self.logger.info("Applying Rule 10: Complex crack roll matching...")
+            complex_crack_roll_matcher = ComplexCrackRollMatcher(
+                self.config_manager, self.normalizer
+            )
+            complex_crack_roll_matches = complex_crack_roll_matcher.find_matches(pool_manager)
+            all_matches.extend(complex_crack_roll_matches)
 
             # Step 5: Display results
             self.logger.info("Displaying results...")
@@ -340,6 +351,7 @@ Examples:
         )
         aggregated_spread_matcher = AggregatedSpreadMatcher(config_manager, normalizer)
         aggregated_crack_matcher = AggregatedCrackMatcher(config_manager, normalizer)
+        complex_crack_roll_matcher = ComplexCrackRollMatcher(config_manager, normalizer)
 
         # Collect all matchers that have a get_rule_info method
         all_matchers = [
@@ -352,6 +364,7 @@ Examples:
             aggregated_complex_crack_matcher,
             aggregated_spread_matcher,
             aggregated_crack_matcher,
+            complex_crack_roll_matcher,
         ]
 
         print("\n--- Energy Trade Matching Rules ---")

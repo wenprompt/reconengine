@@ -1,4 +1,4 @@
-"""Match result data model for energy trade matching system."""
+"Match result data model for energy trade matching system."
 
 from decimal import Decimal
 from datetime import datetime
@@ -19,10 +19,11 @@ class MatchType(str, Enum):
     AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 7 - Aggregated complex crack matching
     AGGREGATED_SPREAD = "aggregated_spread"  # Rule 8 - Aggregated spread matching
     AGGREGATED_CRACK = "aggregated_crack"  # Rule 9 - Aggregated crack matching
+    COMPLEX_CRACK_ROLL = "complex_crack_roll"  # Rule 10 - Complex Crack Roll Matching
 
 
 class MatchResult(BaseModel):
-    """Represents a successful match between two trades.
+    """Represents a successful match between two trades. 
     
     Contains information about which trades matched, the rule used,
     confidence level, and audit trail information.
@@ -59,17 +60,19 @@ class MatchResult(BaseModel):
     
     # Metadata
     matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
-    rule_order: int = Field(..., ge=1, le=9, description="Order of rule that created this match (1-9)")
+    rule_order: int = Field(..., ge=1, le=11, description="Order of rule that created this match (1-11)")
     
     def __str__(self) -> str:
         """Human-readable string representation."""
-        return (f"Match({self.match_id}: {self.trader_trade.trade_id} <-> "
+        return (
+                f"Match({self.match_id}: {self.trader_trade.trade_id} <-> "
                 f"{self.exchange_trade.trade_id} via {self.match_type.value} "
-                f"@ {self.confidence}%)")
+                f"@ {self.confidence}%")
     
     def __repr__(self) -> str:
         """Developer string representation."""
-        return (f"MatchResult(id={self.match_id}, type={self.match_type.value}, "
+        return (
+                f"MatchResult(id={self.match_id}, type={self.match_type.value}, "
                 f"confidence={self.confidence}, rule={self.rule_order})")
     
     @property

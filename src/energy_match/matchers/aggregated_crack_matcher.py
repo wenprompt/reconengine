@@ -37,8 +37,9 @@ class AggregatedCrackMatcher(BaseMatcher):
         self.rule_number = 9
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
-        # Use tolerances from ConfigManager
-        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl()
+        # Use universal tolerances for consistency across all rules
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
+        self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
         
         logger.info(f"Initialized AggregatedCrackMatcher with {self.confidence}% confidence")
 

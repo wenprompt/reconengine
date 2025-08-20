@@ -11,6 +11,7 @@ from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
 from .complex_crack_matcher import ComplexCrackMatcher
+from ..utils.trade_helpers import extract_base_product
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +39,9 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         self.rule_number = 7
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
-        # Enhanced tolerances for aggregation complexity - now sourced from ConfigManager
-        # Use the same tolerances as ComplexCrackMatcher (Rule 4)
-        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()
-        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl()
+        # Universal tolerances for consistency across all crack-related rules
+        self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
         
         logger.info(f"Initialized AggregatedComplexCrackMatcher with {self.confidence}% confidence")
 
@@ -86,8 +86,8 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         
         Extends parent logic to handle multiple base products that need aggregation.
         """
-        # Use parent method to extract base product
-        base_product = self._extract_base_product(crack_trade.product_name)
+        # Use helper function to extract base product
+        base_product = extract_base_product(crack_trade.product_name)
         if not base_product:
             return None
 
@@ -222,9 +222,6 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
 
         logger.debug("Aggregated quantity validation passed using enhanced tolerance")
         return True
-
-    # Note: _extract_base_product and _validate_price_calculation methods 
-    # are inherited from parent ComplexCrackMatcher and don't need to be redefined
 
     def _create_aggregated_crack_match_result(
         self, crack_trade: Trade, base_trades: List[Trade], brent_trade: Trade

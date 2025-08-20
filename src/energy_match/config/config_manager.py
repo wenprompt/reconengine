@@ -31,18 +31,8 @@ class MatchingConfig(BaseModel):
         description="Quantity tolerance as percentage for Rule 3",
     )
 
-    # Crack matching tolerances (Rule 3)
-    crack_tolerance_bbl: Decimal = Field(
-        default=Decimal("500"),
-        ge=0,
-        description="Crack matching tolerance in BBL (±500 BBL)",
-    )
-
-    crack_tolerance_mt: Decimal = Field(
-        default=Decimal("70"),
-        ge=0,
-        description="Crack matching tolerance in MT (±70 MT)",
-    )
+    # Universal tolerances are now loaded from normalizer_config.json
+    # This allows for easy customization without code changes
 
     # Confidence levels for each rule (from rules.md) - implemented rules
     rule_confidence_levels: Dict[int, Decimal] = Field(
@@ -56,20 +46,14 @@ class MatchingConfig(BaseModel):
             7: Decimal("65"),  # Aggregated complex crack match
             8: Decimal("70"),  # Aggregated spread match
             9: Decimal("68"),  # Aggregated crack match
+            10: Decimal("65"),  # Crack roll match
         },
         description="Confidence levels for each matching rule (implemented rules)",
     )
 
-    # Complex Crack matching tolerances (Rule 4)
-    complex_crack_quantity_tolerance: Decimal = Field(
-        default=Decimal("100"),
-        ge=0,
-        description="Complex crack matching quantity tolerance in MT (±100 MT)",
-    )
-
     # Processing order (from rules.md) - implemented rules
     rule_processing_order: list[int] = Field(
-        default=[1, 2, 3, 4, 5, 6, 7, 8, 9],
+        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         description="Order in which rules should be processed (implemented rules)",
     )
 
@@ -176,29 +160,38 @@ class ConfigManager:
         """
         return self._config.bbl_to_mt_ratio
 
-    def get_crack_tolerance_bbl(self) -> Decimal:
-        """Get crack matching tolerance in BBL.
+    def get_universal_tolerance_bbl(self) -> Decimal:
+        """Get universal BBL tolerance used by all matching rules.
 
         Returns:
-            Tolerance in BBL (default ±500 BBL)
+            Universal tolerance in BBL from normalizer_config.json (default ±500 BBL)
         """
-        return self._config.crack_tolerance_bbl
+        universal_tolerances = self._normalizer_config.get("universal_tolerances", {})
+        tolerance_bbl = universal_tolerances.get("tolerance_bbl", 500)
+        return Decimal(str(tolerance_bbl))
+
+    def get_universal_tolerance_mt(self) -> Decimal:
+        """Get universal MT tolerance used by all matching rules.
+
+        Returns:
+            Universal tolerance in MT from normalizer_config.json (default ±145 MT)
+        """
+        universal_tolerances = self._normalizer_config.get("universal_tolerances", {})
+        tolerance_mt = universal_tolerances.get("tolerance_mt", 145)
+        return Decimal(str(tolerance_mt))
+
+    # Legacy methods for backwards compatibility (deprecated)
+    def get_crack_tolerance_bbl(self) -> Decimal:
+        """Get crack matching tolerance in BBL (deprecated - use get_universal_tolerance_bbl)."""
+        return self.get_universal_tolerance_bbl()
 
     def get_crack_tolerance_mt(self) -> Decimal:
-        """Get crack matching tolerance in MT.
-
-        Returns:
-            Tolerance in MT (default ±70 MT)
-        """
-        return self._config.crack_tolerance_mt
+        """Get crack matching tolerance in MT (deprecated - use get_universal_tolerance_mt)."""
+        return self.get_universal_tolerance_mt()
 
     def get_complex_crack_quantity_tolerance(self) -> Decimal:
-        """Get complex crack matching quantity tolerance in MT.
-
-        Returns:
-            Tolerance in MT (default ±100 MT)
-        """
-        return self._config.complex_crack_quantity_tolerance
+        """Get complex crack matching quantity tolerance in MT (deprecated - use get_universal_tolerance_mt)."""
+        return self.get_universal_tolerance_mt()
 
     def get_universal_matching_fields(self) -> List[str]:
         """Get universal matching fields that must match across ALL rules.

@@ -38,8 +38,9 @@ class CrackMatcher(BaseMatcher):
         self.rule_number = 3
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
-        # Unit conversion tolerance from config (Rule 3 uses BBL tolerance only)
-        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl()  # ±100 BBL
+        # Unit conversion tolerances from config (using universal tolerances for consistency)
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # ±500 BBL
+        self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()    # ±145 MT
         
         logger.info(f"Initialized CrackMatcher with {self.confidence}% confidence")
     
@@ -298,6 +299,7 @@ class CrackMatcher(BaseMatcher):
                 "Quantity match after MT→BBL conversion (±100 BBL tolerance)"
             ],
             "tolerances": {
-                "quantity_bbl": float(self.config_manager.get_crack_tolerance_bbl())
+                "quantity_bbl": float(self.config_manager.get_universal_tolerance_bbl()),
+                "quantity_mt": float(self.config_manager.get_universal_tolerance_mt())
             }
         }

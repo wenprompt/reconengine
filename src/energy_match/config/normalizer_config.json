@@ -51,5 +51,10 @@
       "exchclearingacctid": "Exchange clearing account identifier",
       "field_mappings": "Maps config field (file columns) names to Trade model names"
     }
+  },
+  "universal_tolerances": {
+    "description": "Universal tolerances used across ALL matching rules for consistency",
+    "tolerance_mt": 145,
+    "tolerance_bbl": 1000
   }
 }

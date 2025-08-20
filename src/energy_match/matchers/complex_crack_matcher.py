@@ -11,6 +11,7 @@ from ..normalizers import TradeNormalizer
 from ..config import ConfigManager  # Added import
 from ..core import UnmatchedPoolManager # Added import
 from .base_matcher import BaseMatcher
+from ..utils.trade_helpers import extract_base_product
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,9 @@ class ComplexCrackMatcher(BaseMatcher):
         self.confidence = config_manager.get_rule_confidence(
             self.rule_number
         )  # Get confidence from config
-        # Get unit-specific tolerances (shared with Rule 3)
-        self.MT_TOLERANCE = config_manager.get_crack_tolerance_mt()   # ±70 MT
-        self.BBL_TOLERANCE = config_manager.get_crack_tolerance_bbl() # ±500 BBL
+        # Get universal tolerances (shared across all rules for consistency)
+        self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
 
         self.matches_found: List[MatchResult] = []  # Added type annotation
 
@@ -85,7 +86,7 @@ class ComplexCrackMatcher(BaseMatcher):
         """Find matching base product + brent swap pair for a crack trade."""
 
         # Extract base product from crack name (e.g., "marine 0.5% crack" -> "marine 0.5%")
-        base_product = self._extract_base_product(crack_trade.product_name)
+        base_product = extract_base_product(crack_trade.product_name)
         if not base_product:
             return None
 
@@ -146,18 +147,6 @@ class ComplexCrackMatcher(BaseMatcher):
                         matched_fields=self._get_matched_fields(),
                         rule_order=self.rule_number,  # Get rule number from config
                     )
-
-        return None
-
-    def _extract_base_product(self, crack_product: str) -> Optional[str]:
-        """Extract base product name from crack product name."""
-        crack_lower = crack_product.lower().strip()
-
-        # Remove "crack" from the end
-        if crack_lower.endswith(" crack"):
-            return crack_lower[:-6].strip()
-        elif crack_lower.endswith("crack"):
-            return crack_lower[:-5].strip()
 
         return None
 
