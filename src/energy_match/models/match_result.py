@@ -20,6 +20,7 @@ class MatchType(str, Enum):
     AGGREGATED_SPREAD = "aggregated_spread"  # Rule 8 - Aggregated spread matching
     AGGREGATED_CRACK = "aggregated_crack"  # Rule 9 - Aggregated crack matching
     COMPLEX_CRACK_ROLL = "complex_crack_roll"  # Rule 10 - Complex Crack Roll Matching
+    AGGREGATED_PRODUCT_SPREAD = "aggregated_product_spread"  # Rule 11 - Aggregated product spread matching
 
 
 class MatchResult(BaseModel):

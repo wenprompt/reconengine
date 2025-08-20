@@ -97,7 +97,7 @@ class CSVTradeLoader:
             # Get raw values
             raw_product = self._safe_str(row.get("productname"))
             raw_month = self._safe_str(row.get("contractmonth"))
-            raw_buy_sell = self._safe_str(row.get("B/S"))
+            raw_buy_sell = self._safe_str(row.get("b/s"))
             quantity_str = self._safe_str(row.get("quantityunits"))
             price_str = self._safe_str(row.get("price"))
 

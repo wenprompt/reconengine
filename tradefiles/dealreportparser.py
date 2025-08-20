@@ -76,7 +76,7 @@ def remap_row(row, old_headers, target_headers):
         "contractmonth": "Contract",
         "productname": "Product", # This will be remapped using mapping.json
         "productid": "", # Left empty as per request
-        "trader": "Trader",
+        "traderid": "Trader",
         "source": "Source",
         "brokergroupid": "3", # Hardcoded
         "exchangegroupid": "1", # Hardcoded
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
         cleared_deals_header, filtered_cleared_deals = extract_cleared_deals(csv_file_path)
 
-        target_headers = ["tradedate", "tradedatetime", "cleareddate", "dealid", "tradeid", "productid", "productname", "productgroupid", "contractmonth", "quantitylots", "quantityunits", "b/s", "price", "strike", "put/call", "brokergroupid", "exchangegroupid", "exchclearingacctid", "trader", "clearingstatus", "tradingsession", "unit", "source"]
+        target_headers = ["tradedate", "tradedatetime", "cleareddate", "dealid", "tradeid", "productid", "productname", "productgroupid", "contractmonth", "quantitylots", "quantityunits", "b/s", "price", "strike", "put/call", "brokergroupid", "exchangegroupid", "exchclearingacctid", "traderid", "clearingstatus", "tradingsession", "unit", "source"]
 
         remapped_deals = []
         for row in filtered_cleared_deals:
