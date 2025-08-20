@@ -10,12 +10,12 @@ from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
 from ..core import UnmatchedPoolManager
-from .base_matcher import BaseMatcher
+from .aggregation_base_matcher import AggregationBaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class AggregatedCrackMatcher(BaseMatcher):
+class AggregatedCrackMatcher(AggregationBaseMatcher):
     """Matches crack trades against aggregated exchange trades with unit conversion.
 
     Handles Rule 9: Aggregated Crack Match Rules
@@ -67,160 +67,140 @@ class AggregatedCrackMatcher(BaseMatcher):
 
         logger.info(f"Processing {len(crack_trades)} crack trades for aggregated matching")
 
+        # Define aggregation fields for crack trades (product, contract, price, B/S)
+        aggregation_fields = ["product_name", "contract_month", "price", "buy_sell"]
+
         for crack_trade in crack_trades:
             # Skip if already matched
             if pool_manager.is_trade_matched(crack_trade):
                 continue
                 
-            match = self._find_aggregated_crack_match(crack_trade, exchange_trades, pool_manager)
-            if match:
-                matches.append(match)
-                # Record the match to remove trades from pool
-                pool_manager.record_match(match)
-                logger.info(f"Found aggregated crack match: {crack_trade.product_name} {crack_trade.contract_month} {crack_trade.quantity}")
+            # Find candidate exchange crack trades with the same product name
+            crack_candidates = []
+            
+            for exchange_trade in exchange_trades:
+                if pool_manager.is_trade_matched(exchange_trade):
+                    continue
+
+                # Check for crack product candidates using universal field validation
+                if (exchange_trade.product_name.lower() == crack_trade.product_name.lower() and
+                    exchange_trade.contract_month == crack_trade.contract_month and
+                    self.validate_universal_fields(crack_trade, exchange_trade)):
+                    crack_candidates.append(exchange_trade)
+
+            if not crack_candidates:
+                logger.debug(f"No crack product candidates found for {crack_trade.product_name}")
+                continue
+
+            # Use base class aggregation logic to find many-to-one matches
+            # Exchange trades (many) → Trader trade (one) with unit conversion
+            aggregations = self._find_crack_aggregations_with_conversion(
+                crack_candidates, [crack_trade], pool_manager, aggregation_fields, crack_trade
+            )
+            
+            for aggregated_trades, single_trade in aggregations:
+                match = self._create_crack_match_result(aggregated_trades, single_trade)
+                if match:
+                    matches.append(match)
+                    pool_manager.record_match(match)
+                    logger.info(f"Found aggregated crack match: {crack_trade.product_name} {crack_trade.contract_month} {crack_trade.quantity}")
 
         logger.info(f"Found {len(matches)} aggregated crack matches")
         return matches
 
-    def _find_aggregated_crack_match(
-        self, crack_trade: Trade, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> Optional[MatchResult]:
-        """Find matching aggregated exchange crack trades for a crack trade.
+    def _find_crack_aggregations_with_conversion(
+        self,
+        many_source: List[Trade],
+        one_source: List[Trade],
+        pool_manager: UnmatchedPoolManager,
+        aggregation_fields: List[str],
+        reference_trade: Trade
+    ) -> List[Tuple[List[Trade], Trade]]:
+        """Find crack aggregations with unit conversion validation.
         
-        Args:
-            crack_trade: Single crack trade from trader data
-            exchange_trades: List of exchange trades to search
-            pool_manager: Pool manager to check trade availability
-            
-        Returns:
-            MatchResult if valid aggregated crack match found
+        Modified version of base class method that uses unit conversion instead of exact quantity matching.
         """
-        # Find candidate exchange crack trades with the same product name
-        crack_candidates = []
+        aggregations = []
         
-        for exchange_trade in exchange_trades:
-            if pool_manager.is_trade_matched(exchange_trade):
-                continue
-
-            # Check for crack product candidates using universal field validation
-            if (exchange_trade.product_name.lower() == crack_trade.product_name.lower() and
-                exchange_trade.contract_month == crack_trade.contract_month and
-                self.validate_universal_fields(crack_trade, exchange_trade)):
-                crack_candidates.append(exchange_trade)
-
-        if not crack_candidates:
-            logger.debug(f"No crack product candidates found for {crack_trade.product_name}")
-            return None
-
-        # Try to find valid aggregated combination
-        return self._find_aggregated_crack_combination(crack_trade, crack_candidates, pool_manager)
-
-
-    def _find_aggregated_crack_combination(
-        self, crack_trade: Trade, crack_candidates: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> Optional[MatchResult]:
-        """Find valid aggregated crack product combination that matches crack trade.
+        # Group many_source trades by aggregation signature
+        many_groups = self.group_trades_by_aggregation_signature(many_source, aggregation_fields)
         
-        Args:
-            crack_trade: Single crack trade to match
-            crack_candidates: List of potential crack product trades
-            pool_manager: Pool manager for validation
-            
-        Returns:
-            MatchResult if valid aggregated combination found
-        """
-        # Group crack candidates by aggregation characteristics (price, B/S direction)
-        aggregation_groups = defaultdict(list)
+        logger.debug(f"Crack aggregation: {len(many_groups)} groups from many_source, {len(one_source)} single trades")
         
-        for candidate_trade in crack_candidates:
-            # Only consider unmatched crack trades
-            if pool_manager.is_trade_matched(candidate_trade):
+        for group_signature, group_trades in many_groups.items():
+            # Skip if any trade in group is already matched
+            if any(pool_manager.is_trade_matched(trade) for trade in group_trades):
                 continue
                 
-            # Group by price and B/S (must be identical for aggregation)
-            group_key = (candidate_trade.price, candidate_trade.buy_sell)
-            aggregation_groups[group_key].append(candidate_trade)
-
-        # Try each aggregation group
-        for group_key, crack_group in aggregation_groups.items():
-            if len(crack_group) < 2:  # Need at least 2 trades for aggregation
+            # Only consider groups with sufficient trades for aggregation
+            if len(group_trades) < 2:
                 continue
                 
-            # Calculate total aggregated quantity in BBL
-            total_crack_quantity_bbl = sum((trade.quantity_bbl for trade in crack_group), Decimal("0"))
+            logger.debug(f"Processing crack group with {len(group_trades)} trades: {[t.trade_id for t in group_trades]}")
             
-            # Validate this aggregated combination against crack trade
-            if self._validate_aggregated_crack_combination(crack_trade, crack_group, total_crack_quantity_bbl):
-                return self._create_aggregated_crack_match_result(crack_trade, crack_group)
+            # Calculate total quantity in BBL (exchange trades are in BBL)
+            total_quantity_bbl = Decimal(sum(trade.quantity_bbl for trade in group_trades))
+            logger.debug(f"  Total BBL quantity: {total_quantity_bbl}")
+            
+            # Find matching single trade using unit conversion validation
+            for candidate_trade in one_source:
+                if pool_manager.is_trade_matched(candidate_trade):
+                    continue
+                    
+                # Validate using MT→BBL conversion instead of exact quantity match
+                if self._validate_crack_aggregation_with_conversion(
+                    group_trades, candidate_trade, total_quantity_bbl
+                ):
+                    aggregations.append((group_trades, candidate_trade))
+                    logger.debug(f"✅ Found crack aggregation with conversion: {len(group_trades)} trades → 1 trade ({candidate_trade.trade_id})")
+                    break
+        
+        return aggregations
 
-        return None
-
-    def _validate_aggregated_crack_combination(
-        self, crack_trade: Trade, crack_trades: List[Trade], total_crack_quantity_bbl: Decimal
+    def _validate_crack_aggregation_with_conversion(
+        self, 
+        aggregated_trades: List[Trade], 
+        single_trade: Trade,
+        total_quantity_bbl: Decimal
     ) -> bool:
-        """Validate that aggregated crack trades match the single crack trade.
+        """Validate crack aggregation using unit conversion instead of exact quantity matching."""
         
-        Args:
-            crack_trade: Single crack trade to validate against
-            crack_trades: List of crack trades that would be aggregated
-            total_crack_quantity_bbl: Total aggregated quantity in BBL
-            
-        Returns:
-            True if valid aggregated crack match
-        """
-        # 1. Validate B/S direction logic: directions should match
-        first_crack_trade = crack_trades[0]
-        if crack_trade.buy_sell != first_crack_trade.buy_sell:
-            logger.debug("B/S direction mismatch in aggregated crack validation")
+        # 1. All aggregated trades must have identical characteristics (except quantity)
+        first_trade = aggregated_trades[0]
+        for trade in aggregated_trades[1:]:
+            if not self._trades_have_matching_characteristics(first_trade, trade, ignore_quantity=True):
+                logger.debug("Crack aggregation validation failed: aggregated trades have different characteristics")
+                return False
+        
+        # 2. Aggregated trades must match single trade characteristics (except quantity)
+        if not self._trades_have_matching_characteristics(first_trade, single_trade, ignore_quantity=True):
+            logger.debug("Crack aggregation validation failed: aggregated and single trade characteristics don't match")
             return False
-
-        # 2. Validate aggregated quantity with MT→BBL conversion
+        
+        # 3. Validate quantity using MT→BBL conversion
         if not self.normalizer.validate_mt_to_bbl_quantity_match(
-            crack_trade.quantity_mt, 
-            total_crack_quantity_bbl, 
-            crack_trade.product_name,
+            single_trade.quantity_mt, 
+            total_quantity_bbl, 
+            single_trade.product_name,
             self.BBL_TOLERANCE
         ):
-            logger.debug("Aggregated quantity mismatch using MT→BBL conversion")
+            logger.debug("Crack aggregation validation failed: MT→BBL quantity mismatch")
             return False
-
-        # 3. Validate all crack trades have consistent fundamental fields
-        for exchange_crack_trade in crack_trades:
-            if (exchange_crack_trade.price != first_crack_trade.price or
-                exchange_crack_trade.buy_sell != first_crack_trade.buy_sell or
-                exchange_crack_trade.contract_month != first_crack_trade.contract_month):
-                logger.debug("Exchange crack trades have inconsistent fundamental fields")
-                return False
-                
-            # Validate universal fields against trader crack trade
-            if not self.validate_universal_fields(crack_trade, exchange_crack_trade):
-                logger.debug("Universal fields validation failed for exchange crack trade")
-                return False
-
-        logger.debug("Aggregated crack validation passed")
+        
+        logger.debug(f"✅ Crack aggregation validation passed: {len(aggregated_trades)} trades convert to {single_trade.quantity_mt} MT")
         return True
 
-    def _create_aggregated_crack_match_result(
-        self, crack_trade: Trade, crack_trades: List[Trade]
+    def _create_crack_match_result(
+        self, 
+        aggregated_trades: List[Trade], 
+        single_trade: Trade
     ) -> MatchResult:
-        """Create MatchResult for aggregated crack match.
+        """Create MatchResult for aggregated crack match using base class method."""
         
-        Args:
-            crack_trade: Single crack trade from trader data
-            crack_trades: List of aggregated crack trades from exchange data
-            
-        Returns:
-            MatchResult for the aggregated crack match
-        """
         # Generate unique match ID
+        import uuid
         match_id = f"AGG_CRACK_{uuid.uuid4().hex[:8].upper()}"
-
-        # Primary exchange trade is the first crack trade
-        primary_crack_trade = crack_trades[0]
         
-        # Additional exchange trades include remaining crack trades
-        additional_trades = crack_trades[1:]
-
         # Rule-specific fields that match
         rule_specific_fields = [
             "product_name",
@@ -230,21 +210,15 @@ class AggregatedCrackMatcher(BaseMatcher):
             "price"
         ]
         
-        # Get complete matched fields with universal fields
-        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
-
-        return MatchResult(
+        # Create match result - exchange trades (many) → trader trade (one)
+        return self.create_aggregation_match_result(
             match_id=match_id,
             match_type=MatchType.AGGREGATED_CRACK,
             confidence=self.confidence,
-            trader_trade=crack_trade,
-            exchange_trade=primary_crack_trade,
-            additional_exchange_trades=additional_trades,
-            matched_fields=matched_fields,
-            tolerances_applied={
-                "quantity_conversion": f"MT→BBL with ±{self.BBL_TOLERANCE} BBL tolerance",
-                "aggregation": f"{len(crack_trades)} exchange crack trades aggregated"
-            },
+            aggregated_trades=aggregated_trades,
+            single_trade=single_trade,
+            direction="exchange_to_trader",
+            rule_specific_fields=rule_specific_fields,
             rule_order=self.rule_number
         )
 

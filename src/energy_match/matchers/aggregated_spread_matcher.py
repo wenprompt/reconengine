@@ -10,12 +10,12 @@ from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
 from ..core import UnmatchedPoolManager
-from .base_matcher import BaseMatcher
+from .multi_leg_base_matcher import MultiLegBaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class AggregatedSpreadMatcher(BaseMatcher):
+class AggregatedSpreadMatcher(MultiLegBaseMatcher):
     """Matches aggregated spread trades where trader spreads correspond to multiple exchange trades per contract month.
 
     Handles Rule 8: Aggregated Spread Match Rules
@@ -78,7 +78,7 @@ class AggregatedSpreadMatcher(BaseMatcher):
         return matches
 
     def _find_trader_spread_pairs(self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[Tuple[Trade, Trade]]:
-        """Find trader spread patterns (price/0.00 pairs with opposite B/S).
+        """Find trader spread patterns using enhanced Tier 3 logic.
         
         Args:
             trader_trades: List of trader trades to analyze
@@ -89,38 +89,74 @@ class AggregatedSpreadMatcher(BaseMatcher):
         """
         spread_pairs = []
         
-        # Group trades by potential spread characteristics (product, quantity, and universal fields)
-        spread_groups = defaultdict(list)
+        # Use enhanced grouping logic similar to SpreadMatcher Tier 3
+        trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
         
         for trade in trader_trades:
             if pool_manager.is_trade_matched(trade):
                 continue
             
-            # Group by spread characteristics using the base matcher's universal signature method
-            rule_specific_fields = [trade.product_name, trade.quantity_mt]
-            group_key = self.create_universal_signature(trade, rule_specific_fields)
-            spread_groups[group_key].append(trade)
+            # Use consistent quantity grouping logic from MultiLegBaseMatcher
+            quantity_for_grouping = self._get_quantity_for_grouping(trade, self.normalizer)
+            
+            # Create grouping key with universal fields using MultiLegBaseMatcher method
+            group_key = self.create_universal_signature(
+                trade, [trade.product_name, quantity_for_grouping]
+            )
+            trade_groups[group_key].append(trade)
         
-        # Look for spread patterns within each group
-        for group_key, group_trades in spread_groups.items():
+        # Look for spread patterns within each group using enhanced validation
+        for group_key, group_trades in trade_groups.items():
             if len(group_trades) < 2:
                 continue
             
-            # Find price/0.00 pairs with opposite B/S and different contract months
-            for i, trade1 in enumerate(group_trades):
-                for trade2 in group_trades[i+1:]:
-                    if self._is_valid_spread_pair(trade1, trade2):
-                        # Order so that trade with non-zero price comes first
-                        if trade1.price != Decimal("0"):
-                            spread_pairs.append((trade1, trade2))
-                        else:
-                            spread_pairs.append((trade2, trade1))
-                        break  # Only take one pair per trade
+            # Find spread pairs using shared validation logic
+            for i in range(len(group_trades)):
+                for j in range(i + 1, len(group_trades)):
+                    trade1, trade2 = group_trades[i], group_trades[j]
+                    
+                    # Use MultiLegBaseMatcher validation for consistency
+                    if self.validate_spread_pair_characteristics(trade1, trade2, self.normalizer):
+                        # Additional check for aggregated spread pattern (price/0.00)
+                        if self._is_aggregated_spread_pattern(trade1, trade2):
+                            # Order so that trade with non-zero price comes first
+                            if trade1.price != Decimal("0"):
+                                spread_pairs.append((trade1, trade2))
+                            else:
+                                spread_pairs.append((trade2, trade1))
+                            
+                            logger.debug(f"Found trader spread pair: {trade1.trade_id} + {trade2.trade_id}")
+                            break  # Only take one pair per trade
         
         return spread_pairs
 
+    def _is_aggregated_spread_pattern(self, trade1: Trade, trade2: Trade) -> bool:
+        """Check if two trades form an aggregated spread pattern (price/0.00).
+        
+        Args:
+            trade1: First trade
+            trade2: Second trade
+            
+        Returns:
+            True if trades form aggregated spread pattern
+        """
+        # Must have opposite B/S directions (spread requirement)
+        if trade1.buy_sell == trade2.buy_sell:
+            return False
+        
+        # Must have different contract months (spread requirement)
+        if trade1.contract_month == trade2.contract_month:
+            return False
+        
+        # One must have price > 0, other must have price = 0 (aggregated spread pattern)
+        prices = [trade1.price, trade2.price]
+        return Decimal("0") in prices and any(p > Decimal("0") for p in prices)
+
     def _is_valid_spread_pair(self, trade1: Trade, trade2: Trade) -> bool:
-        """Check if two trades form a valid spread pair.
+        """Check if two trades form a valid spread pair (deprecated - use MultiLegBaseMatcher validation).
+        
+        This method is kept for compatibility but the enhanced validation logic
+        is now handled by validate_spread_pair_characteristics() from MultiLegBaseMatcher.
         
         Args:
             trade1: First trade
@@ -129,27 +165,8 @@ class AggregatedSpreadMatcher(BaseMatcher):
         Returns:
             True if trades form valid spread pattern
         """
-        # Must have same universal fields (broker_group_id is handled here)
-        if not self.validate_universal_fields(trade1, trade2):
-            return False
-        
-        # Rule-specific validations
-        # Must have same product and quantity
-        if (trade1.product_name != trade2.product_name or
-            trade1.quantity_mt != trade2.quantity_mt):
-            return False
-        
-        # Must have different contract months (spread requirement)
-        if trade1.contract_month == trade2.contract_month:
-            return False
-        
-        # Must have opposite B/S directions (spread requirement)
-        if trade1.buy_sell == trade2.buy_sell:
-            return False
-        
-        # One must have price > 0, other must have price = 0 (spread pattern)
-        prices = [trade1.price, trade2.price]
-        return Decimal("0") in prices and any(p > Decimal("0") for p in prices)
+        # Use the enhanced validation from MultiLegBaseMatcher
+        return self.validate_spread_pair_characteristics(trade1, trade2, self.normalizer)
 
     def _find_aggregated_spread_match(
         self, 
