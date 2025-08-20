@@ -266,11 +266,13 @@ _The following sections document the specific implementation progress and update
 
 **Energy Match Module Completed**:
 
-- **9 Sequential Rules**: Implemented with 90.5% match rate on sample data
+- **9 Sequential Rules**: Implemented with 96.0% match rate on sample data
+- **3-Tier Spread Matching**: Enhanced spread detection with DealID/TradeID, time-based, and product/quantity tiers
 - **Universal Field Validation**: JSON-driven configuration system
 - **Pydantic v2 Models**: Complete type safety and validation
 - **Performance Optimized**: O(N+M) algorithms with intelligent indexing
-- **Rich CLI Interface**: Beautiful terminal output with detailed statistics
+- **Rich CLI Interface**: Beautiful terminal output with detailed statistics and tier-specific breakdowns
+- **Zero-Price Spread Support**: Allows spreads where both legs have price = 0
 
 ## 🔧 Energy Match Core Components
 

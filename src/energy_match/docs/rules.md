@@ -113,7 +113,7 @@ The matching engine processes trades in order of confidence level to ensure the 
 - **✅ BIDIRECTIONAL RULES**: Rule 6 (Aggregation) - Handles both trader→exchange and exchange→trader scenarios
 - **❌ UNIDIRECTIONAL RULES**: Rules 7, 8, 9 - Handle only specific directional scenarios based on typical trading patterns
   - Rule 7: Trader crack → Exchange aggregated base products + brent swap
-  - Rule 8: Trader spread → Exchange aggregated trades  
+  - Rule 8: Trader spread → Exchange aggregated trades
   - Rule 9: Single crack trade → Multiple crack trades (typically trader MT → exchange BBL)
 
 **Future Enhancement**: Rules 7-9 could be extended to support bidirectional matching if additional trading scenarios are identified.
@@ -153,11 +153,10 @@ An **exact match** occurs when trades from both data sources have identical valu
 All fields must match exactly after normalization:
 
 1. **productname** - Product identifier (case-insensitive after normalization)
-2. **contractmonth** - Contract delivery month (standardized to "MMM-YY" format)  
+2. **contractmonth** - Contract delivery month (standardized to "MMM-YY" format)
 3. **quantityunits** - Trade quantity (numeric values, commas removed)
 4. **b/s** - Buy/Sell indicator (normalized to "Bought" or "Sold")
 5. **price** - Trade execution price (exact numeric match)
-
 
 ### Processing Logic
 
@@ -199,17 +198,44 @@ All fields must match exactly after normalization:
 
 ### Definition
 
-A **spread match** occurs when a trader executes a calendar spread (buying one contract month and selling another) that appears as two separate trades in exchange data but as a calculated spread in trader data. This high-confidence match type (95%) handles contract month spread trading strategies.
+A **spread match** occurs when a trader executes a calendar spread (buying one contract month and selling another) that appears as two separate trades in exchange data but as a calculated spread in trader data. This high-confidence match type (95%) handles contract month spread trading strategies using a sophisticated 3-tier matching system.
 
 **Key Pattern**: Spreads appear differently in each data source:
+
 - **Trader data**: 2 related trades (one with calculated spread price, one with price = 0)
 - **Exchange data**: 2 separate trades with actual market prices for each contract month
+
+### 3-Tier Spread Matching System
+
+The spread matching system employs a sequential 3-tier approach to maximize match accuracy and coverage:
+
+#### Tier 1: DealID/TradeID-Based Matching (Highest Accuracy)
+
+- **Primary Method**: Uses exact `dealid` and `tradeid` matching from exchange data
+- **Spread Indicators**: Both legs have identical `dealId` values and non-identical `tradeId` values
+- **Accuracy**: Highest confidence due to explicit trade relationship markers
+- **Processing**: Handles obvious spread pairs with clear exchange system indicators
+
+#### Tier 2: Time-Based Matching (Medium Accuracy)
+
+- **Method**: Groups exchange trades by exact same `tradedatetime`
+- **Spread Detection**: Identifies spread pairs within time groups using validation criteria
+- **Coverage**: Captures spreads where dealid/tradeid may be missing or unreliable
+- **Processing**: Validates spread characteristics within same-time trade groups
+
+#### Tier 3: Product/Quantity Fallback Matching (Lower Accuracy)
+
+- **Method**: Groups by product name and quantity for comprehensive coverage
+- **Fallback Role**: Handles remaining unmatched trades after Tier 1 and 2
+- **Validation**: Applies strict spread pair validation criteria
+- **Processing**: Ensures no valid spreads are missed due to data quality issues
+
+Each tier removes matched trades from the pool before the next tier processes, preventing duplicate matching and maintaining system integrity.
 
 ### Spread Trade Identification
 
 #### Exchange Data Indicators:
 
-- **tradeid**: Both legs have identical `dealId` values and non-identical `tradeId` values that are not empty - _check the csv first if it can read the `dealId` and `tradeId` properly as they should be integers_ - - **tradeid**: if `dealId` and `tradeId` cannot be read accurately, then use the rule if `tradeid` is not empty, the tradeid is part of a spread - _tradeId preferred but may be missing_
 - **Same brokergroupid**: Both legs have identical broker group identifier
 - **Opposite B/S**: One leg is "Bought", the other is "Sold"
 - **Same product group**: Both legs have the same base product (e.g., "380cst")
@@ -232,13 +258,20 @@ A **spread match** occurs when a trader executes a calendar spread (buying one c
 4. **b/s directions** - Each leg's direction must match between sources
 5. **spread price calculation** - Exchange price differential must equal trader spread price
 
-
 ### Spread Matching Logic
 
 - **Multi-trade matching**: Each spread match removes 2 trader trades and 2 exchange trades
 - **Price validation**: |Earlier_Contract_Price - Later_Contract_Price| = |Trader_Spread_Price|
 - **Direction validation**: Opposite B/S directions within each source, matching directions between sources
 - **Contract month validation**: Different months for legs, but corresponding months must match between sources
+
+### Enhanced Price Validation Rules
+
+**Zero-Price Spread Support**: The system now supports spreads where both legs have price = 0, recognizing that such scenarios can occur in real trading situations:
+
+- **Traditional Spread Pattern**: One leg with calculated spread price, one leg with price = 0
+- **Zero-Price Spread Pattern**: Both legs with price = 0 (spread price difference = 0). Both legs can be same price, so spread price = 0
+- **Validation Logic**: For trader spreads with all zero prices, the system validates that the exchange price differential also equals zero
 
 ### Spread-Specific Normalization Rules
 
@@ -312,6 +345,7 @@ A **spread match** occurs when a trader executes a calendar spread (buying one c
 A **crack match** occurs when a trader executes a crack spread trade that appears in both data sources but requires unit conversion between metric tons (MT) and barrels (BBL). This high-confidence match type (90%) handles specialized energy trading products with unit normalization.
 
 **Key Characteristics**:
+
 - **Product identification**: Only trades with "crack" in the product name are eligible
 - **Unit conversion**: Automatic MT ↔ BBL conversion using product-specific ratios
 - **Conversion tolerance**: ±500 BBL or ±70 MT difference allowed for rounding
@@ -459,18 +493,19 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 ### Required Matching Fields for Complex Cracks
 
 1. **Product Relationship**: Crack product base name matches exchange base product
+
    - "380cst crack" ↔ "380cst" + "brent swap"
 
 2. **Contract Month**: All trades must have identical contract months
 
 3. **Quantity Matching**: Quantities must align within tolerance (±500 BBL or ±70 MT)
 
-4. **B/S Direction Logic**: 
+4. **B/S Direction Logic**:
+
    - Sell Crack = Sell Base + Buy Brent
    - Buy Crack = Buy Base + Sell Brent
 
 5. **Price Calculation**: Must match exactly using product-specific conversion ratios
-
 
 ### Unit Conversion for Complex Cracks
 
@@ -541,7 +576,6 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
    - Trader crack price: 3.35
    - **Perfect match**: 3.35 = 3.35
 
-
 **Result:** ✅ **COMPLEX CRACK MATCH**
 
 ### Implementation Strategy
@@ -578,7 +612,7 @@ A **product spread match** occurs when exchange data shows a hyphenated product 
 
 ### Product Spread Trade Identification
 
-- **Exchange Pattern**: Hyphenated product names ("marine 0.5%-380cst")  
+- **Exchange Pattern**: Hyphenated product names ("marine 0.5%-380cst")
 - **Trader Pattern**: Separate trades for each component (one with price, one with price=0)
 - **Price Relationship**: First component price - second component price = spread price
 - **Direction Logic**: Opposite B/S directions between components
@@ -588,11 +622,12 @@ A **product spread match** occurs when exchange data shows a hyphenated product 
 ### Required Matching Fields for Product Spreads
 
 1. **Product relationship**: Hyphenated product matches component products
+
    - "marine 0.5%-380cst" ↔ "marine 0.5%" + "380cst"
 
 2. **Contract month**: All trades must have identical contract months
 
-3. **Quantity**: All trades must have identical quantities  
+3. **Quantity**: All trades must have identical quantities
 
 4. **B/S direction logic**: Component trades must have opposite directions
 
@@ -654,7 +689,7 @@ A **product spread match** occurs when exchange data shows a hyphenated product 
    - Trader: **Sell** marine 0.5% + **Buy** 380cst
    - Pattern matches: Sell spread = Sell first product + Buy second product
 
-6. **Price Calculation**: ✅
+5. **Price Calculation**: ✅
    - Formula: 68.0 - 0.0 = 68.0
    - Exchange spread price: 68.0
    - **Perfect match**: 68.0 = 68.0
@@ -960,6 +995,7 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 #### Required Exchange Components:
 
 1. **Multiple Trades per Contract Month**: Multiple exchange trades requiring aggregation:
+
    - Same product name
    - Same contract month
    - Same price
@@ -974,6 +1010,7 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 **Phase 1: Exchange Trade Aggregation**
 
 1. **Aggregation Grouping**: Group exchange trades by:
+
    - **productname** - Identical product after normalization
    - **contractmonth** - Same contract month
    - **price** - Identical execution price
@@ -1019,6 +1056,7 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 **Phase 1: Exchange Trade Aggregation**
 
 - **Jul-25 380cst Aggregation**:
+
   - E_0057: 1,000 MT @ 412.00, Bought, broker=3
   - E_0058: 1,000 MT @ 412.00, Bought, broker=3
   - **Aggregated**: 2,000 MT @ 412.00, Bought, Jul-25, broker=3
@@ -1031,16 +1069,20 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 **Phase 2: Spread Matching Logic**
 
 1. **Product Matching**: ✅
+
    - All trades: "380cst"
 
 2. **Contract Month Correspondence**: ✅
+
    - Trader Jul-25 ↔ Exchange aggregated Jul-25
    - Trader Sep-25 ↔ Exchange aggregated Sep-25
 
 3. **Quantity Validation**: ✅
+
    - All positions: 2,000 MT
 
 4. **B/S Direction Logic**: ✅
+
    - Trader: Jul-25 Bought, Sep-25 Sold
    - Exchange: Jul-25 Bought, Sep-25 Sold
 
@@ -1089,6 +1131,7 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 ## 9. Aggregated Crack Match Rules
 
 ### Definition
+
 An **aggregated crack match** occurs when a single crack trade from one source corresponds to multiple crack trades from the other source, requiring both quantity aggregation and unit conversion with tolerance. This rule combines the logic of Rule 3 (Crack Matching) and Rule 6 (Aggregation).
 
 **Key Pattern**: 1 trade (in MT) ↔ N trades (in BBL) for the same crack product.
@@ -1096,11 +1139,13 @@ An **aggregated crack match** occurs when a single crack trade from one source c
 **Directionality**: ❌ **UNIDIRECTIONAL** - Only handles one direction of aggregation (typically trader MT → exchange multiple BBL)
 
 ### Aggregated Crack Trade Identification
+
 - **Identical Details**: All trades involved (one and many) must have the same `productname` (containing "crack"), `contractmonth`, `price`, and `b/s` direction after normalization.
 - **Unit Mismatch**: One side of the match has quantities in Metric Tons (MT), while the other has quantities in Barrels (BBL).
 - **Quantity Relationship**: The sum of quantities on the "many" side, when converted to the same unit as the "one" side, must fall within the allowed tolerance.
 
 ### Required Matching Fields
+
 1.  **productname**: Must contain "crack" and match exactly across all trades.
 2.  **contractmonth**: Must be identical for all trades.
 3.  **price**: Must be identical for all trades.
@@ -1108,6 +1153,7 @@ An **aggregated crack match** occurs when a single crack trade from one source c
 5.  **Quantity Validation**: The aggregated quantity must match the single quantity after unit conversion, within the defined `crack_tolerance_bbl`.
 
 ### Aggregation and Conversion Logic
+
 1.  **Group and Aggregate**: Trades on the "many" side are grouped by their matching key (product, month, price, b/s, universal fields). The quantities within each group are summed up.
 2.  **Unit Conversion**: The quantity of the MT trade(s) is converted to BBL using the product-specific conversion ratio (e.g., 8.9 for Naphtha).
 3.  **Tolerance Check**: The aggregated BBL quantity is compared to the converted BBL quantity. The absolute difference must be within the configured tolerance (e.g., ±500 BBL).
@@ -1117,14 +1163,17 @@ An **aggregated crack match** occurs when a single crack trade from one source c
 This example uses trades from the `230525` dataset.
 
 **sourceTraders.csv (Single MT Trade):**
+
 ```
 | productname       | contractmonth | quantityunits | unit | price | B/S | brokergroupid |
 |-------------------|---------------|---------------|------|-------|-----|---------------|
 | naphtha nwe crack | Jun25         | 4000          |      | -4.15 | B   | 3             |
 ```
-*(Note: Trader unit is inferred as MT by default)*
+
+_(Note: Trader unit is inferred as MT by default)_
 
 **sourceExchange.csv (Multiple BBL Trades):**
+
 ```
 | productname       | contractmonth | quantityunits | unit | price | b/s    | brokergroupid |
 |-------------------|---------------|---------------|------|-------|--------|---------------|
@@ -1135,22 +1184,25 @@ This example uses trades from the `230525` dataset.
 #### Matching Validation Process:
 
 1.  **Field Validation**: ✅
-    -   `productname`: "naphtha nwe crack" (matches)
-    -   `contractmonth`: "Jun-25" (matches)
-    -   `price`: -4.15 (matches)
-    -   `b/s`: "Bought" (matches)
-    -   `brokergroupid`: 3 (matches)
+
+    - `productname`: "naphtha nwe crack" (matches)
+    - `contractmonth`: "Jun-25" (matches)
+    - `price`: -4.15 (matches)
+    - `b/s`: "Bought" (matches)
+    - `brokergroupid`: 3 (matches)
 
 2.  **Exchange Quantity Aggregation**: ✅
-    -   `25,000 BBL + 11,000 BBL = 36,000 BBL`
+
+    - `25,000 BBL + 11,000 BBL = 36,000 BBL`
 
 3.  **Trader Quantity Unit Conversion**: ✅
-    -   The conversion ratio for "naphtha nwe crack" is `8.9`.
-    -   `4,000 MT * 8.9 = 35,600 BBL`
+
+    - The conversion ratio for "naphtha nwe crack" is `8.9`.
+    - `4,000 MT * 8.9 = 35,600 BBL`
 
 4.  **Tolerance Validation**: ✅
-    -   Difference: `|36,000 BBL - 35,600 BBL| = 400 BBL`
-    -   The difference of 400 BBL is within the `crack_tolerance_bbl` of 500 BBL.
+    - Difference: `|36,000 BBL - 35,600 BBL| = 400 BBL`
+    - The difference of 400 BBL is within the `crack_tolerance_bbl` of 500 BBL.
 
 **Result:** ✅ **AGGREGATED CRACK MATCH**
 
@@ -1210,7 +1262,6 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 
    - One calculated crack price matches trader non-zero price
    - Price difference between calculated cracks matches trader spread
-
 
 ### Unit Conversion with Enhanced Tolerance
 
@@ -1369,7 +1420,6 @@ A **cross-month decomposition match** occurs when a trader executes a complex cr
 5. **B/S Direction Logic**: Exchange components must have appropriate buy/sell directions
 
    - For crack-like calculations: opposite directions between base product and swap
-
 
 ### Example: Cross-Month Decomposition Match
 
