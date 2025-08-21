@@ -20,5 +20,10 @@
   "380cst": "380cst",
   "0.5 crack": "marine 0.5% crack",
   "380cst crack": "380cst crack",
-  "380cst sing micro": "380cst"
+  "380cst sing micro": "380cst",
+  "FEF": "FE",
+  "M65F": "M65",
+  "CWF": "CAPE",
+  "PVF": "PMX",
+  "SWF": "SMX"
 }
