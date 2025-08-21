@@ -1,10 +1,10 @@
 # GEMINI.md
 
-This file provides comprehensive guidance to Gemini when working with this **Energy Trade Matching System** project.
+This file provides comprehensive guidance to Gemini when working with this **ICE Trade Matching System** project.
 
 ## 🎯 Project Overview
 
-This is an **Energy Trade Matching System** that matches trades between trader and exchange data sources using a sequential, rule-based approach. The system is designed to be robust, extensible, and maintainable, with a focus on clear data processing pipelines and strong data integrity. It now supports a growing set of matching rules, including complex scenarios like multi-leg crack spreads, product spreads, aggregation, and advanced decomposition and netting. All 10 rules defined in `docs/rules.md` are now implemented.
+This is an **ICE Trade Matching System** that matches trades between trader and exchange data sources using a sequential, rule-based approach. The system is designed to be robust, extensible, and maintainable, with a focus on clear data processing pipelines and strong data integrity. It now supports a growing set of matching rules, including complex scenarios like multi-leg crack spreads, product spreads, aggregation, and advanced decomposition and netting. All 10 rules defined in `docs/rules.md` are now implemented.
 
 ### Key Features
 
@@ -43,7 +43,7 @@ The system follows a clear, sequential data processing pipeline:
 ## 🏗️ Project Architecture
 
 ```
-src/energy_match/
+src/ice_match/
 ├── main.py                 # Main application entry point and CLI. Orchestrates the data flow.
 ├── models/
 │   ├── trade.py           # Core `Trade` model. The single source of truth for a trade.
@@ -88,7 +88,7 @@ The system implements a sophisticated universal field matching architecture that
 
 ### Architecture Overview
 
-- **JSON-Driven Configuration**: All universal fields are defined in `src/energy_match/config/normalizer_config.json` under the `universal_matching_fields` key. This allows for easy modification of universal requirements without code changes.
+- **JSON-Driven Configuration**: All universal fields are defined in `src/ice_match/config/normalizer_config.json` under the `universal_matching_fields` key. This allows for easy modification of universal requirements without code changes.
 - **Centralized Management**: The `ConfigManager` is the single source of truth for all configuration, including universal field rules. It loads the `normalizer_config.json` once and provides the settings to all other components, ensuring consistency and performance.
 - **BaseMatcher Inheritance**: All matcher classes (e.g., `ExactMatcher`, `SpreadMatcher`) inherit from a common `BaseMatcher`. This base class contains the logic to dynamically build matching signatures and validate trades against the universal fields defined in the configuration.
 - **Dynamic Field Access**: The system uses `getattr()` along with a field mapping configuration to dynamically access the correct attributes on the `Trade` model. This makes the system highly extensible.
@@ -105,5 +105,5 @@ The following fields are currently configured as universal and must match for an
 1.  **Update `normalizer_config.json`**:
     -   Add the new field's name (as it appears in the source CSV) to the `required_fields` array.
     -   Add a mapping from the CSV field name to the corresponding `Trade` model attribute name in the `field_mappings` object.
-2.  **Verify `Trade` Model**: Ensure the `Trade` model in `src/energy_match/models/trade.py` has the corresponding attribute.
+2.  **Verify `Trade` Model**: Ensure the `Trade` model in `src/ice_match/models/trade.py` has the corresponding attribute.
 3.  **No Code Changes Needed**: The `BaseMatcher` architecture ensures that no changes are needed in the individual matcher files. The new universal field will be automatically applied to all matching rules.

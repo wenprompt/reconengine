@@ -1,4 +1,4 @@
-"""Rich CLI display for energy trade matching results."""
+"""Rich CLI display for ice trade matching results."""
 
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
@@ -20,7 +20,7 @@ console = Console()
 
 
 class MatchDisplayer:
-    """Rich CLI display for energy trade matching results.
+    """Rich CLI display for ice trade matching results.
     
     Provides comprehensive, colored display of matches, unmatched trades,
     statistics, and configuration information.
@@ -37,7 +37,7 @@ class MatchDisplayer:
     
     def show_header(self):
         """Display application header."""
-        header_text = Text("🔋 Energy Trade Matching System", style="bold blue")
+        header_text = Text("🔋 ICE Trade Matching System", style="bold blue")
         header_panel = Panel(
             Align.center(header_text),
             box=box.DOUBLE,
@@ -127,7 +127,7 @@ class MatchDisplayer:
         for match in matches:
             # Check if this is a spread match (has additional trades)
             if match.is_multi_leg_match:
-                # For multi-leg matches, format to show all legs
+                # For multi-leg matches, show all legs
                 all_trader_trades = match.all_trader_trades
                 all_exchange_trades = match.all_exchange_trades
                 

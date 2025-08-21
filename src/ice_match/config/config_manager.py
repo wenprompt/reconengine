@@ -1,4 +1,4 @@
-"""Configuration manager for energy trade matching system."""
+"""Configuration manager for ice trade matching system."""
 
 import json
 from pathlib import Path
@@ -87,7 +87,7 @@ class MatchingConfig(BaseModel):
 
 
 class ConfigManager:
-    """Manages configuration for the energy trade matching system.
+    """Manages configuration for the ice trade matching system.
 
     Provides default configuration and methods to load/save configuration
     from files or environment variables.

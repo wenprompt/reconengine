@@ -1,4 +1,4 @@
-"Match result data model for energy trade matching system."
+"Match result data model for ice trade matching system."
 
 from decimal import Decimal
 from datetime import datetime

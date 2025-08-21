@@ -1,14 +1,14 @@
 # CLAUDE.md
 
-This file provides comprehensive guidance to Claude Code when working with this **Energy Trade Matching System** project.
+This file provides comprehensive guidance to Claude Code when working with this **ICE Trade Matching System** project.
 
 ## 🎯 Project Overview
 
-This is a **Reconciliation Engine** that contains multiple specialized matching systems. The **Energy Trade Matching System** (`src/energy_match/`) is the current module under development, with future plans for additional matching systems like `ffa_match` and others, each with their own specialized rules and matching logic.
+This is a **Reconciliation Engine** that contains multiple specialized matching systems. The **ICE Trade Matching System** (`src/ice_match/`) is the current module under development, with future plans for additional matching systems like `ffa_match` and others, each with their own specialized rules and matching logic.
 
-### Energy Match Module Summary
+### ICE Match Module Summary
 
-The energy matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 11 implemented rules:
+The ice matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 11 implemented rules:
 
 - **Rules 1-3**: Basic matching (exact, spread, crack)
 - **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
@@ -32,7 +32,7 @@ Each matching system will have its own `docs/rules.md` file for detailed rule sp
 ### Core Structure
 
 ```
-src/energy_match/
+src/ice_match/
 ├── main.py                 # Main application entry point with CLI
 ├── models/                 # Pydantic v2 data models
 │   ├── trade.py           # Core Trade model with validation and unit conversion
@@ -199,16 +199,16 @@ uv python install 3.12
 
 ```bash
 # Type checking
-uv run python -m mypy src/energy_match
+uv run python -m mypy src/ice_match
 
-# Run energy match system (example - adapt path for other modules)
-uv run python -m src.energy_match.main
-uv run python -m src.energy_match.main --help  # See all options
-uv run python -m src.energy_match.main --show-rules  # Display detailed rule information
+# Run ice match system (example - adapt path for other modules)
+uv run python -m src.ice_match.main
+uv run python -m src.ice_match.main --help  # See all options
+uv run python -m src.ice_match.main --show-rules  # Display detailed rule information
 
 ###  logging and debugging
-uv run python -m src.energy_match.main --show-logs  # Show detailed logging output
-uv run python -m src.energy_match.main --show-logs --log-level DEBUG  # Enable debug logging
+uv run python -m src.ice_match.main --show-logs  # Show detailed logging output
+uv run python -m src.ice_match.main --show-logs --log-level DEBUG  # Enable debug logging
 ```
 
 ## 📋 Style & Conventions
@@ -267,7 +267,7 @@ def calculate_discount(
 
 ### Data-Driven Testing Approach
 
-This project uses **real CSV data** for testing and validation instead of traditional unit tests. The energy trade matching system processes actual trader and exchange data files, making this approach more practical and reliable.
+This project uses **real CSV data** for testing and validation instead of traditional unit tests. The ice trade matching system processes actual trader and exchange data files, making this approach more practical and reliable.
 
 **Why Real Data Testing?**
 
@@ -278,13 +278,13 @@ This project uses **real CSV data** for testing and validation instead of tradit
 
 ---
 
-# 📊 Energy Match Module Implementation Progress
+# 📊 ICE Match Module Implementation Progress
 
-_The following sections document the specific implementation progress and updates for the `src/energy_match/` module._
+_The following sections document the specific implementation progress and updates for the `src/ice_match/` module._
 
 ## ✅ Current Implementation Status
 
-**Energy Match Module Completed**:
+**ICE Match Module Completed**:
 
 - **11 Sequential Rules**: Implemented with enhanced match rate on sample data
 - **Complex Crack Roll Matching**: Rule 10 for calendar spreads of crack positions
@@ -297,11 +297,11 @@ _The following sections document the specific implementation progress and update
 - **Rich CLI Interface**: Beautiful terminal output with detailed statistics and tier-specific breakdowns
 - **Zero-Price Spread Support**: Allows spreads where both legs have price = 0
 
-## 🔧 Energy Match Core Components
+## 🔧 ICE Match Core Components
 
-### Energy Shared Unit Conversion System
+### ICE Shared Unit Conversion System
 
-The energy module implements a shared, product-specific unit conversion architecture:
+The ice module implements a shared, product-specific unit conversion architecture:
 
 - **Product-Specific Ratios**: Marine 0.5%/380cst crack use 6.35, naphtha japan/nwe crack use 8.9, default 7.0
 - **One-Way Conversion**: Always MT→BBL (trader MT data converts to compare with exchange BBL)
@@ -312,9 +312,9 @@ The energy module implements a shared, product-specific unit conversion architec
 - **JSON Configuration**: Conversion ratios stored in `normalizer_config.json` for maintainability
 - **Modular Architecture**: Utility functions separated from TradeNormalizer for better code organization
 
-### Energy CSV Integration
+### ICE CSV Integration
 
-The energy CSV loader uses the normalizer for consistent data processing:
+The ice CSV loader uses the normalizer for consistent data processing:
 
 - **Automatic Normalization**: All fields normalized during loading
 - **Type Safety**: Proper pandas DataFrame type handling
@@ -323,7 +323,7 @@ The energy CSV loader uses the normalizer for consistent data processing:
 
 ---
 
-_End of Energy Match Module specific documentation_
+_End of ICE Match Module specific documentation_
 
 ## 🏗️ Pydantic v2 Data Validation Architecture
 
@@ -482,7 +482,7 @@ class Trade(BaseModel):
 
 ## 📁 File Organization Patterns
 
-The current energy match module demonstrates the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure with dedicated folders for models, matchers, normalizers, utils, config, core, cli, data, and docs.
+The current ice match module demonstrates the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure with dedicated folders for models, matchers, normalizers, utils, config, core, cli, data, and docs.
 
 ## 🚨 Error Handling
 

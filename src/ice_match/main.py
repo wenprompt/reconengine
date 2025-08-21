@@ -1,4 +1,4 @@
-"""Main application entry point for energy trade matching system."""
+"""Main application entry point for ice trade matching system."""
 
 import logging
 import time
@@ -45,8 +45,8 @@ def setup_logging(log_level: str = "INFO", show_logs: bool = False):
         logging.basicConfig(level=logging.ERROR, handlers=[logging.NullHandler()])
 
 
-class EnergyTradeMatchingEngine:
-    """Main engine for energy trade matching system.
+class ICEMatchingEngine:
+    """Main engine for ice trade matching system.
 
     Orchestrates the complete matching process from data loading through
     result display with proper non-duplication handling.
@@ -283,14 +283,14 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Energy Trade Matching System",
+        description="ICE Trade Matching System",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m energy_match.main                              # Use default sample data
-  python -m energy_match.main --log-level DEBUG            # Use default data with debug logging
-  python -m energy_match.main data/traders.csv data/exchange.csv    # Use custom files
-  python -m energy_match.main --show-logs custom_traders.csv custom_exchange.csv
+  python -m ice_match.main                              # Use default sample data
+  python -m ice_match.main --log-level DEBUG            # Use default data with debug logging
+  python -m ice_match.main data/traders.csv data/exchange.csv    # Use custom files
+  python -m ice_match.main --show-logs custom_traders.csv custom_exchange.csv
         """,
     )
 
@@ -298,16 +298,16 @@ Examples:
         "trader_csv",
         type=Path,
         nargs="?",
-        default=Path("src/energy_match/data/sourceTraders.csv"),
-        help="Path to trader CSV file (default: src/energy_match/data/sourceTraders.csv)",
+        default=Path("src/ice_match/data/sourceTraders.csv"),
+        help="Path to trader CSV file (default: src/ice_match/data/sourceTraders.csv)",
     )
 
     parser.add_argument(
         "exchange_csv",
         type=Path,
         nargs="?",
-        default=Path("src/energy_match/data/sourceExchange.csv"),
-        help="Path to exchange CSV file (default: src/energy_match/data/sourceExchange.csv)",
+        default=Path("src/ice_match/data/sourceExchange.csv"),
+        help="Path to exchange CSV file (default: src/ice_match/data/sourceExchange.csv)",
     )
 
     parser.add_argument(
@@ -380,7 +380,7 @@ Examples:
             aggregated_product_spread_matcher,
         ]
 
-        print("\n--- Energy Trade Matching Rules ---")
+        print("\n--- ICE Trade Matching Rules ---")
         for matcher in all_matchers:
             if hasattr(matcher, "get_rule_info"):  # Safely check if the method exists
                 rule_info = matcher.get_rule_info()
@@ -405,7 +405,7 @@ Examples:
     )
 
     # Run matching
-    engine = EnergyTradeMatchingEngine(config_manager, show_logs=args.show_logs)
+    engine = ICEMatchingEngine(config_manager, show_logs=args.show_logs)
 
     try:
         matches = engine.run_matching(args.trader_csv, args.exchange_csv)

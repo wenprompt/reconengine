@@ -2,7 +2,7 @@
 
 This module contains helper functions that operate on trade data without requiring
 access to configuration or external dependencies. These are pure functions that
-can be easily tested and reused across different parts of the energy matching system.
+can be easily tested and reused across different parts of the ice matching system.
 
 Functions:
     extract_base_product: Extract base product name from crack product names
