@@ -22,6 +22,7 @@ from .matchers import (
     AggregatedSpreadMatcher,
     AggregatedCrackMatcher,
     ComplexCrackRollMatcher,
+    AggregatedProductSpreadMatcher,
 )
 from .cli import MatchDisplayer
 
@@ -204,6 +205,16 @@ class EnergyTradeMatchingEngine:
             complex_crack_roll_matches = complex_crack_roll_matcher.find_matches(pool_manager)
             all_matches.extend(complex_crack_roll_matches)
 
+            # Rule 11: Aggregated product spread matching
+            self.logger.info("Applying Rule 11: Aggregated product spread matching...")
+            aggregated_product_spread_matcher = AggregatedProductSpreadMatcher(
+                self.config_manager, self.normalizer
+            )
+            aggregated_product_spread_matches = aggregated_product_spread_matcher.find_matches(
+                pool_manager
+            )
+            all_matches.extend(aggregated_product_spread_matches)
+
             # Step 5: Display results
             self.logger.info("Displaying results...")
 
@@ -352,6 +363,7 @@ Examples:
         aggregated_spread_matcher = AggregatedSpreadMatcher(config_manager, normalizer)
         aggregated_crack_matcher = AggregatedCrackMatcher(config_manager, normalizer)
         complex_crack_roll_matcher = ComplexCrackRollMatcher(config_manager, normalizer)
+        aggregated_product_spread_matcher = AggregatedProductSpreadMatcher(config_manager, normalizer)
 
         # Collect all matchers that have a get_rule_info method
         all_matchers = [
@@ -365,6 +377,7 @@ Examples:
             aggregated_spread_matcher,
             aggregated_crack_matcher,
             complex_crack_roll_matcher,
+            aggregated_product_spread_matcher,
         ]
 
         print("\n--- Energy Trade Matching Rules ---")

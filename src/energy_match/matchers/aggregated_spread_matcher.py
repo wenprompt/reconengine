@@ -117,7 +117,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
                     
                     # Use MultiLegBaseMatcher validation for consistency
                     if self.validate_spread_pair_characteristics(trade1, trade2, self.normalizer):
-                        # Additional check for aggregated spread pattern (price/0.00)
+                        # Additional check for aggregated spread pattern (exactly one price = 0)
                         if self._is_aggregated_spread_pattern(trade1, trade2):
                             # Order so that trade with non-zero price comes first
                             if trade1.price != Decimal("0"):
@@ -131,7 +131,13 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         return spread_pairs
 
     def _is_aggregated_spread_pattern(self, trade1: Trade, trade2: Trade) -> bool:
-        """Check if two trades form an aggregated spread pattern (price/0.00).
+        """Check if two trades form an aggregated spread pattern.
+        
+        An aggregated spread pattern requires:
+        - Opposite B/S directions (spread requirement)
+        - Different contract months (spread requirement) 
+        - Exactly one trade with price = 0 (the reference leg)
+        - One trade with any price (positive, negative, or zero - the spread price)
         
         Args:
             trade1: First trade
@@ -148,9 +154,12 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         if trade1.contract_month == trade2.contract_month:
             return False
         
-        # One must have price > 0, other must have price = 0 (aggregated spread pattern)
+        # Aggregated spread pattern: exactly one trade must have price = 0 (the reference leg)
+        # The other trade has the spread price (can be positive, negative, or even zero)
         prices = [trade1.price, trade2.price]
-        return Decimal("0") in prices and any(p > Decimal("0") for p in prices)
+        zero_count = sum(1 for p in prices if p == Decimal("0"))
+        
+        return zero_count == 1
 
     def _is_valid_spread_pair(self, trade1: Trade, trade2: Trade) -> bool:
         """Check if two trades form a valid spread pair (deprecated - use MultiLegBaseMatcher validation).

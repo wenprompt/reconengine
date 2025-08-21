@@ -47,13 +47,14 @@ class MatchingConfig(BaseModel):
             8: Decimal("70"),  # Aggregated spread match
             9: Decimal("68"),  # Aggregated crack match
             10: Decimal("65"),  # Crack roll match
+            11: Decimal("62"),  # Aggregated product spread match
         },
         description="Confidence levels for each matching rule (implemented rules)",
     )
 
     # Processing order (from rules.md) - implemented rules
     rule_processing_order: list[int] = Field(
-        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         description="Order in which rules should be processed (implemented rules)",
     )
 

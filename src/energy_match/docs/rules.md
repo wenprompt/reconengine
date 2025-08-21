@@ -128,8 +128,9 @@ The matching engine processes trades in order of confidence level to ensure the 
 8. **Aggregated Spread Matches** (Confidence: 70%) - Spread matching with exchange trade aggregation
 9. **Aggregated Crack Matches** (Confidence: 68%) - **NEW** - Aggregation with unit conversion for crack products
 10. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
-11. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
-12. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
+11. **Aggregated Product Spread Matches** (Confidence: 62%) - **IMPLEMENTED** - Product spread matching with aggregation logic
+12. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
+13. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
 
 ### Complex Scenario Handling
 
@@ -1360,7 +1361,208 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 - **Calculation Audit**: Maintains detailed record of crack price calculations and roll spread validation
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 
-## 11. Cross-Month Decomposition Match Rules
+## 11. Aggregated Product Spread Match Rules
+
+### Definition
+
+An **aggregated product spread match** occurs when product spread trades require quantity aggregation between data sources before applying spread matching logic. This medium-confidence match type (62%) combines aggregation patterns with product spread validation, handling scenarios where the same spread appears with different quantity distributions.
+
+**Key Patterns**:
+
+- **Scenario A**: Multiple exchange product trades ↔ Single trader spread pair (many-to-1)
+- **Scenario B**: Single exchange spread ↔ Multiple trader trades per component (1-to-many)
+
+**Directionality**: ✅ **BIDIRECTIONAL** - Handles both exchange→trader and trader→exchange aggregation scenarios
+
+### Aggregated Product Spread Trade Identification
+
+#### Key Characteristics:
+
+- **Aggregation Integration**: Combines Rule 5 (Product Spread) logic with Rule 6 (Aggregation) patterns
+- **Quantity Summation**: Multiple smaller trades sum to match single larger trade
+- **Component Validation**: Product spread logic applied after aggregation
+- **Direction Logic**: Standard product spread B/S direction rules
+- **Price Calculation**: Spread price validation after quantity aggregation
+
+#### Scenario A: Exchange Aggregation → Trader Spread
+
+- **Exchange Pattern**: Multiple separate component trades per product requiring aggregation
+- **Trader Pattern**: Single spread pair (price/0.00 pattern with opposite B/S directions)
+- **Aggregation Logic**: Exchange trades grouped by product, contract, price, B/S, and broker
+- **Validation**: Aggregated quantities must match trader spread quantities exactly
+
+#### Scenario B: Trader Aggregation → Exchange Spread
+
+- **Exchange Pattern**: Single hyphenated product spread (e.g., "marine 0.5%-380cst")
+- **Trader Pattern**: Multiple trades per component product requiring aggregation
+- **Aggregation Logic**: Trader trades grouped by product characteristics
+- **Validation**: Aggregated trader positions must match exchange spread exactly
+
+### Required Matching Fields for Aggregated Product Spreads
+
+**Universal Requirements (Both Scenarios):**
+
+1. **Product Relationship**: Component products must match spread products
+2. **Contract Month**: All trades must have identical contract months
+3. **Universal Fields**: All trades must have matching brokergroupid and exchclearingacctid
+4. **Aggregation Validation**: Quantities must sum exactly (no tolerance)
+
+**Scenario A: Exchange Aggregation Requirements**
+
+1. **Trader Spread Pattern**: Two trades with spread indicators:
+   - One leg with calculated spread price (non-zero)
+   - One leg with price = 0.00
+   - Opposite B/S directions
+   - Different products
+2. **Exchange Component Aggregation**: Multiple exchange trades per component:
+   - Same product name within each component group
+   - Same price within each component group
+   - Same B/S direction within each component group
+   - Quantities sum to match trader component quantities
+
+**Scenario B: Trader Aggregation Requirements**
+
+1. **Exchange Hyphenated Product**: Single trade with hyphenated product name
+2. **Trader Component Aggregation**: Multiple trader trades per component:
+   - Same product characteristics within each component group
+   - Quantities sum to match exchange spread quantity
+   - Proper B/S direction logic for spread pattern
+
+### Aggregation and Product Spread Logic Integration
+
+#### Phase 1: Aggregation Processing
+
+- **Grouping**: Group trades by aggregation characteristics (product, contract, price, B/S, broker)
+- **Quantity Summation**: Calculate total quantities for each aggregation group
+- **Validation**: Verify aggregated totals match target quantities exactly
+
+#### Phase 2: Product Spread Validation
+
+- **Component Matching**: Verify aggregated positions correspond to spread components
+- **Direction Logic**: Apply standard product spread B/S validation rules
+- **Price Calculation**: Validate spread price equals component price differential
+
+### Example: Aggregated Product Spread Match (Scenario A)
+
+#### Source Data:
+
+**sourceTraders.csv (Spread Pair):**
+
+```
+| Index | productname | contractmonth | quantityunits | price | B/S    | brokergroupid |
+|-------|-------------|---------------|---------------|-------|--------|---------------|
+| T_100 | marine 0.5% | Jul-25        | 4000          | 25.50 | Bought | 3             |
+| T_101 | 380cst      | Jul-25        | 4000          | 0.00  | Sold   | 3             |
+```
+
+**sourceExchange.csv (Multiple Component Trades):**
+
+```
+| Index | productname | contractmonth | quantityunits | price  | b/s    | brokergroupid |
+|-------|-------------|---------------|---------------|--------|--------|---------------|
+| E_200 | marine 0.5% | Jul-25        | 2000          | 485.75 | Bought | 3             |
+| E_201 | marine 0.5% | Jul-25        | 2000          | 485.75 | Bought | 3             |
+| E_202 | 380cst      | Jul-25        | 2000          | 460.25 | Sold   | 3             |
+| E_203 | 380cst      | Jul-25        | 2000          | 460.25 | Sold   | 3             |
+```
+
+#### Matching Validation Process:
+
+**Phase 1: Exchange Trade Aggregation**
+
+- **marine 0.5% Jul-25 Aggregation**:
+
+  - E_200: 2,000 MT @ 485.75, Bought, broker=3
+  - E_201: 2,000 MT @ 485.75, Bought, broker=3
+  - **Aggregated**: 4,000 MT @ 485.75, Bought, Jul-25, broker=3
+
+- **380cst Jul-25 Aggregation**:
+  - E_202: 2,000 MT @ 460.25, Sold, broker=3
+  - E_203: 2,000 MT @ 460.25, Sold, broker=3
+  - **Aggregated**: 4,000 MT @ 460.25, Sold, Jul-25, broker=3
+
+**Phase 2: Product Spread Validation**
+
+1. **Product Matching**: ✅
+
+   - Trader: "marine 0.5%" + "380cst"
+   - Exchange aggregated: "marine 0.5%" + "380cst"
+
+2. **Quantity Validation**: ✅
+
+   - All positions: 4,000 MT
+
+3. **B/S Direction Logic**: ✅
+
+   - Trader: marine 0.5% Bought + 380cst Sold
+   - Exchange: marine 0.5% Bought + 380cst Sold
+
+4. **Price Differential Calculation**: ✅
+   - Exchange spread: 485.75 - 460.25 = 25.50
+   - Trader spread: 25.50 - 0.00 = 25.50
+   - **Perfect match**: 25.50 = 25.50
+
+**Result:** ✅ **AGGREGATED PRODUCT SPREAD MATCH**
+
+### Implementation Strategy
+
+#### Processing Approach:
+
+1. **Process After Basic Product Spreads**: Handle aggregated product spreads after Rule 5 has completed
+2. **Bidirectional Algorithm**:
+   - **Scenario A**: Find trader spread pairs, then search for exchange aggregation matches
+   - **Scenario B**: Find exchange spreads, then search for trader aggregation matches
+3. **Aggregation Integration**: Leverage `AggregationBaseMatcher` for consistent aggregation patterns
+4. **Product Spread Validation**: Apply Rule 5 validation logic after aggregation processing
+5. **Universal Field Enforcement**: Ensure all trades share identical universal fields
+
+#### Matching Tolerance:
+
+- **Aggregation Tolerance**: No tolerance - quantities must sum exactly
+- **Price Validation**: Spread price calculation must be exact
+- **Direction Matching**: B/S directions must follow product spread logic exactly
+
+#### Critical Implementation Notes:
+
+- **Reusable Architecture**: Inherits from `AggregationBaseMatcher` for consistent aggregation logic
+- **No Interference**: Must not break existing product spread or aggregation matching
+- **Component Tracking**: Track all individual trades that form aggregated spread components
+- **Bidirectional Support**: Handle both many→one and one→many aggregation scenarios
+
+### Processing Notes
+
+- **Confidence Level**: 62% (combines product spread and aggregation complexity)
+- **Processing Priority**: After basic product spreads (Rule 10), before crack roll matching
+- **Match Removal**: Removes multiple exchange/trader trades based on aggregation scenario
+- **Aggregation Integration**: Uses same aggregation validation as Rule 6
+- **Product Spread Integration**: Uses same spread validation as Rule 5
+- **Detailed Audit**: Maintains mapping of which trades aggregate to form spread components
+- **Implementation Status**: ✅ **FULLY IMPLEMENTED** with comprehensive type safety and error handling
+
+#### Implementation Architecture
+
+**Rule 11** has been successfully implemented with the following key features:
+
+- **Comprehensive Type Safety**: Full mypy compliance with proper type annotations
+- **Enhanced Error Handling**: Detailed logging with descriptive error messages and guard clauses
+- **Robust Edge Case Handling**: Validation for empty lists, invalid products, and malformed data
+- **Three-Scenario Support**:
+  - **Scenario A**: Multiple exchange trades → Single trader spread pair (many-to-one)
+  - **Scenario B**: Single exchange spread → Multiple trader component trades (one-to-many)
+  - **Scenario C**: Cross-spread aggregation (multiple trader spread pairs → individual exchange trades)
+- **Cross-Spread Aggregation**: Advanced logic for aggregating trader spread components across multiple spread pairs
+- **Contract Month Consistency**: Proper grouping and validation of trades by contract month
+- **Price Validation**: Comprehensive spread price relationship validation after aggregation
+- **Universal Field Integration**: Seamless integration with BaseMatcher universal field validation
+
+**Code Quality Standards Met**:
+
+- **Performance**: O(N+M) algorithms with intelligent indexing
+- **Maintainability**: Clear separation of concerns with modular methods
+- **Reliability**: Comprehensive validation with detailed audit trails
+- **Extensibility**: Built on AggregationBaseMatcher for consistent patterns
+
+## 12. Cross-Month Decomposition Match Rules
 
 ### Definition
 
@@ -1519,7 +1721,7 @@ A **cross-month decomposition match** occurs when a trader executes a complex cr
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 - **Pattern Driven**: Relies on consecutive index patterns with 0.0 price indicators
 
-## 12. Complex Product Spread Decomposition and Netting Match Rules
+## 13. Complex Product Spread Decomposition and Netting Match Rules
 
 ### Definition
 
@@ -1695,3 +1897,129 @@ A **complex product spread decomposition and netting match** occurs when exchang
 - **Audit Trail**: Maintains detailed record of decomposition, netting, and residual calculations
 - **Fallback Nature**: Only processes trades that no other matching rule can handle
 - **Mathematical Validation**: All price relationships must validate exactly
+
+## 14. Hybrid Product Spread with Mixed Format Aggregation Match Rules
+
+### Definition
+
+A **hybrid product spread with mixed format aggregation match** occurs when a complex trading scenario combines hyphenated product parsing, 2-leg component detection, and quantity aggregation across different data representations. This is the most complex scenario identified but not yet implemented due to the extensive file size and architectural complexity required.
+
+**Key Pattern**: Mixed exchange trades (hyphenated product + separate components) ↔ Aggregated trader component trades with quantity summation
+
+**Implementation Status**: ❌ **NOT IMPLEMENTED** - Documented for future consideration due to extreme complexity
+
+### Hybrid Scenario Identification
+
+#### Key Characteristics:
+
+- **Hyphenated Product Parsing**: Exchange data contains hyphenated products that need component separation
+- **2-Leg Component Detection**: Individual component trades require separate validation
+- **Quantity Aggregation**: Component quantities must be summed across multiple trades (e.g., 2000 + 3000 = 5000)
+- **Mixed Format Challenges**: Different data representations requiring hybrid processing logic
+- **Mathematical Validation**: Complex spread price calculations after aggregation and parsing
+
+#### Required Exchange Components:
+
+1. **Hyphenated Product**: Product spread with hyphen (e.g., "marine 0.5%-380cst")
+2. **Separate Component Trades**: Individual trades for component products
+3. **Quantity Relationship**: Component quantities that sum to trader quantities
+4. **Price Relationships**: Complex spread calculations across mixed formats
+
+#### Required Trader Components:
+
+1. **Component Product Trades**: Separate trades for each component product
+2. **Aggregation Pattern**: Multiple trades that require quantity summation
+3. **Spread Price Pattern**: Price/zero pattern indicating spread relationship
+
+### Example: Hybrid Product Spread Scenario
+
+#### Source Data from Current CSV Files:
+
+**sourceExchange.csv (Mixed Format Trades):**
+
+```
+| Index | productname       | contractmonth | quantityunits | price  | b/s    | brokergroupid |
+|-------|-------------------|---------------|---------------|--------|--------|---------------|
+| E_0063| marine 0.5%-380cst| Sep-25        | 2000          | 5.00   | Bought | 3             |
+| E_0064| 380cst            | Sep-25        | 3000          | 471.00 | Sold   | 3             |
+| E_0065| marine 0.5%       | Sep-25        | 3000          | 476.00 | Bought | 3             |
+```
+
+**sourceTraders.csv (Aggregated Component Pattern):**
+
+```
+| Index | productname | contractmonth | quantityunits | price | B/S    | brokergroupid |
+|-------|-------------|---------------|---------------|-------|--------|---------------|
+| T_0036| 380cst      | Sep-25        | 5000          | 5.00  | Sold   | 3             |
+| T_0037| marine 0.5% | Sep-25        | 5000          | 0.00  | Bought | 3             |
+```
+
+#### Complex Matching Analysis:
+
+**Step 1: Hyphenated Product Parsing**
+
+- E_0063: "marine 0.5%-380cst" → Components: "marine 0.5%" + "380cst"
+- Hyphenated spread: Buy marine 0.5%-380cst = Buy marine 0.5% + Sell 380cst
+- Spread price: 5.00
+
+**Step 2: Quantity Aggregation Challenge**
+
+- Exchange 380cst: 3000 MT (E_0064, separate trade)
+- Exchange marine 0.5%: 2000 MT (E_0063, from hyphenated) + 3000 MT (E_0065, separate) = 5000 MT
+- Trader quantities: 5000 MT each component
+
+**Step 3: Mathematical Validation**
+
+- Exchange quantity aggregation: 2000 + 3000 = 5000 ✅
+- Spread price matching: 5.00 = 5.00 ✅
+- Component B/S validation would require complex hybrid logic
+
+**Current Status**: ❌ **TOO COMPLEX TO IMPLEMENT**
+
+This scenario requires hybrid logic that combines:
+- Hyphenated product parsing (Rule 5 logic)
+- 2-leg component detection (Rule 4 logic)  
+- Quantity aggregation (Rule 6 logic)
+- Mixed data format handling (unprecedented complexity)
+
+### Implementation Challenges
+
+#### Why Not Currently Implemented:
+
+1. **File Size Constraint**: The `aggregated_product_spread_matcher.py` file is already 1153 lines and approaching maintainability limits
+
+2. **Architectural Complexity**: This scenario would require:
+   - Extension of existing ProductSpreadMixin
+   - Integration with AggregationBaseMatcher
+   - Complex 2-leg component parsing logic
+   - Mixed format data validation
+   - Hybrid price calculation algorithms
+
+3. **Processing Priority**: This represents an edge case that may not justify the implementation complexity
+
+4. **Alternative Solutions**: Simpler rule combinations may achieve sufficient match coverage
+
+### Future Implementation Considerations
+
+#### Recommended Approach (If Implemented):
+
+1. **Separate Module**: Create dedicated `hybrid_spread_matcher.py` to avoid file size issues
+2. **Multi-Inheritance Architecture**: Inherit from multiple base matchers (ProductSpreadMixin, AggregationBaseMatcher)
+3. **Staged Implementation**: Break into sub-components and validate each stage
+4. **Comprehensive Testing**: Extensive validation with real data scenarios
+5. **Performance Analysis**: Ensure O(N+M) complexity is maintained
+
+#### Confidence and Priority:
+
+- **Proposed Confidence Level**: 55% (lowest due to extreme complexity)
+- **Processing Priority**: Absolute last (after Rule 13)
+- **Implementation Threshold**: Only consider if match coverage analysis shows significant unmatched trades fitting this pattern
+
+### Processing Notes
+
+- **Status**: ❌ **DOCUMENTED BUT NOT IMPLEMENTED**
+- **Complexity Rating**: ⭐⭐⭐⭐⭐ (Maximum complexity)
+- **Trade-offs**: Implementation cost vs. potential match coverage benefit
+- **Alternative**: Monitor unmatched trades to determine if this pattern frequency justifies implementation
+- **Architecture Impact**: Would require significant refactoring of existing product spread logic
+- **Decision Point**: Analyze actual data frequency before committing to implementation
