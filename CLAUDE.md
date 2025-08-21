@@ -1,10 +1,16 @@
 # CLAUDE.md
 
-This file provides comprehensive guidance to Claude Code when working with this **ICE Trade Matching System** project.
+This file provides comprehensive guidance to Claude Code when working with this **Reconciliation Engine** project.
 
 ## 🎯 Project Overview
 
-This is a **Reconciliation Engine** that contains multiple specialized matching systems. The **ICE Trade Matching System** (`src/ice_match/`) is the current module under development, with future plans for additional matching systems like `ffa_match` and others, each with their own specialized rules and matching logic.
+This is a **Reconciliation Engine** that contains multiple specialized matching systems:
+
+- **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 11 sequential rules
+- **SGX Trade Matching System** (`src/sgx_match/`) - Singapore Exchange iron ore futures matching with exact rule
+- **Future Modules**: Plans for additional matching systems like `ffa_match` and others
+
+Each matching system has its own specialized rules and matching logic tailored to specific exchanges and products.
 
 ### ICE Match Module Summary
 
@@ -14,6 +20,15 @@ The ice matching system processes trades between trader and exchange data source
 - **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
 - **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, aggregated crack)
 - **Rules 10-11**: Advanced spread matching (complex crack roll, aggregated product spread)
+
+### SGX Match Module Summary
+
+The SGX matching system processes Singapore Exchange iron ore futures trades using a simple exact matching approach:
+
+- **Rule 1**: Exact matching on 7 fields (product, contract month, quantity, price, buy/sell, + universal fields)
+- **Iron Ore Focus**: Specialized for FE (Iron Ore) futures and options
+- **Options Support**: Handles puts/calls with strike prices
+- **Simple Architecture**: Streamlined design for straightforward exact matching
 
 Each matching system will have its own `docs/rules.md` file for detailed rule specifications.
 
@@ -30,6 +45,8 @@ Each matching system will have its own `docs/rules.md` file for detailed rule sp
 ## 🏗️ Project Architecture
 
 ### Core Structure
+
+**ICE Match Module Structure:**
 
 ```
 src/ice_match/
@@ -69,6 +86,35 @@ src/ice_match/
 │   └── [additional datasets] # Various test scenarios (150525, 160525, etc.)
 └── docs/
     └── rules.md        # Complete rule specifications for this module
+```
+
+**SGX Match Module Structure:**
+
+```
+src/sgx_match/
+├── main.py                 # Main application entry point with CLI
+├── models/                 # Pydantic v2 data models
+│   ├── trade.py           # SGXTrade model with options support
+│   └── match_result.py    # SGXMatchResult model for output
+├── loaders/               # CSV data loading with normalization integration
+│   └── sgx_csv_loader.py  # Handles SGX trader and exchange CSV files
+├── normalizers/          # Data normalization and standardization
+│   └── sgx_trade_normalizer.py # SGX-specific product names, contract months
+├── matchers/            # Matching rule implementations
+│   ├── base_matcher.py   # Base matcher with universal field validation
+│   └── sgx_exact_matcher.py # Rule 1: Exact matching for SGX
+├── core/               # Core system components
+│   └── sgx_pool.py    # Non-duplication pool management for SGX
+├── config/            # Configuration management
+│   ├── sgx_config_manager.py # SGX-specific settings and configuration
+│   └── normalizer_config.json # SGX product mappings and field configuration
+├── cli/              # Rich CLI interface
+│   └── sgx_display.py # Beautiful terminal output for SGX results
+├── data/            # SGX sample data sets
+│   ├── sourceTraders.csv    # SGX trader data (46 records)
+│   └── sourceExchange.csv   # SGX exchange data (367 records)
+└── docs/
+    └── rules.md        # SGX rule specifications
 ```
 
 ### Architecture Principles
@@ -120,7 +166,7 @@ src/ice_match/
 
 - **trade_helpers.py**: Pure utility functions with no configuration dependencies
   - `extract_base_product()` - Extract base product from crack products
-  - `extract_month_year()` - Parse contract month components  
+  - `extract_month_year()` - Parse contract month components
   - `get_month_order_tuple()` - Convert months to sortable tuples
 - **conversion_helpers.py**: Configuration-dependent utility functions
   - `get_product_conversion_ratio()` - Product-specific MT↔BBL ratios
@@ -200,15 +246,23 @@ uv python install 3.12
 ```bash
 # Type checking
 uv run python -m mypy src/ice_match
+uv run python -m mypy src/sgx_match
 
-# Run ice match system (example - adapt path for other modules)
+# Run ICE match system
 uv run python -m src.ice_match.main
 uv run python -m src.ice_match.main --help  # See all options
 uv run python -m src.ice_match.main --show-rules  # Display detailed rule information
 
-###  logging and debugging
+# Run SGX match system
+uv run python -m src.sgx_match.main --show-unmatched # too long list
+uv run python -m src.sgx_match.main --help  # See all options
+uv run python -m src.sgx_match.main --show-rules  # Display detailed rule information
+
+# Logging and debugging
 uv run python -m src.ice_match.main --show-logs  # Show detailed logging output
 uv run python -m src.ice_match.main --show-logs --log-level DEBUG  # Enable debug logging
+uv run python -m src.sgx_match.main --show-logs  # Show detailed logging output for SGX
+uv run python -m src.sgx_match.main --show-logs --log-level DEBUG  # Enable debug logging for SGX
 ```
 
 ## 📋 Style & Conventions
@@ -324,6 +378,68 @@ The ice CSV loader uses the normalizer for consistent data processing:
 ---
 
 _End of ICE Match Module specific documentation_
+
+# 📊 SGX Match Module Implementation
+
+_The following sections document the specific implementation for the `src/sgx_match/` module._
+
+## ✅ SGX Implementation Status
+
+**SGX Match Module Completed**:
+
+- **1 Exact Rule**: Simple exact matching with 91.3% match rate on sample data (42/46 trader trades matched)
+- **Universal Field Validation**: JSON-driven configuration system inherited from ICE architecture
+- **Options Support**: Handles iron ore futures and options with puts/calls and strike prices
+- **Pydantic v2 Models**: Complete type safety and validation for SGXTrade and SGXMatchResult
+- **Performance Optimized**: O(N+M) algorithms with signature-based indexing for efficient matching
+- **Rich CLI Interface**: Beautiful terminal output with detailed statistics and match tables
+- **Iron Ore Focus**: Specialized for Singapore Exchange FE (Iron Ore) futures and options
+
+## 🔧 SGX Match Core Components
+
+### SGX Trade Model Architecture
+
+The SGX module implements specialized models for Singapore Exchange trading:
+
+- **SGXTrade Model**: Immutable trade objects with iron ore-specific fields (strike prices, put/call options)
+- **SGXTradeSource Enum**: TRADER and EXCHANGE source identification
+- **SGXMatchType Enum**: EXACT match type classification
+- **Options Integration**: Native support for option contracts with strike prices and put/call indicators
+- **Universal Fields**: Inherits broker_group_id and exch_clearing_acct_id validation from base architecture
+
+### SGX Normalization System
+
+The SGX normalizer focuses on Singapore Exchange data standardization:
+
+- **Product Mappings**: FE (Iron Ore), PMX (Palm Oil), CAPE (Capesize), SMX (Steel Making), M65 (Iron Ore 65%)
+- **Contract Month Patterns**: Aug25, Sep25, Oct25, etc. standardization
+- **Buy/Sell Normalization**: B/S indicator standardization
+- **Direct Column Mapping**: Works directly with CSV column names (no field mapping layer)
+- **JSON Configuration**: All mappings stored in `normalizer_config.json` for maintainability
+
+### SGX CSV Integration
+
+The SGX CSV loader processes Singapore Exchange data files:
+
+- **Real Data Processing**: Loads 46 trader trades and 367 exchange trades from sample data
+- **Automatic Normalization**: All fields normalized during loading via SGXTradeNormalizer
+- **Type Safety**: Proper pandas DataFrame type handling
+- **Error Handling**: Graceful handling of malformed data and missing fields
+- **Direct CSV Access**: Works with actual CSV column names without field mapping complexity
+
+### SGX Exact Matcher (Rule 1)
+
+The SGX exact matcher implements simple but effective matching:
+
+- **7-Field Matching**: product_name, contract_month, quantity_units, price, buy_sell + universal fields
+- **Signature Indexing**: O(1) lookup performance using tuple signatures
+- **Universal Validation**: Inherits broker_group_id and exch_clearing_acct_id validation
+- **100% Confidence**: High confidence matching for exact field alignment
+- **Options Aware**: Handles both futures and options contracts seamlessly
+
+---
+
+_End of SGX Match Module specific documentation_
 
 ## 🏗️ Pydantic v2 Data Validation Architecture
 
@@ -482,7 +598,29 @@ class Trade(BaseModel):
 
 ## 📁 File Organization Patterns
 
-The current ice match module demonstrates the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure with dedicated folders for models, matchers, normalizers, utils, config, core, cli, data, and docs.
+### Modular Architecture Template
+
+Both ICE and SGX modules demonstrate the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure:
+
+**Required Folders:**
+
+- `models/`: Pydantic data models (trade, match_result)
+- `matchers/`: Rule implementations with base_matcher inheritance
+- `normalizers/`: Data normalization and standardization
+- `loaders/`: CSV data loading with normalization integration
+- `config/`: Configuration management and JSON settings
+- `core/`: Pool management and system infrastructure
+- `cli/`: Rich terminal interface and display
+- `data/`: Sample data sets for testing
+- `docs/`: Rule specifications and documentation
+
+**Architecture Benefits:**
+
+- **Separation of Concerns**: Each module has a single, clear responsibility
+- **Inheritance Patterns**: Base classes provide universal field validation
+- **Configuration-Driven**: JSON files for product mappings and field configurations
+- **Type Safety**: Pydantic v2 models throughout
+- **Performance**: Optimized algorithms with indexing strategies
 
 ## 🚨 Error Handling
 
