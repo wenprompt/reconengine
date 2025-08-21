@@ -27,8 +27,17 @@ def parse_fo_xlsx(input_path, output_path, mapping_path):
 
     header = [cell.value for cell in sheet[1]]
     
-    # Map columns to their indices
-    column_indices = {name: i for i, name in enumerate(header)}
+    # Normalize headers and create a mapping to their indices
+    normalized_headers = {str(h).lower().strip(): i for i, h in enumerate(header) if h is not None}
+
+    def get_col_val(row_vals, col_name, aliases=None):
+        aliases = aliases or []
+        col_names_to_try = [col_name.lower()] + [a.lower() for a in aliases]
+        for name in col_names_to_try:
+            if name in normalized_headers:
+                idx = normalized_headers[name]
+                return row_vals[idx]
+        return None
 
     output_rows = []
     # Add header to output
@@ -47,14 +56,14 @@ def parse_fo_xlsx(input_path, output_path, mapping_path):
         if not any(row_values):
             continue # Skip empty rows
         
-        # Extract values from the row
-        time_val = row_values[column_indices.get('Time')]
-        product_val = row_values[column_indices.get('Product')]
-        size_val = row_values[column_indices.get('Size')]
-        price_val = row_values[column_indices.get('Price')]
-        spread_val = row_values[column_indices.get('Spread')]
-        broker_val = row_values[column_indices.get('Broker')]
-        contract_month_val = row_values[column_indices.get('ContractMonth')]
+        # Extract values from the row using case-insensitive header lookup
+        time_val = get_col_val(row_values, 'Time')
+        product_val = get_col_val(row_values, 'Product')
+        size_val = get_col_val(row_values, 'Size')
+        price_val = get_col_val(row_values, 'Price')
+        spread_val = get_col_val(row_values, 'Spread')
+        broker_val = get_col_val(row_values, 'Broker')
+        contract_month_val = get_col_val(row_values, 'ContractMonth')
 
         # --- Filters ---
         if str(broker_val).lower() == 'screen':
