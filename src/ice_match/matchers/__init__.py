@@ -1,4 +1,4 @@
-"""Trade matchers for energy trade matching system."""
+"""Trade matchers for ice trade matching system."""
 
 from .base_matcher import BaseMatcher
 from .exact_matcher import ExactMatcher

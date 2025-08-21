@@ -8,11 +8,6 @@ from typing import Dict, Any, Optional
 import logging
 
 from ..config import ConfigManager
-from ..utils.conversion_helpers import (
-    get_product_conversion_ratio,
-    convert_mt_to_bbl_with_product_ratio,
-    validate_mt_to_bbl_quantity_match,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -105,35 +100,6 @@ class TradeNormalizer:
             logger.warning(f"Unknown unit '{unit}', treating as BBL")
             return quantity
 
-    
-    def get_product_conversion_ratio(self, product_name: str) -> Decimal:
-        """Get product-specific MT to BBL conversion ratio from configuration.
-        
-        Delegates to utility function for consistency.
-        """
-        return get_product_conversion_ratio(product_name, self.config_manager)
-    
-    def convert_mt_to_bbl_with_product_ratio(self, quantity_mt: Decimal, product_name: str) -> Decimal:
-        """Convert MT quantity to BBL using product-specific conversion ratio.
-        
-        Delegates to utility function for consistency.
-        """
-        return convert_mt_to_bbl_with_product_ratio(quantity_mt, product_name, self.config_manager)
-    
-    def validate_mt_to_bbl_quantity_match(
-        self, 
-        trader_quantity_mt: Decimal, 
-        exchange_quantity_bbl: Decimal, 
-        product_name: str, 
-        bbl_tolerance: Decimal
-    ) -> bool:
-        """Validate MT vs BBL quantity match using product-specific conversion.
-        
-        Delegates to utility function for consistency.
-        """
-        return validate_mt_to_bbl_quantity_match(
-            trader_quantity_mt, exchange_quantity_bbl, product_name, bbl_tolerance, self.config_manager
-        )
 
     def get_trader_product_unit_default(self, product_name: str) -> str:
         """Get default unit for trader product based on configuration.

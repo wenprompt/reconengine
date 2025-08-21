@@ -1,4 +1,4 @@
-"""Trade data model for energy trade matching system."""
+"""Trade data model for ice trade matching system."""
 
 from decimal import Decimal
 from datetime import datetime
@@ -14,7 +14,7 @@ class TradeSource(str, Enum):
 
 
 class Trade(BaseModel):
-    """Represents a single energy trade with normalized fields.
+    """Represents a single ice trade with normalized fields.
     
     This model handles both trader and exchange data with unified field names
     and normalization for matching purposes.

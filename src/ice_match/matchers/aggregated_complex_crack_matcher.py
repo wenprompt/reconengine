@@ -12,6 +12,7 @@ from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
 from .complex_crack_matcher import ComplexCrackMatcher
 from ..utils.trade_helpers import extract_base_product
+from ..utils.conversion_helpers import validate_mt_to_bbl_quantity_match
 
 logger = logging.getLogger(__name__)
 
@@ -210,12 +211,13 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             )
             return False
 
-        # 2. Crack vs Brent: Use shared MT→BBL conversion validation
-        if not self.normalizer.validate_mt_to_bbl_quantity_match(
+        # 2. Crack vs Brent: Use shared MT→BBL conversion validation from utils
+        if not validate_mt_to_bbl_quantity_match(
             crack_quantity_mt, 
             brent_trade.quantity_bbl, 
             crack_trade.product_name, 
-            self.BBL_TOLERANCE
+            self.BBL_TOLERANCE,
+            self.config_manager
         ):
             logger.debug("Crack-brent quantity mismatch using shared MT→BBL validation")
             return False

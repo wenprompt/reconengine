@@ -343,7 +343,7 @@ Each tier removes matched trades from the pool before the next tier processes, p
 
 ### Definition
 
-A **crack match** occurs when a trader executes a crack spread trade that appears in both data sources but requires unit conversion between metric tons (MT) and barrels (BBL). This high-confidence match type (90%) handles specialized energy trading products with unit normalization.
+A **crack match** occurs when a trader executes a crack spread trade that appears in both data sources but requires unit conversion between metric tons (MT) and barrels (BBL). This high-confidence match type (90%) handles specialized ice trading products with unit normalization.
 
 **Key Characteristics**:
 
@@ -1998,28 +1998,3 @@ This scenario requires hybrid logic that combines:
 3. **Processing Priority**: This represents an edge case that may not justify the implementation complexity
 
 4. **Alternative Solutions**: Simpler rule combinations may achieve sufficient match coverage
-
-### Future Implementation Considerations
-
-#### Recommended Approach (If Implemented):
-
-1. **Separate Module**: Create dedicated `hybrid_spread_matcher.py` to avoid file size issues
-2. **Multi-Inheritance Architecture**: Inherit from multiple base matchers (ProductSpreadMixin, AggregationBaseMatcher)
-3. **Staged Implementation**: Break into sub-components and validate each stage
-4. **Comprehensive Testing**: Extensive validation with real data scenarios
-5. **Performance Analysis**: Ensure O(N+M) complexity is maintained
-
-#### Confidence and Priority:
-
-- **Proposed Confidence Level**: 55% (lowest due to extreme complexity)
-- **Processing Priority**: Absolute last (after Rule 13)
-- **Implementation Threshold**: Only consider if match coverage analysis shows significant unmatched trades fitting this pattern
-
-### Processing Notes
-
-- **Status**: ❌ **DOCUMENTED BUT NOT IMPLEMENTED**
-- **Complexity Rating**: ⭐⭐⭐⭐⭐ (Maximum complexity)
-- **Trade-offs**: Implementation cost vs. potential match coverage benefit
-- **Alternative**: Monitor unmatched trades to determine if this pattern frequency justifies implementation
-- **Architecture Impact**: Would require significant refactoring of existing product spread logic
-- **Decision Point**: Analyze actual data frequency before committing to implementation

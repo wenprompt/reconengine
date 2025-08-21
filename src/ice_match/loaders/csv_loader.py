@@ -1,4 +1,4 @@
-"""CSV data loader for energy trade data."""
+"""CSV data loader for ice trade data."""
 
 import pandas as pd
 from pathlib import Path

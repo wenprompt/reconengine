@@ -10,6 +10,11 @@ from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 from .base_matcher import BaseMatcher
+from ..utils.conversion_helpers import (
+    get_product_conversion_ratio,
+    convert_mt_to_bbl_with_product_ratio,
+    validate_mt_to_bbl_quantity_match,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -186,11 +191,6 @@ class CrackMatcher(BaseMatcher):
         Returns:
             True if quantities match within BBL tolerance after MT→BBL conversion
         """
-        if not self.normalizer:
-            # Fallback: Rule 3 requires normalizer for product-specific ratios
-            logger.error("CrackMatcher requires normalizer for product-specific conversion ratios")
-            return False
-        
         # Get trader quantity in MT (always MT for trader data)
         trader_qty_mt = trader_trade.quantity_mt
         
@@ -198,12 +198,13 @@ class CrackMatcher(BaseMatcher):
         # If both were MT, it would have been caught by Rule 1 (Exact Match)
         if exchange_trade.unit.lower() == "bbl":
             # Pure MT→BBL conversion scenario (the main Rule 3 case)
-            # Use shared conversion method from normalizer
-            return self.normalizer.validate_mt_to_bbl_quantity_match(
+            # Use shared conversion method from utils
+            return validate_mt_to_bbl_quantity_match(
                 trader_qty_mt, 
                 exchange_trade.quantity_bbl, 
                 trader_trade.product_name, 
-                self.BBL_TOLERANCE
+                self.BBL_TOLERANCE,
+                self.config_manager
             )
         else:
             # Exchange is not BBL, this shouldn't happen in Rule 3 scenarios
@@ -239,25 +240,17 @@ class CrackMatcher(BaseMatcher):
         if trader_trade.unit.lower() != exchange_trade.unit.lower():
             matched_fields.append("quantity_with_conversion")
             
-            if self.normalizer:
-                # Use shared conversion logic
-                product_ratio = self.normalizer.get_product_conversion_ratio(trader_trade.product_name)
-                trader_qty_bbl = self.normalizer.convert_mt_to_bbl_with_product_ratio(
-                    trader_trade.quantity_mt, trader_trade.product_name
-                )
-                qty_diff_bbl = abs(trader_qty_bbl - exchange_trade.quantity_bbl)
+            # Use shared conversion logic from utils
+            product_ratio = get_product_conversion_ratio(trader_trade.product_name, self.config_manager)
+            trader_qty_bbl = convert_mt_to_bbl_with_product_ratio(
+                trader_trade.quantity_mt, trader_trade.product_name, self.config_manager
+            )
+            qty_diff_bbl = abs(trader_qty_bbl - exchange_trade.quantity_bbl)
                 
-                tolerances_applied["unit_conversion"] = f"{trader_trade.unit} → {exchange_trade.unit} (one-way MT→BBL)"
-                tolerances_applied["conversion_ratio"] = float(product_ratio)
-                tolerances_applied["product_specific_ratio"] = f"{trader_trade.product_name}: {product_ratio}"
-                tolerances_applied["quantity_tolerance_bbl"] = float(qty_diff_bbl)
-            else:
-                # Fallback logic
-                product_ratio = self.config_manager.get_conversion_ratio()
-                qty_diff_mt = abs(trader_trade.quantity_mt - exchange_trade.quantity_mt)
-                tolerances_applied["unit_conversion"] = f"{trader_trade.unit} → {exchange_trade.unit}"
-                tolerances_applied["conversion_ratio"] = float(product_ratio)
-                tolerances_applied["quantity_tolerance_mt"] = float(qty_diff_mt)
+            tolerances_applied["unit_conversion"] = f"{trader_trade.unit} → {exchange_trade.unit} (one-way MT→BBL)"
+            tolerances_applied["conversion_ratio"] = float(product_ratio)
+            tolerances_applied["product_specific_ratio"] = f"{trader_trade.product_name}: {product_ratio}"
+            tolerances_applied["quantity_tolerance_bbl"] = float(qty_diff_bbl)
         else:
             # This shouldn't happen in Rule 3 - both MT would be exact match
             matched_fields.append("quantity")

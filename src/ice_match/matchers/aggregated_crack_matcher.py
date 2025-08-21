@@ -11,6 +11,7 @@ from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
 from ..core import UnmatchedPoolManager
 from .aggregation_base_matcher import AggregationBaseMatcher
+from ..utils.conversion_helpers import validate_mt_to_bbl_quantity_match
 
 logger = logging.getLogger(__name__)
 
@@ -177,12 +178,13 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
             logger.debug("Crack aggregation validation failed: aggregated and single trade characteristics don't match")
             return False
         
-        # 3. Validate quantity using MT→BBL conversion
-        if not self.normalizer.validate_mt_to_bbl_quantity_match(
+        # 3. Validate quantity using MT→BBL conversion from utils
+        if not validate_mt_to_bbl_quantity_match(
             single_trade.quantity_mt, 
             total_quantity_bbl, 
             single_trade.product_name,
-            self.BBL_TOLERANCE
+            self.BBL_TOLERANCE,
+            self.config_manager
         ):
             logger.debug("Crack aggregation validation failed: MT→BBL quantity mismatch")
             return False

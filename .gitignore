@@ -13,7 +13,7 @@ wheels/
 .serena/
 
 # data files (sensitive)
-src/energy_match/data/
+src/ice_match/data/
 tradefiles/input/
 tradefiles/output/
 tradefiles/input_traders/
