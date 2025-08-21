@@ -10,12 +10,13 @@ from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
+from .product_spread_base_matcher import ProductSpreadMixin
 from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
 
-class ProductSpreadMatcher(BaseMatcher):
+class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
     """Matches product spread trades between trader and exchange data.
 
     Handles Rule 5: Product Spread Match Rules
@@ -181,31 +182,6 @@ class ProductSpreadMatcher(BaseMatcher):
         logger.info(f"Found {len(matches)} 2-leg product spread matches")
         return matches
 
-    def _parse_hyphenated_product(self, product_name: str) -> Optional[Tuple[str, str]]:
-        """Parse hyphenated product into component products.
-        
-        Args:
-            product_name: Hyphenated product name (e.g., "marine 0.5%-380cst")
-            
-        Returns:
-            Tuple of (first_product, second_product) or None if not valid
-        """
-        if "-" not in product_name:
-            return None
-        
-        parts = product_name.split("-", 1)
-        if len(parts) != 2:
-            return None
-        
-        first_product = parts[0].strip()
-        second_product = parts[1].strip()
-        
-        # Ensure both components are non-empty and different
-        if not first_product or not second_product or first_product == second_product:
-            logger.debug(f"❌ Invalid hyphenated product parsing: '{product_name}' -> '{first_product}'/'{second_product}'")
-            return None
-            
-        return (first_product, second_product)
 
     def _create_trader_index(self, trader_trades: List[Trade]) -> Dict[Tuple[Any, ...], List[Trade]]:
         """Create index of trader trades by matching signature.
@@ -256,7 +232,7 @@ class ProductSpreadMatcher(BaseMatcher):
                 for j in range(i + 1, len(trades)):
                     trade1, trade2 = trades[i], trades[j]
                     
-                    if self._is_product_spread_pattern(trade1, trade2):
+                    if self._is_product_spread_pattern(trade1, trade2, require_different_products=False):
                         spread_pairs.append((trade1, trade2))
                         logger.debug(f"Found trader spread pair: {trade1.trade_id} + {trade2.trade_id} "
                                    f"({trade1.product_name}/{trade2.product_name})")
@@ -383,7 +359,7 @@ class ProductSpreadMatcher(BaseMatcher):
             return None
         
         # Check if this is a product spread pattern (one with price, one with 0)
-        if not self._is_product_spread_pattern(first_trade, second_trade):
+        if not self._is_product_spread_pattern(first_trade, second_trade, require_different_products=False):
             logger.debug(f"Not a product spread pattern - first: {first_trade.price} {first_trade.buy_sell}, second: {second_trade.price} {second_trade.buy_sell}")
             return None
         
@@ -551,30 +527,6 @@ class ProductSpreadMatcher(BaseMatcher):
             rule_order=self.rule_number
         )
 
-    def _is_product_spread_pattern(self, first_trade: Trade, second_trade: Trade) -> bool:
-        """Check if two trader trades form a product spread pattern.
-        
-        A product spread pattern is identified by:
-        - One trade has the actual spread price
-        - The other trade has price = 0
-        - Opposite B/S directions
-        
-        Args:
-            first_trade: First component trader trade
-            second_trade: Second component trader trade
-            
-        Returns:
-            True if this is a product spread pattern, False otherwise
-        """
-        # Check if one has price = 0 and the other has a non-zero price
-        has_zero_price = (first_trade.price == 0) or (second_trade.price == 0)
-        has_nonzero_price = (first_trade.price != 0) or (second_trade.price != 0)
-        
-        # Check if they have opposite B/S directions
-        opposite_directions = first_trade.buy_sell != second_trade.buy_sell
-        
-        # Must have one zero price leg, one non-zero price leg, and opposite directions
-        return has_zero_price and has_nonzero_price and opposite_directions
 
     def _validate_product_spread_match(
         self, 

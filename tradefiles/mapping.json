@@ -8,8 +8,16 @@
   "380cst sing mini": "380cst",
   "naphtha c&f japan mini": "naphtha japan",
   "naphtha c&f japan cg": "naphtha japan",
+  "naphtha c&f japan (platts)/brent 1st line": "naphtha japan crack",
+  "naphtha c&f japan cg/naphtha cif nwe cg": "naptha japan-naphtha nwe",
   "marine 0.5% fob sing (platts) micro": "marine 0.5%",
   "naphtha cif nwe cg (platts)/brent 1st line": "naphtha nwe crack",
   "naphtha cif nwe cg mini": "naphtha nwe",
-  "naphtha cif nwe cg": "naphtha nwe"
+  "naphtha cif nwe cg/brent 1st line": "naphtha nwe crack",
+  "marine 0.5% fob sing (platts)/380cst sing (platts) mini": "marine 0.5%-380cst",
+  "naphtha cif nwe cg": "naphtha nwe",
+  "0.5": "marine 0.5%",
+  "380cst": "380cst",
+  "0.5 crack": "marine 0.5% crack",
+  "380cst crack": "380cst crack"
 }

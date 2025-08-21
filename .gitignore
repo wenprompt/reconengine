@@ -16,3 +16,5 @@ wheels/
 src/energy_match/data/
 tradefiles/input/
 tradefiles/output/
+tradefiles/input_traders/
+tradefiles/output_traders/
