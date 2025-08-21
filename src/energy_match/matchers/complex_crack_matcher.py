@@ -12,6 +12,10 @@ from ..config import ConfigManager  # Added import
 from ..core import UnmatchedPoolManager # Added import
 from .base_matcher import BaseMatcher
 from ..utils.trade_helpers import extract_base_product
+from ..utils.conversion_helpers import (
+    get_product_conversion_ratio,
+    validate_mt_to_bbl_quantity_match,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -248,12 +252,13 @@ class ComplexCrackMatcher(BaseMatcher):
             return False
 
         # 2. Crack vs Brent: Brent swap is always in BBL, use shared MT→BBL conversion validation
-        # Use shared conversion method from normalizer (same as Rule 3)
-        if not self.normalizer.validate_mt_to_bbl_quantity_match(
+        # Use shared conversion method from utils (same as Rule 3)
+        if not validate_mt_to_bbl_quantity_match(
             crack_quantity_mt, 
             brent_trade.quantity_bbl, 
             crack_trade.product_name, 
-            self.BBL_TOLERANCE
+            self.BBL_TOLERANCE,
+            self.config_manager
         ):
             logger.debug("Crack-brent quantity mismatch using shared MT→BBL validation")
             return False
@@ -267,8 +272,8 @@ class ComplexCrackMatcher(BaseMatcher):
         """Validate price calculation using shared product-specific conversion ratio: (base_price ÷ ratio) - brent_price = crack_price."""
 
         try:
-            # Get product-specific conversion ratio using shared method
-            conversion_factor = self.normalizer.get_product_conversion_ratio(crack_trade.product_name)
+            # Get product-specific conversion ratio using shared method from utils
+            conversion_factor = get_product_conversion_ratio(crack_trade.product_name, self.config_manager)
             
             # Formula: (Base Product Price ÷ PRODUCT_RATIO) - Brent Swap Price = Crack Price
             calculated_crack_price = (

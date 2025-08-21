@@ -11,6 +11,7 @@ from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
 from .multi_leg_base_matcher import MultiLegBaseMatcher
 from ..utils.trade_helpers import extract_base_product, get_month_order_tuple
+from ..utils.conversion_helpers import get_product_conversion_ratio
 
 logger = logging.getLogger(__name__)
 
@@ -282,7 +283,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         # Brent swap quantity (BBL) should convert to match reference quantity (MT)
         brent_qty_bbl = brent_trade.quantity_bbl
         # Convert reference MT to BBL for comparison
-        product_ratio = self.normalizer.get_product_conversion_ratio(reference_trade.product_name)
+        product_ratio = get_product_conversion_ratio(reference_trade.product_name, self.config_manager)
         ref_qty_bbl = ref_qty_mt * product_ratio
         
         if abs(brent_qty_bbl - ref_qty_bbl) > self.BBL_TOLERANCE:
@@ -338,7 +339,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         """
         try:
             # Get product-specific conversion ratio using the crack product name
-            product_ratio = self.normalizer.get_product_conversion_ratio(trader_crack_trade.product_name)
+            product_ratio = get_product_conversion_ratio(trader_crack_trade.product_name, self.config_manager)
             
             # Formula: (base_product_price ÷ conversion_ratio) - brent_swap_price
             base_price_per_bbl = base_trade.price / product_ratio
