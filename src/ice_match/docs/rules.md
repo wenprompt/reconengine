@@ -1,8 +1,3 @@
-IMPORTANT: The file content has been truncated.
-Status: Showing lines 1-2000 of 2026 total lines.
-Action: To read more of the file, you can use the 'offset' and 'limit' parameters in a subsequent 'read_file' call. For example, to read the next section of the file, use offset: 2000.
-
---- FILE CONTENT (truncated) ---
 # Trade Matching Rules
 
 ## Universal Data Normalization Rules
