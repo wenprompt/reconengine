@@ -18,83 +18,108 @@ def get_cme_month_code_mapping():
 
 def parse_security(security):
     month_codes = get_cme_month_code_mapping()
-    
-    # It's more reliable to find the split point between letters and numbers
-    match = re.match(r"([a-zA-Z]+)([FGHJKMNQUVXZ])(\d{2})", security)
-    if match:
-        symbol = match.group(1)
-        month_char = match.group(2)
-        year = match.group(3)
-        
-        month = month_codes.get(month_char)
-        if month:
-            return symbol, f"{month}-{year}"
-            
-    # Fallback for simpler patterns if the above fails
-    match = re.match(r"([a-zA-Z]+)(\d{2})", security)
-    if match:
-        symbol = match.group(1)
-        # This part is tricky without the month code, so we might just return the symbol
-        return symbol, None
+    put_call = None
+    strike = None
 
-    return security, None
+    if '_' in security:
+        parts = security.split('_')
+        security = parts[0]
+        pc_part = parts[1]
+        if pc_part.startswith('P') or pc_part.startswith('C'):
+            put_call = pc_part[0]
+            strike = pc_part[1:]
+
+    # The symbol is everything except the last 3 characters
+    symbol = security[:-3]
+    month_char = security[-3]
+    year = security[-2:]
+    
+    month = month_codes.get(month_char)
+    if month:
+        return symbol, f"{month}-{year}", put_call, strike
+
+    return security, None, None, None
 
 
 def remap_row(row, old_headers, target_headers, product_mapping):
     mapped_row = [''] * len(target_headers)
-    old_header_map = {header.strip().lower(): idx for idx, header in enumerate(old_headers)}
+    old_header_map = {header.strip(): idx for idx, header in enumerate(old_headers)}
 
     def get_value(header_name):
-        return row[old_header_map[header_name]].strip() if header_name in old_header_map else ""
+        try:
+            return row[old_header_map[header_name]].strip()
+        except (KeyError, IndexError):
+            return ""
+
+    clearing_status = get_value("Trade Status")
+    if clearing_status.lower() != "cleared":
+        return None
 
     # Handle trade execution date and time
-    trade_execution_datetime_str = get_value("tradeexecutiondatetime")
+    trade_execution_datetime_str = get_value("Trade Execution Date & Time (SGT)")
+    print(f"trade_execution_datetime_str: {trade_execution_datetime_str}")
     if trade_execution_datetime_str:
         try:
-            dt_obj = datetime.strptime(trade_execution_datetime_str, '%Y-%m-%d %H:%M:%S')
+            dt_obj = datetime.strptime(trade_execution_datetime_str, '%d/%m/%Y %I:%M %p')
+            print(f"dt_obj: {dt_obj}")
             mapped_row[target_headers.index("tradedate")] = dt_obj.strftime('%Y-%m-%d')
             mapped_row[target_headers.index("tradedatetime")] = trade_execution_datetime_str
-        except ValueError:
+        except ValueError as e:
+            print(f"ValueError: {e}")
             mapped_row[target_headers.index("tradedate")] = ""
             mapped_row[target_headers.index("tradedatetime")] = ""
 
     # Handle security to get productname and contractmonth
-    security = get_value("security")
-    symbol, contract_month_from_security = parse_security(security)
+    security = get_value("Security")
+    symbol, contract_month_from_security, put_call, strike_from_security = parse_security(security)
     
-    productname = product_mapping.get(symbol.lower(), symbol)
+    productname = product_mapping.get(symbol, symbol)
     mapped_row[target_headers.index("productname")] = productname
 
     # contractmonth from expiry, fallback to parsed from security
-    expiry = get_value("expiry")
+    expiry = get_value("Expiry")
     if expiry:
         mapped_row[target_headers.index("contractmonth")] = expiry
     else:
         mapped_row[target_headers.index("contractmonth")] = contract_month_from_security if contract_month_from_security else ''
 
-    # Direct mappings
-    mapped_row[target_headers.index("dealid")] = get_value("dealid")
-    mapped_row[target_headers.index("tradeid")] = get_value("tradeid")
-    mapped_row[target_headers.index("quantitylots")] = get_value("quantityinlots")
-    mapped_row[target_headers.index("quantityunits")] = get_value("quantityinunits")
-    mapped_row[target_headers.index("price")] = get_value("price")
-    mapped_row[target_headers.index("clearingstatus")] = get_value("tradestatus")
-    mapped_row[target_headers.index("tradingsession")] = get_value("tradingsession")
-    mapped_row[target_headers.index("cleareddate")] = get_value("cleareddate")
-    mapped_row[target_headers.index("strike")] = get_value("strike")
-    mapped_row[target_headers.index("unit")] = get_value("quantityunit")
+    # strike from security if not present in its own column
+    strike = get_value("Strike")
+    if not strike and strike_from_security:
+        mapped_row[target_headers.index("strike")] = strike_from_security
+    else:
+        mapped_row[target_headers.index("strike")] = strike
 
-    # Conditional mapping for buyer/seller info
-    if get_value("buyeraccount"):
-        mapped_row[target_headers.index("exchclearingacctid")] = get_value("buyeraccount")
-        mapped_row[target_headers.index("trader")] = get_value("buyertrader")
-        mapped_row[target_headers.index("brokergroupid")] = get_value("buyerbroker")
-    elif get_value("selleraccount"):
-        mapped_row[target_headers.index("exchclearingacctid")] = get_value("selleraccount")
-        mapped_row[target_headers.index("trader")] = get_value("sellertrader")
-        mapped_row[target_headers.index("brokergroupid")] = get_value("sellerbroker")
+    if put_call:
+        mapped_row[target_headers.index("put/call")] = put_call
+
+    # Direct mappings
+    mapped_row[target_headers.index("dealid")] = get_value("Deal ID")
+    mapped_row[target_headers.index("tradeid")] = get_value("Trade ID (Leg)")
+    mapped_row[target_headers.index("quantitylots")] = get_value("Quantity In Lots")
+    mapped_row[target_headers.index("quantityunits")] = get_value("Quantity In Units")
+    mapped_row[target_headers.index("price")] = get_value("Price")
+    mapped_row[target_headers.index("clearingstatus")] = clearing_status
+    mapped_row[target_headers.index("tradingsession")] = get_value("Trading Session")
+    mapped_row[target_headers.index("cleareddate")] = get_value("Cleared Date (SGT)")
+    mapped_row[target_headers.index("strike")] = get_value("Strike")
+    mapped_row[target_headers.index("unit")] = get_value("Quantity Unit")
+
+    # Conditional mapping for buyer/seller info and b/s determination
+    if get_value("Buyer Account"):
+        mapped_row[target_headers.index("trader")] = get_value("Buyer Trader")
+        mapped_row[target_headers.index("b/s")] = "B"
+    elif get_value("Seller Account"):
+        mapped_row[target_headers.index("trader")] = get_value("Seller Trader")
+        mapped_row[target_headers.index("b/s")] = "S"
+
+    # Hardcoded values
+    mapped_row[target_headers.index("brokergroupid")] = "3"
+    mapped_row[target_headers.index("exchangegroupid")] = "1"
+    mapped_row[target_headers.index("exchclearingacctid")] = "2"
 
     return mapped_row
+
 
 if __name__ == "__main__":
     input_dir = "/home/wenhaowang/projects/reconengine/tradefiles/input/"
@@ -132,11 +157,11 @@ if __name__ == "__main__":
             product_mapping = {}
             console.print(f"[bold yellow]Warning:[/bold yellow] {mapping_path} not found. Product names will not be remapped.")
 
-                target_headers = [
+        target_headers = [
             "tradedate", "tradedatetime", "dealid", "tradeid", "productname", 
             "contractmonth", "quantitylots", "quantityunits", "price", 
-            "clearingstatus", "exchclearingacctid", "trader", "brokergroupid", 
-            "tradingsession", "cleareddate", "strike", "unit"
+            "clearingstatus", "exchclearingacctid", "trader", "brokergroupid", "exchangegroupid",
+            "tradingsession", "cleareddate", "strike", "unit", "put/call", "b/s"
         ]
         
         remapped_deals = []
@@ -144,7 +169,9 @@ if __name__ == "__main__":
             reader = csv.reader(infile)
             old_headers = next(reader)
             for row in reader:
-                remapped_deals.append(remap_row(row, old_headers, target_headers, product_mapping))
+                remapped_row = remap_row(row, old_headers, target_headers, product_mapping)
+                if remapped_row:
+                    remapped_deals.append(remapped_row)
 
         with open(output_csv_path, "w", newline="") as outfile:
             writer = csv.writer(outfile)
