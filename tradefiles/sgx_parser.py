@@ -109,7 +109,7 @@ def parse_io_xlsx(input_path, output_path):
         writer.writerows(output_rows)
 
 if __name__ == '__main__':
-    input_file = '/home/wenhaowang/projects/reconengine/tradefiles/input_traders/io.xlsx'
-    output_file = '/home/wenhaowang/projects/reconengine/tradefiles/output_traders/sourceTraders.csv'
+    input_file = 'tradefiles/input_traders/io.xlsx'
+    output_file = 'tradefiles/output_traders/sourceTraders.csv'
     parse_io_xlsx(input_file, output_file)
     console.print(f"[bold green]Successfully parsed {input_file} and created {output_file}[/bold green]")
