@@ -104,20 +104,6 @@ class SGXTrade(BaseModel):
             f"{self.price}|{self.buy_sell}"
         )
     
-    def get_universal_field_signature(self, universal_fields: list) -> str:
-        """Get signature for universal matching fields."""
-        values = []
-        for field in universal_fields:
-            # Map config field names to model attributes
-            if field == "brokergroupid":
-                values.append(str(self.broker_group_id or ""))
-            elif field == "exchclearingacctid":
-                values.append(str(self.exch_clearing_acct_id or ""))
-            else:
-                # For extensibility - use getattr for additional fields
-                values.append(str(getattr(self, field, "") or ""))
-        return "|".join(values)
-    
     def __str__(self) -> str:
         """String representation for debugging."""
         return (

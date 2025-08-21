@@ -21,7 +21,7 @@ Architecture:
 - cli/: Rich terminal interface and display
 """
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 __author__ = "Reconengine Team"
 
 # Module level imports for convenience

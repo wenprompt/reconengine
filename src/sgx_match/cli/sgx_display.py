@@ -1,7 +1,7 @@
 """Display utilities for SGX trade matching results."""
 
 from typing import List, Dict, Any
-from rich.console import Console
+from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
@@ -23,7 +23,7 @@ class SGXDisplay:
         subheader = Text("Singapore Exchange Trade Reconciliation", style="italic")
         
         self.console.print(Panel.fit(
-            f"{header}\n{subheader}",
+            Group(header, subheader),
             border_style="blue"
         ))
     

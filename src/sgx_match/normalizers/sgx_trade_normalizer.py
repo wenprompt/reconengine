@@ -1,8 +1,8 @@
 """Trade data normalizer for SGX trades."""
 
 import re
-from typing import Dict, Any, Optional
-from decimal import Decimal
+from typing import Any, Optional
+from decimal import Decimal, InvalidOperation
 import logging
 
 from ..config import SGXConfigManager
@@ -97,8 +97,8 @@ class SGXTradeNormalizer:
             if first_char in ["B", "S"]:
                 normalized = first_char
             else:
-                logger.warning(f"Unable to normalize buy/sell value: '{buy_sell}', defaulting to 'B'")
-                normalized = "B"
+                logger.error(f"Unable to normalize buy/sell value: '{buy_sell}' - invalid value")
+                return ""  # Return empty string instead of defaulting to "B"
         
         logger.debug(f"Normalized buy/sell: '{buy_sell}' -> '{normalized}'")
         return normalized
@@ -128,7 +128,7 @@ class SGXTradeNormalizer:
             logger.debug(f"Normalized quantity: '{quantity}' -> '{normalized}'")
             return normalized
             
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError, InvalidOperation) as e:
             logger.error(f"Failed to normalize quantity '{quantity}': {e}")
             return None
     
@@ -157,7 +157,7 @@ class SGXTradeNormalizer:
             logger.debug(f"Normalized price: '{price}' -> '{normalized}'")
             return normalized
             
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError, InvalidOperation) as e:
             logger.error(f"Failed to normalize price '{price}': {e}")
             return None
     

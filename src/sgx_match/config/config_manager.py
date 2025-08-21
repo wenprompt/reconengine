@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 from decimal import Decimal
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -67,12 +67,12 @@ class SGXConfigManager:
         try:
             with open(self.normalizer_config_path, 'r', encoding='utf-8') as f:
                 self.normalizer_config = json.load(f)
-        except FileNotFoundError:
+        except FileNotFoundError as e:
             raise FileNotFoundError(
                 f"Normalizer config not found at {self.normalizer_config_path}"
-            )
+            ) from e
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in normalizer config: {e}")
+            raise ValueError(f"Invalid JSON in normalizer config: {e}") from e
     
     def get_rule_confidence(self, rule_number: int) -> Decimal:
         """Get confidence level for a specific rule.
@@ -140,24 +140,6 @@ class SGXConfigManager:
             Dict mapping raw buy/sell values to normalized values
         """
         return self.normalizer_config.get("buy_sell_mappings", {})
-    
-    def get_field_mappings(self, source: str) -> Dict[str, str]:
-        """Get field name mappings for a specific data source.
-        
-        Args:
-            source: Either "trader" or "exchange"
-            
-        Returns:
-            Dict mapping CSV column names to standardized field names
-        """
-        field_mappings = self.normalizer_config.get("field_name_mappings", {})
-        
-        if source == "trader":
-            return field_mappings.get("trader_mappings", {})
-        elif source == "exchange":
-            return field_mappings.get("exchange_mappings", {})
-        else:
-            raise ValueError(f"Unknown source: {source}. Must be 'trader' or 'exchange'")
     
     def get_match_id_prefix(self) -> str:
         """Get prefix for match IDs.

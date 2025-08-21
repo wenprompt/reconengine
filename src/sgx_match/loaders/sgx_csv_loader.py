@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 import logging
 import uuid
 
@@ -40,35 +40,7 @@ class SGXCSVLoader:
             FileNotFoundError: If CSV file doesn't exist
             ValueError: If CSV has invalid format
         """
-        logger.info(f"Loading SGX trader trades from {csv_path}")
-        
-        try:
-            df = pd.read_csv(csv_path)
-            logger.info(f"Loaded {len(df)} raw trader records")
-            
-            trades = []
-            # Use empty dict since we'll work directly with column names
-            field_mappings: Dict[str, str] = {}
-            
-            for idx, row in df.iterrows():
-                try:
-                    index = int(idx) if isinstance(idx, (int, float)) else 0
-                    trade = self._create_trader_trade(row, field_mappings, index)
-                    if trade:
-                        trades.append(trade)
-                except Exception as e:
-                    logger.error(f"Failed to create trader trade from row {idx}: {e}")
-                    continue
-            
-            logger.info(f"Successfully created {len(trades)} SGX trader trades")
-            return trades
-            
-        except FileNotFoundError:
-            logger.error(f"Trader CSV file not found: {csv_path}")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load trader trades: {e}")
-            raise ValueError(f"Invalid trader CSV format: {e}")
+        return self._load_trades(csv_path, self._create_trader_trade, "trader")
     
     def load_exchange_trades(self, csv_path: Path) -> List[SGXTrade]:
         """Load exchange trades from CSV file.
@@ -83,11 +55,28 @@ class SGXCSVLoader:
             FileNotFoundError: If CSV file doesn't exist
             ValueError: If CSV has invalid format
         """
-        logger.info(f"Loading SGX exchange trades from {csv_path}")
+        return self._load_trades(csv_path, self._create_exchange_trade, "exchange")
+    
+    def _load_trades(self, csv_path: Path, create_trade_func: Callable[[pd.Series, Dict[str, str], int], Optional[SGXTrade]], trade_type: str) -> List[SGXTrade]:
+        """Generic method to load trades from CSV file.
+        
+        Args:
+            csv_path: Path to CSV file
+            create_trade_func: Function to create trade from row (either _create_trader_trade or _create_exchange_trade)
+            trade_type: Type of trade for logging ("trader" or "exchange")
+            
+        Returns:
+            List of normalized SGX trades
+            
+        Raises:
+            FileNotFoundError: If CSV file doesn't exist
+            ValueError: If CSV has invalid format
+        """
+        logger.info(f"Loading SGX {trade_type} trades from {csv_path}")
         
         try:
             df = pd.read_csv(csv_path)
-            logger.info(f"Loaded {len(df)} raw exchange records")
+            logger.info(f"Loaded {len(df)} raw {trade_type} records")
             
             trades = []
             # Use empty dict since we'll work directly with column names
@@ -96,22 +85,22 @@ class SGXCSVLoader:
             for idx, row in df.iterrows():
                 try:
                     index = int(idx) if isinstance(idx, (int, float)) else 0
-                    trade = self._create_exchange_trade(row, field_mappings, index)
+                    trade = create_trade_func(row, field_mappings, index)
                     if trade:
                         trades.append(trade)
                 except Exception as e:
-                    logger.error(f"Failed to create exchange trade from row {idx}: {e}")
+                    logger.error(f"Failed to create {trade_type} trade from row {idx}: {e}")
                     continue
             
-            logger.info(f"Successfully created {len(trades)} SGX exchange trades")
+            logger.info(f"Successfully created {len(trades)} SGX {trade_type} trades")
             return trades
             
         except FileNotFoundError:
-            logger.error(f"Exchange CSV file not found: {csv_path}")
+            logger.error(f"{trade_type.capitalize()} CSV file not found: {csv_path}")
             raise
         except Exception as e:
-            logger.error(f"Failed to load exchange trades: {e}")
-            raise ValueError(f"Invalid exchange CSV format: {e}")
+            logger.error(f"Failed to load {trade_type} trades: {e}")
+            raise ValueError(f"Invalid {trade_type} CSV format: {e}")
     
     def _create_trader_trade(self, row: pd.Series, field_mappings: Dict[str, str], 
                            index: int) -> Optional[SGXTrade]:
