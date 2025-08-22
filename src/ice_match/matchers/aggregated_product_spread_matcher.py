@@ -55,7 +55,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         """
         super().__init__(config_manager)
         self.normalizer = normalizer
-        self.rule_number = 11
+        self.rule_number = 12
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
 
         logger.info(

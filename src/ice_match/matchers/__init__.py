@@ -9,8 +9,9 @@ from .product_spread_matcher import ProductSpreadMatcher
 from .aggregation_matcher import AggregationMatcher
 from .aggregated_complex_crack_matcher import AggregatedComplexCrackMatcher
 from .aggregated_spread_matcher import AggregatedSpreadMatcher
+from .multileg_spread_matcher import MultilegSpreadMatcher
 from .aggregated_crack_matcher import AggregatedCrackMatcher
 from .complex_crack_roll_matcher import ComplexCrackRollMatcher
 from .aggregated_product_spread_matcher import AggregatedProductSpreadMatcher
 
-__all__ = ["BaseMatcher", "ExactMatcher", "SpreadMatcher", "CrackMatcher", "ComplexCrackMatcher", "ProductSpreadMatcher", "AggregationMatcher", "AggregatedComplexCrackMatcher", "AggregatedSpreadMatcher", "AggregatedCrackMatcher", "ComplexCrackRollMatcher", "AggregatedProductSpreadMatcher"]
+__all__ = ["BaseMatcher", "ExactMatcher", "SpreadMatcher", "CrackMatcher", "ComplexCrackMatcher", "ProductSpreadMatcher", "AggregationMatcher", "AggregatedComplexCrackMatcher", "AggregatedSpreadMatcher", "MultilegSpreadMatcher", "AggregatedCrackMatcher", "ComplexCrackRollMatcher", "AggregatedProductSpreadMatcher"]

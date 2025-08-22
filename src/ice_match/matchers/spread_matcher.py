@@ -210,42 +210,46 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
         # Step 2: Within each dealid group, find valid spread pairs
         for dealid, trades_in_group in dealid_groups.items():
-            if len(trades_in_group) < 2:
+            # A spread group must have exactly 2 legs
+            if len(trades_in_group) != 2:
+                if len(trades_in_group) > 2:
+                    logger.warning(
+                        f"DealID {dealid} has {len(trades_in_group)} legs, which is more than 2. "
+                        f"This group will be skipped for Tier 1 spread matching."
+                    )
                 continue
 
-            # Check all pairs within this dealid group
-            for i in range(len(trades_in_group)):
-                for j in range(i + 1, len(trades_in_group)):
-                    trade1, trade2 = trades_in_group[i], trades_in_group[j]
+            trade1, trade2 = trades_in_group[0], trades_in_group[1]
 
-                    # Extract tradeids for comparison
-                    tradeid1 = str(trade1.raw_data.get("tradeid", "")).strip()
-                    tradeid2 = str(trade2.raw_data.get("tradeid", "")).strip()
 
-                    # Must have different tradeids (same dealid + different tradeid = spread pair)
-                    if tradeid1 == tradeid2 or not tradeid1 or not tradeid2:
-                        continue
+            # Extract tradeids for comparison
+            tradeid1 = str(trade1.raw_data.get("tradeid", "")).strip()
+            tradeid2 = str(trade2.raw_data.get("tradeid", "")).strip()
 
-                    # Step 3: Validate spread characteristics
-                    if self.validate_spread_pair_characteristics(
-                        trade1, trade2, self.normalizer
-                    ):
-                        # Step 4: Add to results using same key structure as fallback method
-                        # This ensures compatibility with existing _find_spread_match() logic
-                        quantity_for_key = self._get_quantity_for_grouping(
-                            trade1, self.normalizer
-                        )
+            # Must have different tradeids (same dealid + different tradeid = spread pair)
+            if tradeid1 == tradeid2 or not tradeid1 or not tradeid2:
+                continue
 
-                        group_key = self.create_universal_signature(
-                            trade1, [trade1.product_name, quantity_for_key]
-                        )
-                        trade_groups[group_key].extend([trade1, trade2])
-                        spread_pairs_found += 1
+            # Step 3: Validate spread characteristics
+            if self.validate_spread_pair_characteristics(
+                trade1, trade2, self.normalizer
+            ):
+                # Step 4: Add to results using same key structure as fallback method
+                # This ensures compatibility with existing _find_spread_match() logic
+                quantity_for_key = self._get_quantity_for_grouping(
+                    trade1, self.normalizer
+                )
 
-                        logger.debug(
-                            f"Found valid dealid spread pair: {trade1.trade_id}/{trade2.trade_id} "
-                            f"(dealid: {dealid}, tradeids: {tradeid1}/{tradeid2})"
-                        )
+                group_key = self.create_universal_signature(
+                    trade1, [trade1.product_name, quantity_for_key]
+                )
+                trade_groups[group_key].extend([trade1, trade2])
+                spread_pairs_found += 1
+
+                logger.debug(
+                    f"Found valid dealid spread pair: {trade1.trade_id}/{trade2.trade_id} "
+                    f"(dealid: {dealid}, tradeids: {tradeid1}/{tradeid2})"
+                )
 
         return trade_groups, spread_pairs_found
 
@@ -799,6 +803,21 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     exchange_candidates[j],
                 )
 
+                # For Tier 1 matches, ensure both legs have the same dealid
+                source_tier1 = tier_trade_mapping.get(exchange_trade1.trade_id)
+                source_tier2 = tier_trade_mapping.get(exchange_trade2.trade_id)
+                if source_tier1 == "tier1" and source_tier2 == "tier1":
+                    dealid1 = str(exchange_trade1.raw_data.get("dealid", "")).strip()
+                    dealid2 = str(exchange_trade2.raw_data.get("dealid", "")).strip()
+                    if not dealid1 or not dealid2 or dealid1 != dealid2:
+                        if dealid1 != dealid2:
+                            logger.debug(
+                                f"Skipping Tier 1 pair with mismatched dealids: "
+                                f"{exchange_trade1.trade_id} (dealid: {dealid1}) and "
+                                f"{exchange_trade2.trade_id} (dealid: {dealid2})"
+                            )
+                        continue
+
                 if pool_manager.is_trade_matched(
                     exchange_trade1
                 ) or pool_manager.is_trade_matched(exchange_trade2):
@@ -810,8 +829,10 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     trader_group, [exchange_trade1, exchange_trade2]
                 ):
                     # Determine which tier this match came from
-                    source_tier = tier_trade_mapping.get(exchange_trade1.trade_id, "unknown")
-                    
+                    source_tier = tier_trade_mapping.get(
+                        exchange_trade1.trade_id, "unknown"
+                    )
+
                     match_result = self._create_spread_match_result(
                         trader_group, [exchange_trade1, exchange_trade2]
                     )

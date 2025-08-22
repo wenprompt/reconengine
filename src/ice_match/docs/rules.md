@@ -111,12 +111,12 @@ The matching engine processes trades in order of confidence level to ensure the 
 **Important Design Note**: The matching rules have different directional capabilities depending on real-world trading patterns:
 
 - **✅ BIDIRECTIONAL RULES**: Rule 6 (Aggregation) - Handles both trader→exchange and exchange→trader scenarios
-- **❌ UNIDIRECTIONAL RULES**: Rules 7, 8, 9 - Handle only specific directional scenarios based on typical trading patterns
+- **❌ UNIDIRECTIONAL RULES**: Rules 7, 8, 10 - Handle only specific directional scenarios based on typical trading patterns
   - Rule 7: Trader crack → Exchange aggregated base products + brent swap
   - Rule 8: Trader spread → Exchange aggregated trades
-  - Rule 9: Single crack trade → Multiple crack trades (typically trader MT → exchange BBL)
+  - Rule 10: Single crack trade → Multiple crack trades (typically trader MT → exchange BBL)
 
-**Future Enhancement**: Rules 7-9 could be extended to support bidirectional matching if additional trading scenarios are identified.
+**Future Enhancement**: Rules 7, 8, and 10 could be extended to support bidirectional matching if additional trading scenarios are identified.
 
 1. **Exact Matches** (Confidence: 100%) - Highest certainty, processed first
 2. **Spread Matches** (Confidence: 95%) - Calendar spreads between contract months
@@ -126,11 +126,12 @@ The matching engine processes trades in order of confidence level to ensure the 
 6. **Aggregation Matches** (Confidence: 72%) - Split/combined trade scenarios
 7. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
 8. **Aggregated Spread Matches** (Confidence: 70%) - Spread matching with exchange trade aggregation
-9. **Aggregated Crack Matches** (Confidence: 68%) - **NEW** - Aggregation with unit conversion for crack products
-10. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
-11. **Aggregated Product Spread Matches** (Confidence: 62%) - **IMPLEMENTED** - Product spread matching with aggregation logic
-12. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
-13. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
+9. **Multileg Spread Matches** (Confidence: 68%) - **NEW** - 2 trader spreads match 4+ exchange trades with internal netting
+10. **Aggregated Crack Matches** (Confidence: 68%) - Aggregation with unit conversion for crack products
+11. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
+12. **Aggregated Product Spread Matches** (Confidence: 62%) - **IMPLEMENTED** - Product spread matching with aggregation logic
+13. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
+14. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
 
 ### Complex Scenario Handling
 
@@ -1129,7 +1130,168 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 - **Spread Integration**: Uses same spread logic as Rule 2 for Phase 2
 - **Detailed Audit**: Maintains mapping of which exchange trades aggregate to form each spread leg
 
-## 9. Aggregated Crack Match Rules
+## 9. Multileg Spread Match Rules
+
+### Definition
+
+A **multileg spread match** occurs when a trader's calendar spread corresponds to a combination of two or more separate calendar spreads in the exchange data. This match is possible when the internal legs of the exchange spreads perfectly net each other out, leaving a set of outer legs that match the trader's position in terms of contract months, direction, and a combined price.
+
+**Key Pattern**: 2 trader spread trades ↔ 4+ exchange trades (forming multiple, netting spreads).
+
+**Directionality**: ❌ **UNIDIRECTIONAL** - Only handles a trader spread matching against multiple exchange spreads.
+
+### Multileg Spread Trade Identification
+
+#### Key Characteristics:
+
+- **Multiple Exchange Spreads**: The exchange data contains at least two distinct calendar spreads, identified by their unique dealid and meeting the Rule 2 (Spread Match) criteria.
+- **Netting Leg**: A contract month that is bought in one exchange spread is sold in another, with the exact same product, quantity, and price. This leg is considered "netted out".
+- **Outer Legs**: The remaining legs from the exchange spreads, after the internal leg is netted out, form a new, combined spread.
+- **Combined Price**: The price of the combined spread is the sum of the individual exchange spread prices.
+
+### Required Matching Fields for Multileg Spreads
+
+1. **Component Spread Validation**: Each underlying exchange spread must be a valid 2-leg spread according to Rule 2 Tier 1 criteria.
+2. **Perfect Netting**: The internal leg must have identical productname, contractmonth, quantityunits, price, and opposite b/s direction between the two exchange spreads.
+3. **Outer Leg Matching**: The contract months and B/S directions of the remaining outer legs must match the trader's spread.
+4. **Quantity Matching**: The quantity must be consistent across all involved trades (all 4 exchange legs and 2 trader legs).
+5. **Combined Price Calculation**: The sum of the calculated prices of the individual exchange spreads must equal the trader's spread price.
+
+### Multileg Spread Matching Tiers
+
+Rule 9 operates in two tiers to handle different complexity levels of multileg spread patterns:
+
+#### Tier 1: Perfect Internal Netting (4 trades, 3 months)
+- **Pattern**: A/B + B/C = A/C where B legs net out perfectly
+- **Exchange Trades**: Exactly 4 trades across 3 contract months
+- **Netting Requirement**: Intermediate month must have identical buy/sell prices (perfect netting)
+
+#### Tier 2: Flexible Internal Netting (6 trades, 4 months)  
+- **Pattern**: A/B + B/C + C/D = A/D where B and C legs net through arithmetic
+- **Exchange Trades**: Exactly 6 trades across 4 contract months
+- **Netting Requirement**: Combined spread arithmetic must equal trader spread price
+
+### Example: Tier 1 Multileg Spread Match (Sep/Oct + Oct/Nov → Sep/Nov)
+
+#### Source Data:
+
+**sourceTraders.csv (Single Sep/Nov Spread):**
+
+| productname | contractmonth | quantityunits | price | B/S | brokergroupid |
+|-------------|---------------|---------------|-------|-----|---------------|
+| 380cst      | Sep-25        | 10000         | 6.25  | S   | 3             |
+| 380cst      | Nov-25        | 10000         | 0.00  | B   | 3             |
+
+**sourceExchange.csv (Two Separate Spreads - 4 Trades, 3 Months):**
+
+| dealid         | tradeid        | productname | contractmonth | quantityunits | price  | b/s    | brokergroupid |
+|----------------|----------------|-------------|---------------|---------------|--------|--------|---------------|
+| 19000002569561 | 19000002569563 | 380cst      | Sep-25        | 10000         | 408.25 | Sold   | 3             |
+| 19000002569561 | 19000002569562 | 380cst      | Oct-25        | 10000         | 406.00 | Bought | 3             |
+| 19000002577280 | 19000002577282 | 380cst      | Oct-25        | 10000         | 406.00 | Sold   | 3             |
+| 19000002577280 | 19000002577281 | 380cst      | Nov-25        | 10000         | 402.00 | Bought | 3             |
+
+#### Tier 1 Matching Validation Process:
+
+**Step 1: Identify and Analyze Exchange Spreads**
+
+- **Spread A** (dealid: 19000002569561): A Sep-25/Oct-25 spread.
+  - Legs: Sell Sep @ 408.25, Buy Oct @ 406.00.
+  - Spread A Price: 408.25 - 406.00 = 2.25.
+- **Spread B** (dealid: 19000002577280): An Oct-25/Nov-25 spread.
+  - Legs: Sell Oct @ 406.00, Buy Nov @ 402.00.
+  - Spread B Price: 406.00 - 402.00 = 4.00.
+
+**Step 2: Identify Perfect Netting Leg (Tier 1 Requirement)**
+
+- Spread A contains: Buy 380cst Oct-25 @ 406.00.
+- Spread B contains: Sell 380cst Oct-25 @ 406.00.
+- These two legs have **identical prices** and perfectly cancel each other out. ✅
+
+**Step 3: Determine Outer Legs and Combined Price**
+
+- **Outer Legs**:
+  - From Spread A: Sell 380cst Sep-25.
+  - From Spread B: Buy 380cst Nov-25.
+- **Combined Price**:
+  - Spread A Price + Spread B Price = 2.25 + 4.00 = 6.25.
+
+**Step 4: Match with Trader Spread**
+
+- Trader Spread Legs: Sell Sep-25, Buy Nov-25. Matches outer legs. ✅
+- Trader Spread Price: 6.25. Matches combined price. ✅
+- Quantity: 10000. Matches across all trades. ✅
+- Broker Group: 3. Matches across all trades. ✅
+
+**Result:** ✅ **TIER 1 MULTILEG SPREAD MATCH**
+
+### Example: Tier 2 Multileg Spread Match (Aug/Sep + Sep/Oct + Oct/Nov → Aug/Nov)
+
+#### Source Data:
+
+**sourceTraders.csv (Single Aug/Nov Spread):**
+
+| productname | contractmonth | quantityunits | price | B/S | brokergroupid |
+|-------------|---------------|---------------|-------|-----|---------------|
+| 380cst      | Aug-25        | 20000         | 3.50  | S   | 3             |
+| 380cst      | Nov-25        | 20000         | 0.00  | B   | 3             |
+
+**sourceExchange.csv (Three Consecutive Spreads - 6 Trades, 4 Months):**
+
+| dealid         | tradeid        | productname | contractmonth | quantityunits | price  | b/s    | brokergroupid |
+|----------------|----------------|-------------|---------------|---------------|--------|--------|---------------|
+| 19000002283533 | 19000002283535 | 380cst      | Aug-25        | 20000         | 410.00 | Sold   | 3             |
+| 19000002283533 | 19000002283534 | 380cst      | Sep-25        | 20000         | 412.75 | Bought | 3             |
+| 19000002612028 | 19000002612030 | 380cst      | Sep-25        | 20000         | 413.25 | Sold   | 3             |
+| 19000002612028 | 19000002612029 | 380cst      | Oct-25        | 20000         | 411.00 | Bought | 3             |
+| 19000002615464 | 19000002615466 | 380cst      | Oct-25        | 20000         | 411.00 | Sold   | 3             |
+| 19000002615464 | 19000002615465 | 380cst      | Nov-25        | 20000         | 407.00 | Bought | 3             |
+
+#### Tier 2 Matching Validation Process:
+
+**Step 1: Identify and Analyze Exchange Spreads**
+
+- **Spread A** (dealid: 19000002283533): An Aug-25/Sep-25 spread.
+  - Legs: Sell Aug @ 410.00, Buy Sep @ 412.75.
+  - Spread A Price: 410.00 - 412.75 = **-2.75**.
+- **Spread B** (dealid: 19000002612028): A Sep-25/Oct-25 spread.
+  - Legs: Sell Sep @ 413.25, Buy Oct @ 411.00.
+  - Spread B Price: 413.25 - 411.00 = **+2.25**.
+- **Spread C** (dealid: 19000002615464): An Oct-25/Nov-25 spread.
+  - Legs: Sell Oct @ 411.00, Buy Nov @ 407.00.
+  - Spread C Price: 411.00 - 407.00 = **+4.00**.
+
+**Step 2: Identify Flexible Netting Legs (Tier 2 Pattern)**
+
+- **Sep legs**: Buy @ 412.75, Sell @ 413.25 (difference: 0.50, not perfect netting)
+- **Oct legs**: Buy @ 411.00, Sell @ 411.00 (difference: 0.00, perfect netting)
+- Tier 2 doesn't require perfect netting - focuses on combined price arithmetic ✅
+
+**Step 3: Calculate Combined Price**
+
+- **Combined Price**: -2.75 + 2.25 + 4.00 = **3.50** ✅
+
+**Step 4: Match with Trader Spread**
+
+- Trader Spread Legs: Sell Aug-25, Buy Nov-25. Matches outer legs. ✅
+- Trader Spread Price: 3.50. Matches combined price. ✅
+- Quantity: 20000. Matches across all trades. ✅
+- Broker Group: 3. Matches across all trades. ✅
+
+**Result:** ✅ **TIER 2 MULTILEG SPREAD MATCH**
+
+### Processing Notes
+
+- **Confidence Level**: 68% (complex scenario with multiple spread combinations and netting calculations)
+- **Processing Priority**: After aggregated spread matching, before aggregated crack matching
+- **Tiered Processing**: Tier 1 (4 trades) attempted first for performance, then Tier 2 (6 trades) if needed
+- **Match Removal**: Removes 4-6 exchange trades and 2 trader trades from unmatched pool
+- **Tier 1 Netting**: Requires perfect internal leg cancellation (identical prices)
+- **Tier 2 Netting**: Uses flexible arithmetic - combined spread price calculation
+- **Price Tolerance**: ±0.01 tolerance for decimal precision in price calculations
+- **Quantity Precision**: Requires exact quantity matching across all involved trades
+
+## 10. Aggregated Crack Match Rules
 
 ### Definition
 
@@ -1207,7 +1369,7 @@ _(Note: Trader unit is inferred as MT by default)_
 
 **Result:** ✅ **AGGREGATED CRACK MATCH**
 
-## 10. Complex Crack Roll Match Rules (Calendar Spread of Crack Positions)
+## 11. Complex Crack Roll Match Rules (Calendar Spread of Crack Positions)
 
 ### Definition
 
@@ -1361,7 +1523,7 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 - **Calculation Audit**: Maintains detailed record of crack price calculations and roll spread validation
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 
-## 11. Aggregated Product Spread Match Rules
+## 12. Aggregated Product Spread Match Rules
 
 ### Definition
 
@@ -1370,7 +1532,7 @@ An **aggregated product spread match** occurs when product spread trades require
 **Four-Tier Architecture**:
 
 - **Tier 1 (Scenario A)**: Exchange Component Aggregation → Trader Spread Pair
-- **Tier 2 (Scenario B)**: Exchange Hyphenated Spread → Trader Component Aggregation  
+- **Tier 2 (Scenario B)**: Exchange Hyphenated Spread → Trader Component Aggregation
 - **Tier 3 (Scenario C)**: Cross-Spread Aggregation (Trader Spread Pairs → Exchange Components)
 - **Tier 4 (Scenario D)**: Hyphenated Exchange Aggregation → Trader Spread Pair ⭐ **NEW**
 
@@ -1404,7 +1566,7 @@ An **aggregated product spread match** occurs when product spread trades require
 
 #### Tier 3 (Scenario C): Cross-Spread Aggregation (Trader Spread Pairs → Exchange Components)
 
-- **Trader Pattern**: Multiple trader spread pairs with same product components  
+- **Trader Pattern**: Multiple trader spread pairs with same product components
 - **Exchange Pattern**: Individual component trades for aggregated quantities
 - **Aggregation Logic**: Trader spread pairs aggregate by product component
 - **Validation**: Cross-spread aggregated quantities match individual exchange trades
@@ -1454,7 +1616,7 @@ An **aggregated product spread match** occurs when product spread trades require
 2. **Component Aggregation**: Spread pairs aggregate by product across multiple pairs
 3. **Exchange Individual Trades**: Separate exchange trades for each aggregated component
 
-**Tier 4: Hyphenated Exchange Aggregation Requirements ⭐ **NEW**
+**Tier 4: Hyphenated Exchange Aggregation Requirements ⭐ **NEW\*\*
 
 1. **Trader Spread Pattern**: Two trades with spread indicators (same as Tier 1)
 2. **Exchange Hyphenated Aggregation**: Multiple identical hyphenated exchange spreads:
@@ -1503,28 +1665,34 @@ An **aggregated product spread match** occurs when product spread trades require
 #### Tier 4 Matching Process:
 
 **Step 1: Trader Spread Pair Identification**
+
 - T_078 + T_079: Different products (naphtha japan/naphtha nwe), opposite B/S (S/B), price/0.00 pattern ✅
 
 **Step 2: Hyphenated Exchange Pattern Generation**
+
 - Expected patterns: "naphtha japan-naphtha nwe" or "naphtha nwe-naphtha japan"
 - Found: E_044 + E_045 both match "naphtha japan-naphtha nwe" ✅
 
 **Step 3: Aggregation Validation**
+
 - Exchange aggregated quantity: 5,000 + 5,000 = 10,000 MT
 - Trader spread quantities: 10,000 MT each ✅
 - Price consistency: Both exchange trades @ 22.25 ✅
 - Direction consistency: Both exchange trades Sold ✅
 
 **Step 4: Price Differential Validation**
+
 - Exchange spread price: 22.25 (hyphenated spread represents the differential)
 - Trader spread price: 22.25 - 0.00 = 22.25 ✅
 
 **Step 5: Direction Logic Validation**
+
 - Hyphenated pattern: "naphtha japan-naphtha nwe"
 - Exchange direction: Sold → Sell first component (naphtha japan), Buy second component (naphtha nwe)
 - Trader directions: T_078 (naphtha japan Sold), T_079 (naphtha nwe Bought) ✅
 
 **Result:** ✅ **TIER 4 AGGREGATED PRODUCT SPREAD MATCH**
+
 - **Match ID**: AGG_PROD_SPREAD_11_ce811aca
 - **Confidence**: 62%
 - **Aggregation Type**: Many-to-Many (2 hyphenated exchange → 2 trader components)
@@ -1621,7 +1789,7 @@ An **aggregated product spread match** occurs when product spread trades require
 ### Processing Notes
 
 - **Confidence Level**: 62% (combines product spread and aggregation complexity)
-- **Processing Priority**: After basic product spreads (Rule 10), before crack roll matching
+- **Processing Priority**: After basic product spreads (Rule 11), before crack roll matching
 - **Match Removal**: Removes multiple exchange/trader trades based on aggregation scenario
 - **Aggregation Integration**: Uses same aggregation validation as Rule 6
 - **Product Spread Integration**: Uses same spread validation as Rule 5
@@ -1630,7 +1798,7 @@ An **aggregated product spread match** occurs when product spread trades require
 
 #### Implementation Architecture
 
-**Rule 11** has been successfully implemented with the following key features:
+**Rule 12** has been successfully implemented with the following key features:
 
 - **Comprehensive Type Safety**: Full mypy compliance with proper type annotations
 - **Enhanced Error Handling**: Detailed logging with descriptive error messages and guard clauses
@@ -2069,8 +2237,9 @@ A **hybrid product spread with mixed format aggregation match** occurs when a co
 **Current Status**: ❌ **TOO COMPLEX TO IMPLEMENT**
 
 This scenario requires hybrid logic that combines:
+
 - Hyphenated product parsing (Rule 5 logic)
-- 2-leg component detection (Rule 4 logic)  
+- 2-leg component detection (Rule 4 logic)
 - Quantity aggregation (Rule 6 logic)
 - Mixed data format handling (unprecedented complexity)
 
@@ -2081,6 +2250,7 @@ This scenario requires hybrid logic that combines:
 1. **File Size Constraint**: The `aggregated_product_spread_matcher.py` file is already 1153 lines and approaching maintainability limits
 
 2. **Architectural Complexity**: This scenario would require:
+
    - Extension of existing ProductSpreadMixin
    - Integration with AggregationBaseMatcher
    - Complex 2-leg component parsing logic

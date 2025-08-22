@@ -66,3 +66,5 @@ change the b/s mapping to "B/S" standardised
 how to catch BZN and PXN hmm
 
 SGX and EEX is done
+
+found a problem for ice - say if trade is sep/oct oct/nov and traders write sep/nov, the oct will be missed out

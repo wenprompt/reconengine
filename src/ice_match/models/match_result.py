@@ -18,9 +18,10 @@ class MatchType(str, Enum):
     AGGREGATION = "aggregation"  # Rule 6 - Aggregation matching
     AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 7 - Aggregated complex crack matching
     AGGREGATED_SPREAD = "aggregated_spread"  # Rule 8 - Aggregated spread matching
-    AGGREGATED_CRACK = "aggregated_crack"  # Rule 9 - Aggregated crack matching
-    COMPLEX_CRACK_ROLL = "complex_crack_roll"  # Rule 10 - Complex Crack Roll Matching
-    AGGREGATED_PRODUCT_SPREAD = "aggregated_product_spread"  # Rule 11 - Aggregated product spread matching
+    MULTILEG_SPREAD = "multileg_spread"  # Rule 9 - Multileg spread matching
+    AGGREGATED_CRACK = "aggregated_crack"  # Rule 10 - Aggregated crack matching
+    COMPLEX_CRACK_ROLL = "complex_crack_roll"  # Rule 11 - Complex Crack Roll Matching
+    AGGREGATED_PRODUCT_SPREAD = "aggregated_product_spread"  # Rule 12 - Aggregated product spread matching
 
 
 class MatchResult(BaseModel):
