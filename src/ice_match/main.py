@@ -2,6 +2,7 @@
 
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 from decimal import Decimal
@@ -25,6 +26,7 @@ from .matchers import (
     AggregatedProductSpreadMatcher,
 )
 from .cli import MatchDisplayer
+from .utils.dataframe_output import create_reconciliation_dataframe, display_reconciliation_dataframe
 
 # Default file paths and constants - package-relative
 DEFAULT_DATA_DIR = Path(__file__).parent / "data"
@@ -96,6 +98,7 @@ class ICEMatchingEngine:
             ValueError: If CSV data is invalid
         """
         start_time = time.time()
+        execution_datetime = datetime.now()
 
         try:
             # Show header
@@ -239,6 +242,13 @@ class ICEMatchingEngine:
             # Show completion
             processing_time = time.time() - start_time
             self.displayer.show_processing_complete(processing_time)
+
+            # Generate and display standardized reconciliation DataFrame
+            try:
+                recon_df = create_reconciliation_dataframe(all_matches, pool_manager, execution_datetime)
+                display_reconciliation_dataframe(recon_df)
+            except Exception as df_error:
+                self.logger.warning(f"Could not generate reconciliation DataFrame: {df_error}")
 
             # Validate pool integrity
             if not pool_manager.validate_integrity():

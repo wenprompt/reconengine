@@ -1367,12 +1367,14 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 
 An **aggregated product spread match** occurs when product spread trades require quantity aggregation between data sources before applying spread matching logic. This medium-confidence match type (62%) combines aggregation patterns with product spread validation, handling scenarios where the same spread appears with different quantity distributions.
 
-**Key Patterns**:
+**Four-Tier Architecture**:
 
-- **Scenario A**: Multiple exchange product trades ↔ Single trader spread pair (many-to-1)
-- **Scenario B**: Single exchange spread ↔ Multiple trader trades per component (1-to-many)
+- **Tier 1 (Scenario A)**: Exchange Component Aggregation → Trader Spread Pair
+- **Tier 2 (Scenario B)**: Exchange Hyphenated Spread → Trader Component Aggregation  
+- **Tier 3 (Scenario C)**: Cross-Spread Aggregation (Trader Spread Pairs → Exchange Components)
+- **Tier 4 (Scenario D)**: Hyphenated Exchange Aggregation → Trader Spread Pair ⭐ **NEW**
 
-**Directionality**: ✅ **BIDIRECTIONAL** - Handles both exchange→trader and trader→exchange aggregation scenarios
+**Directionality**: ✅ **BIDIRECTIONAL** - Handles both exchange→trader and trader→exchange aggregation scenarios with comprehensive tier coverage
 
 ### Aggregated Product Spread Trade Identification
 
@@ -1384,30 +1386,48 @@ An **aggregated product spread match** occurs when product spread trades require
 - **Direction Logic**: Standard product spread B/S direction rules
 - **Price Calculation**: Spread price validation after quantity aggregation
 
-#### Scenario A: Exchange Aggregation → Trader Spread
+#### Tier 1 (Scenario A): Exchange Component Aggregation → Trader Spread Pair
 
 - **Exchange Pattern**: Multiple separate component trades per product requiring aggregation
 - **Trader Pattern**: Single spread pair (price/0.00 pattern with opposite B/S directions)
 - **Aggregation Logic**: Exchange trades grouped by product, contract, price, B/S, and broker
 - **Validation**: Aggregated quantities must match trader spread quantities exactly
+- **Example**: E_001(naphtha japan 5000) + E_002(naphtha japan 5000) + E_003(naphtha nwe 10000) → T_001(naphtha japan 10000) + T_002(naphtha nwe 10000)
 
-#### Scenario B: Trader Aggregation → Exchange Spread
+#### Tier 2 (Scenario B): Exchange Hyphenated Spread → Trader Component Aggregation
 
-- **Exchange Pattern**: Single hyphenated product spread (e.g., "marine 0.5%-380cst")
+- **Exchange Pattern**: Single hyphenated product spread (e.g., "naphtha japan-naphtha nwe")
 - **Trader Pattern**: Multiple trades per component product requiring aggregation
 - **Aggregation Logic**: Trader trades grouped by product characteristics
 - **Validation**: Aggregated trader positions must match exchange spread exactly
+- **Example**: E_001(naphtha japan-naphtha nwe 10000) → T_001(naphtha japan 5000) + T_002(naphtha japan 5000) + T_003(naphtha nwe 10000)
+
+#### Tier 3 (Scenario C): Cross-Spread Aggregation (Trader Spread Pairs → Exchange Components)
+
+- **Trader Pattern**: Multiple trader spread pairs with same product components  
+- **Exchange Pattern**: Individual component trades for aggregated quantities
+- **Aggregation Logic**: Trader spread pairs aggregate by product component
+- **Validation**: Cross-spread aggregated quantities match individual exchange trades
+- **Example**: T_001(marine 1000B) + T_002(380cst 1000S) + T_003(marine 2000B) + T_004(380cst 2000S) → E_001(marine 3000B) + E_002(380cst 3000S)
+
+#### Tier 4 (Scenario D): Hyphenated Exchange Aggregation → Trader Spread Pair ⭐ **NEW**
+
+- **Exchange Pattern**: Multiple identical hyphenated exchange spreads requiring aggregation
+- **Trader Pattern**: Single spread pair (price/0.00 pattern with opposite B/S directions)
+- **Aggregation Logic**: Multiple hyphenated spreads with identical characteristics (price, direction, contract)
+- **Validation**: Aggregated hyphenated spread quantities match trader spread pair quantities
+- **Example**: E_044(naphtha japan-naphtha nwe 5000 S) + E_045(naphtha japan-naphtha nwe 5000 S) → T_078(naphtha japan 10000 S) + T_079(naphtha nwe 10000 B)
 
 ### Required Matching Fields for Aggregated Product Spreads
 
-**Universal Requirements (Both Scenarios):**
+**Universal Requirements (All Tiers):**
 
 1. **Product Relationship**: Component products must match spread products
 2. **Contract Month**: All trades must have identical contract months
 3. **Universal Fields**: All trades must have matching brokergroupid and exchclearingacctid
 4. **Aggregation Validation**: Quantities must sum exactly (no tolerance)
 
-**Scenario A: Exchange Aggregation Requirements**
+**Tier 1: Exchange Component Aggregation Requirements**
 
 1. **Trader Spread Pattern**: Two trades with spread indicators:
    - One leg with calculated spread price (non-zero)
@@ -1420,13 +1440,29 @@ An **aggregated product spread match** occurs when product spread trades require
    - Same B/S direction within each component group
    - Quantities sum to match trader component quantities
 
-**Scenario B: Trader Aggregation Requirements**
+**Tier 2: Trader Component Aggregation Requirements**
 
 1. **Exchange Hyphenated Product**: Single trade with hyphenated product name
 2. **Trader Component Aggregation**: Multiple trader trades per component:
    - Same product characteristics within each component group
    - Quantities sum to match exchange spread quantity
    - Proper B/S direction logic for spread pattern
+
+**Tier 3: Cross-Spread Aggregation Requirements**
+
+1. **Trader Spread Pairs**: Multiple spread pairs with same product components
+2. **Component Aggregation**: Spread pairs aggregate by product across multiple pairs
+3. **Exchange Individual Trades**: Separate exchange trades for each aggregated component
+
+**Tier 4: Hyphenated Exchange Aggregation Requirements ⭐ **NEW**
+
+1. **Trader Spread Pattern**: Two trades with spread indicators (same as Tier 1)
+2. **Exchange Hyphenated Aggregation**: Multiple identical hyphenated exchange spreads:
+   - Same hyphenated product name (e.g., "naphtha japan-naphtha nwe")
+   - Same price within aggregation group
+   - Same B/S direction within aggregation group
+   - Same contract month
+   - Quantities sum to match trader spread quantities
 
 ### Aggregation and Product Spread Logic Integration
 
@@ -1442,7 +1478,60 @@ An **aggregated product spread match** occurs when product spread trades require
 - **Direction Logic**: Apply standard product spread B/S validation rules
 - **Price Calculation**: Validate spread price equals component price differential
 
-### Example: Aggregated Product Spread Match (Scenario A)
+### Example: Aggregated Product Spread Match (Tier 4 - NEW) ⭐
+
+#### Source Data:
+
+**sourceTraders.csv (Spread Pair):**
+
+```
+| Index | productname   | contractmonth | quantityunits | price | B/S    | brokergroupid |
+|-------|---------------|---------------|---------------|-------|--------|---------------|
+| T_078 | naphtha japan | Sep-25        | 10000         | 22.25 | Sold   | 1             |
+| T_079 | naphtha nwe   | Sep-25        | 10000         | 0.00  | Bought | 1             |
+```
+
+**sourceExchange.csv (Multiple Hyphenated Spreads):**
+
+```
+| Index | productname              | contractmonth | quantityunits | price | b/s  | brokergroupid |
+|-------|--------------------------|---------------|---------------|-------|------|---------------|
+| E_044 | naphtha japan-naphtha nwe| Sep-25        | 5000          | 22.25 | Sold | 1             |
+| E_045 | naphtha japan-naphtha nwe| Sep-25        | 5000          | 22.25 | Sold | 1             |
+```
+
+#### Tier 4 Matching Process:
+
+**Step 1: Trader Spread Pair Identification**
+- T_078 + T_079: Different products (naphtha japan/naphtha nwe), opposite B/S (S/B), price/0.00 pattern ✅
+
+**Step 2: Hyphenated Exchange Pattern Generation**
+- Expected patterns: "naphtha japan-naphtha nwe" or "naphtha nwe-naphtha japan"
+- Found: E_044 + E_045 both match "naphtha japan-naphtha nwe" ✅
+
+**Step 3: Aggregation Validation**
+- Exchange aggregated quantity: 5,000 + 5,000 = 10,000 MT
+- Trader spread quantities: 10,000 MT each ✅
+- Price consistency: Both exchange trades @ 22.25 ✅
+- Direction consistency: Both exchange trades Sold ✅
+
+**Step 4: Price Differential Validation**
+- Exchange spread price: 22.25 (hyphenated spread represents the differential)
+- Trader spread price: 22.25 - 0.00 = 22.25 ✅
+
+**Step 5: Direction Logic Validation**
+- Hyphenated pattern: "naphtha japan-naphtha nwe"
+- Exchange direction: Sold → Sell first component (naphtha japan), Buy second component (naphtha nwe)
+- Trader directions: T_078 (naphtha japan Sold), T_079 (naphtha nwe Bought) ✅
+
+**Result:** ✅ **TIER 4 AGGREGATED PRODUCT SPREAD MATCH**
+- **Match ID**: AGG_PROD_SPREAD_11_ce811aca
+- **Confidence**: 62%
+- **Aggregation Type**: Many-to-Many (2 hyphenated exchange → 2 trader components)
+
+---
+
+### Example: Aggregated Product Spread Match (Tier 1)
 
 #### Source Data:
 
@@ -1546,14 +1635,17 @@ An **aggregated product spread match** occurs when product spread trades require
 - **Comprehensive Type Safety**: Full mypy compliance with proper type annotations
 - **Enhanced Error Handling**: Detailed logging with descriptive error messages and guard clauses
 - **Robust Edge Case Handling**: Validation for empty lists, invalid products, and malformed data
-- **Three-Scenario Support**:
-  - **Scenario A**: Multiple exchange trades → Single trader spread pair (many-to-one)
-  - **Scenario B**: Single exchange spread → Multiple trader component trades (one-to-many)
-  - **Scenario C**: Cross-spread aggregation (multiple trader spread pairs → individual exchange trades)
-- **Cross-Spread Aggregation**: Advanced logic for aggregating trader spread components across multiple spread pairs
+- **Four-Tier Architecture Support** ⭐ **COMPLETE**:
+  - **Tier 1 (Scenario A)**: Multiple exchange component trades → Single trader spread pair (many-to-one)
+  - **Tier 2 (Scenario B)**: Single exchange spread → Multiple trader component trades (one-to-many)
+  - **Tier 3 (Scenario C)**: Cross-spread aggregation (multiple trader spread pairs → individual exchange trades)
+  - **Tier 4 (Scenario D)**: Multiple hyphenated exchange spreads → Single trader spread pair ⭐ **NEW**
+- **Hyphenated Exchange Aggregation**: Advanced logic for aggregating identical hyphenated spreads (Tier 4)
+- **Cross-Spread Aggregation**: Advanced logic for aggregating trader spread components across multiple spread pairs (Tier 3)
 - **Contract Month Consistency**: Proper grouping and validation of trades by contract month
 - **Price Validation**: Comprehensive spread price relationship validation after aggregation
 - **Universal Field Integration**: Seamless integration with BaseMatcher universal field validation
+- **Clear Tier Organization**: Well-documented tier system with section headers and comprehensive examples
 
 **Code Quality Standards Met**:
 

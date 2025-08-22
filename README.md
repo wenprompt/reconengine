@@ -59,4 +59,10 @@ every team will upload their netpos together instead of each trader by each trad
 
 all sgx traders file to match by product name first instead of ID for standardisation because petchem has BZF BZN and BZ
 
-**NOTES FOR ICE MATCHING**
+**NOTES**
+
+change the b/s mapping to "B/S" standardised
+
+how to catch BZN and PXN hmm
+
+SGX and EEX is done
