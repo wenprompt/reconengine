@@ -1,7 +1,6 @@
 """Multi-leg base matcher with shared validation capabilities."""
 
 from abc import ABC
-from typing import List
 from decimal import Decimal
 import logging
 

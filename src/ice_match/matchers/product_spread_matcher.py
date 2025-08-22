@@ -1,7 +1,6 @@
 """Product spread matcher for Rule 5 - Product spread matching (hyphenated products)."""
 
 import logging
-import uuid
 from decimal import Decimal
 from typing import List, Tuple, Dict, Optional, Any
 from collections import defaultdict
@@ -255,7 +254,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         # Filter out hyphenated products (they're handled separately)
         non_hyphenated_trades = [
             t for t in exchange_trades 
-            if pool_manager.is_trade_matched(t) == False and 
+            if not pool_manager.is_trade_matched(t) and 
                (("-" not in t.product_name) or self._parse_hyphenated_product(t.product_name) is None)
         ]
         

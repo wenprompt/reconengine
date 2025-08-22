@@ -1,10 +1,7 @@
 """Complex crack matcher for 2-leg crack trades (base product + brent swap)."""
 
 import logging
-import uuid
-from decimal import Decimal
-from typing import List, Tuple, Dict, Optional
-from collections import defaultdict
+from typing import List, Tuple, Optional
 
 from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer

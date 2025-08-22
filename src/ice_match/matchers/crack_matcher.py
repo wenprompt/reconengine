@@ -1,15 +1,13 @@
 """Crack matching implementation for Rule 3."""
 
-from typing import List, Dict, Tuple, Union
-from decimal import Decimal
+from typing import List, Dict, Tuple
 import logging
-import uuid
 from collections import defaultdict
 
 from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
-from .base_matcher import BaseMatcher, UUID_LENGTH
+from .base_matcher import BaseMatcher
 from ..utils.conversion_helpers import (
     get_product_conversion_ratio,
     convert_mt_to_bbl_with_product_ratio,
@@ -101,7 +99,7 @@ class CrackMatcher(BaseMatcher):
                     success = pool_manager.record_match(match_result)
                     
                     if not success:
-                        logger.error(f"Failed to record crack match in pool")
+                        logger.error("Failed to record crack match in pool")
                     else:
                         logger.debug(f"Created and recorded crack match: {match_result}")
                     

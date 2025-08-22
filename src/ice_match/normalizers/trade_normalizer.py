@@ -1,10 +1,7 @@
 """Universal trade data normalizer for consistent matching."""
 
 import re
-import json
-from pathlib import Path
 from decimal import Decimal
-from typing import Dict, Any, Optional
 import logging
 
 from ..config import ConfigManager

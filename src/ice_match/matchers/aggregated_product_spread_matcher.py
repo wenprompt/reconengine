@@ -1,7 +1,6 @@
 """Aggregated product spread matcher for Rule 11 - Product spread matching with aggregation logic."""
 
 import logging
-import uuid
 from decimal import Decimal
 from typing import List, Tuple, Dict, Optional, Any
 from collections import defaultdict

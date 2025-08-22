@@ -1,14 +1,12 @@
 """Exact matching implementation for Rule 1."""
 
 from typing import List, Optional, Dict
-from decimal import Decimal
 import logging
-import uuid
 
 from ..models import Trade, TradeSource, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
-from .base_matcher import BaseMatcher, UUID_LENGTH
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +68,7 @@ class ExactMatcher(BaseMatcher):
                 success = pool_manager.record_match(match_result)
                 
                 if not success:
-                    logger.error(f"Failed to record exact match in pool")
+                    logger.error("Failed to record exact match in pool")
                 else:
                     logger.debug(f"Created and recorded exact match: {match_result}")
         

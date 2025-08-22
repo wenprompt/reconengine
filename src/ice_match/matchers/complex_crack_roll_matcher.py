@@ -1,7 +1,6 @@
 """Complex crack roll matcher for Rule 10: Calendar spreads of crack positions."""
 
 import logging
-import uuid
 from decimal import Decimal
 from typing import List, Tuple, Dict, Optional
 

@@ -1,10 +1,7 @@
 """Aggregation matcher for Rule 6 - Aggregation matching (split/combined trades)."""
 
 import logging
-import uuid
-from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
-from collections import defaultdict
+from typing import List, Optional
 
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager

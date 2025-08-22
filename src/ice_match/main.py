@@ -392,11 +392,11 @@ Examples:
                 print(f"\nRule {rule_info['rule_number']}: {rule_info['rule_name']}")
                 print(f"  Confidence: {rule_info['confidence']}%")
                 print(f"  Description: {rule_info['description']}")
-                print(f"  Requirements:")
+                print("  Requirements:")
                 for req in rule_info["requirements"]:
                     print(f"    - {req}")
                 if "tolerances" in rule_info and rule_info["tolerances"]:
-                    print(f"  Tolerances:")
+                    print("  Tolerances:")
                     for k, v in rule_info["tolerances"].items():
                         print(f"    - {k}: {v}")
         print("\n-----------------------------------")

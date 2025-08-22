@@ -36,7 +36,7 @@ class AggregationBaseMatcher(BaseMatcher):
             config_manager: Configuration manager with rule settings
         """
         super().__init__(config_manager)
-        logger.debug(f"Initialized AggregationBaseMatcher for rule-agnostic aggregation logic")
+        logger.debug("Initialized AggregationBaseMatcher for rule-agnostic aggregation logic")
 
     def group_trades_by_aggregation_signature(
         self, 

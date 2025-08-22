@@ -1,10 +1,8 @@
 """Aggregated crack matcher for Rule 9 - Aggregated crack matching (crack to aggregated exchange trades)."""
 
 import logging
-import uuid
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
-from collections import defaultdict
+from typing import List, Tuple
 
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
@@ -200,7 +198,6 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         """Create MatchResult for aggregated crack match using base class method."""
         
         # Generate unique match ID
-        import uuid
         match_id = self.generate_match_id(self.rule_number, "AGG_CRACK")
         
         # Rule-specific fields that match

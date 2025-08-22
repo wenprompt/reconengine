@@ -1,7 +1,6 @@
 """Aggregated spread matcher for Rule 8 - Aggregated spread matching (spread with exchange trade aggregation)."""
 
 import logging
-import uuid
 from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
 from collections import defaultdict

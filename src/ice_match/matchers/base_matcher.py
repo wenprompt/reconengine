@@ -1,6 +1,6 @@
 """Base matcher with universal field handling."""
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import List, Tuple, Any
 import uuid
 import logging

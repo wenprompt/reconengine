@@ -1,9 +1,8 @@
 """Aggregated complex crack matcher for Rule 7 - Aggregated complex crack matching (2-leg with split base products)."""
 
 import logging
-import uuid
 from decimal import Decimal
-from typing import List, Tuple, Dict, Optional
+from typing import List, Optional
 from collections import defaultdict
 
 from ..models import Trade, MatchResult, MatchType

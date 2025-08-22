@@ -1,18 +1,16 @@
 """Rich CLI display for ice trade matching results."""
 
-from typing import List, Dict, Any, Optional
-from decimal import Decimal
+from typing import List, Dict, Optional
 
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.layout import Layout
 from rich.align import Align
 from rich import box
 
-from ..models import MatchResult, Trade, MatchType
+from ..models import MatchResult, Trade
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 
