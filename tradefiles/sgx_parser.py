@@ -26,7 +26,7 @@ def parse_io_xlsx(input_path, output_path):
         "traderid", "tradedate", "tradetime", "productid", "productname", 
         "productgroupid", "exchangegroupid", "brokergroupid", "exchclearingacctid", 
         "quantitylots", "quantityunits", "unit", "price", "contractmonth", 
-        "strike", "specialComms", "spread", "b/s", "RMKS", "BKR"
+        "strike", "specialComms", "spread", "b/s", "put/call", "RMKS", "BKR"
     ]
     output_rows.append(output_header)
 
@@ -115,6 +115,7 @@ def parse_io_xlsx(input_path, output_path):
                     "specialComms": "",
                     "spread": spread,
                     "b/s": bs,
+                    "put/call": "",
                     "RMKS": counterparty_first_word,
                     "BKR": ""
                 }
