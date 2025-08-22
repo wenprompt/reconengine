@@ -42,11 +42,30 @@ def get_primary_contract_month(match_result: MatchResult) -> str:
     return match_result.trader_trade.contract_month
 
 
+def get_primary_price(match_result: MatchResult) -> Decimal:
+    """Extract primary price from match result."""
+    return match_result.trader_trade.price
+
+
 def get_total_quantity(match_result: MatchResult) -> Decimal:
-    """Calculate total quantity across all trades in match."""
-    total = match_result.trader_trade.quantity_mt
+    """Calculate appropriate quantity for match result.
     
-    # Add additional trader trades
+    For spread matches, returns the quantity of one leg (since both legs represent the same spread size).
+    For aggregation matches, returns the sum of all quantities.
+    """
+    from ..models import MatchType
+    
+    # For spread-type matches, return quantity of primary leg only (avoid double-counting)
+    if match_result.match_type in [
+        MatchType.SPREAD, 
+        MatchType.PRODUCT_SPREAD, 
+        MatchType.AGGREGATED_SPREAD,
+        MatchType.AGGREGATED_PRODUCT_SPREAD
+    ]:
+        return match_result.trader_trade.quantity_mt
+    
+    # For aggregation matches and others, sum all quantities
+    total = match_result.trader_trade.quantity_mt
     for trade in match_result.additional_trader_trades:
         total += trade.quantity_mt
         
@@ -91,6 +110,7 @@ def create_reconciliation_dataframe(
             'remarks': f"ICE_rule{match.rule_order}",
             'confidence_score': float(match.confidence),
             'quantity': float(get_total_quantity(match)),
+            'price': float(get_primary_price(match)),
             'contract_month': get_primary_contract_month(match),
             'product_name': get_primary_product_name(match),
             'match_id': match.match_id,
@@ -110,6 +130,7 @@ def create_reconciliation_dataframe(
             'remarks': "ICE_unmatched_trader",
             'confidence_score': 0.0,
             'quantity': float(trade.quantity_mt),
+            'price': float(trade.price),
             'contract_month': trade.contract_month,
             'product_name': trade.product_name,
             'match_id': None,
@@ -129,6 +150,7 @@ def create_reconciliation_dataframe(
             'remarks': "ICE_unmatched_exchange",
             'confidence_score': 0.0,
             'quantity': float(trade.quantity_mt),
+            'price': float(trade.price),
             'contract_month': trade.contract_month,
             'product_name': trade.product_name,
             'match_id': None,
@@ -142,7 +164,7 @@ def create_reconciliation_dataframe(
     # Ensure proper column order
     column_order = [
         'reconid', 'source_traders_id', 'source_exch_id', 'reconStatus',
-        'recon_run_datetime', 'remarks', 'confidence_score', 'quantity',
+        'recon_run_datetime', 'remarks', 'confidence_score', 'quantity', 'price',
         'contract_month', 'product_name', 'match_id', 'aggregation_type'
     ]
     
@@ -174,6 +196,7 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
     table.add_column("Remarks", style="magenta", width=15)
     table.add_column("Confidence", style="yellow", width=8, justify="right")
     table.add_column("Quantity", style="cyan", width=8, justify="right")
+    table.add_column("Price", style="bright_green", width=8, justify="right")
     table.add_column("Month", style="white", width=8)
     table.add_column("Product", style="green", width=15)
     table.add_column("Aggregation", style="bright_yellow", width=8)
@@ -202,6 +225,7 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
         # Format other fields
         confidence = f"{row['confidence_score']:.1f}%" if row['confidence_score'] > 0 else "N/A"
         quantity = f"{row['quantity']:,.0f}"
+        price = f"{row['price']:,.2f}" if pd.notna(row['price']) else "N/A"
         aggregation = str(row['aggregation_type']) if row['aggregation_type'] else "N/A"
         product = str(row['product_name'])[:13] + "..." if len(str(row['product_name'])) > 15 else str(row['product_name'])
         remarks = str(row['remarks'])[:13] + "..." if len(str(row['remarks'])) > 15 else str(row['remarks'])
@@ -214,6 +238,7 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
             remarks,
             confidence,
             quantity,
+            price,
             row['contract_month'],
             product,
             aggregation

@@ -27,11 +27,13 @@ class TradeNormalizer:
         self.month_patterns = self.config_manager.get_month_patterns()
         self.product_conversion_ratios = self.config_manager.get_product_conversion_ratios()
         self.traders_product_unit_defaults = self.config_manager.get_traders_product_unit_defaults()
+        self.buy_sell_mappings = self.config_manager.get_buy_sell_mappings()
 
         
         logger.info(f"Loaded {len(self.product_mappings)} product mappings, "
                    f"{len(self.month_patterns)} month patterns, "
-                   f"{len(self.traders_product_unit_defaults)} trader unit defaults from ConfigManager")
+                   f"{len(self.traders_product_unit_defaults)} trader unit defaults, "
+                   f"{len(self.buy_sell_mappings)} buy/sell mappings from ConfigManager")
 
     def normalize_product_name(self, product_name: str) -> str:
         """Normalize product name for consistent matching."""
@@ -59,17 +61,21 @@ class TradeNormalizer:
         return contract_month.strip()
     
     def normalize_buy_sell(self, buy_sell: str) -> str:
-        """Normalize buy/sell indicator to B or S."""
+        """Normalize buy/sell indicator to B or S using JSON configuration."""
         if not buy_sell:
             return ""
-        value_clean = buy_sell.strip().upper()
-        if value_clean in ["B", "BUY", "BOUGHT"]:
-            return "B"
-        elif value_clean in ["S", "SELL", "SOLD"]:
-            return "S"
-        else:
-            logger.warning(f"Unknown buy/sell indicator: '{buy_sell}'")
-            return value_clean
+        
+        value_clean = buy_sell.strip().lower()
+        
+        # Check against JSON mappings
+        if value_clean in self.buy_sell_mappings:
+            result = self.buy_sell_mappings[value_clean]
+            logger.debug(f"Normalized buy/sell '{buy_sell}' -> '{result}'")
+            return result
+        
+        # Fallback for unmapped values - return uppercase original
+        logger.warning(f"Unknown buy/sell indicator: '{buy_sell}', no mapping found")
+        return buy_sell.strip().upper()
     
     def convert_quantity_to_mt(self, quantity: Decimal, unit: str) -> Decimal:
         """Convert quantity to MT if needed."""

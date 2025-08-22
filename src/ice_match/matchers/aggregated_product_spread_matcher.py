@@ -853,25 +853,13 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         
         # Determine expected trader directions based on hyphenated pattern and exchange direction
         if first_component == price_trade.product_name:
-            # Pattern: price_product-zero_product
-            if exchange_direction == "S":
-                # Sell spread: Sell price_product, Buy zero_product
-                expected_price_direction = "S"
-                expected_zero_direction = "B"
-            else:
-                # Buy spread: Buy price_product, Sell zero_product
-                expected_price_direction = "B"
-                expected_zero_direction = "S"
+            # Pattern: price_product-zero_product. Sell spread: Sell price_product, Buy zero_product
+            expected_directions = ("S", "B") if exchange_direction == "S" else ("B", "S")
         else:
-            # Pattern: zero_product-price_product
-            if exchange_direction == "S":
-                # Sell spread: Sell zero_product, Buy price_product
-                expected_price_direction = "B"
-                expected_zero_direction = "S"
-            else:
-                # Buy spread: Buy zero_product, Sell price_product
-                expected_price_direction = "S"
-                expected_zero_direction = "B"
+            # Pattern: zero_product-price_product. Sell spread: Sell zero_product, Buy price_product
+            expected_directions = ("B", "S") if exchange_direction == "S" else ("S", "B")
+
+        expected_price_direction, expected_zero_direction = expected_directions
 
         if (price_trade.buy_sell != expected_price_direction or 
             zero_trade.buy_sell != expected_zero_direction):
