@@ -44,7 +44,7 @@ class CrackMatcher(BaseMatcher):
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
         # Unit conversion tolerances from config (using universal tolerances for consistency)
-        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # ±500 BBL
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # Dynamic BBL tolerance from config
         self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()    # ±145 MT
         
         logger.info(f"Initialized CrackMatcher with {self.confidence}% confidence")
@@ -182,7 +182,7 @@ class CrackMatcher(BaseMatcher):
         """Validate quantities using one-way MT→BBL conversion with product-specific ratios.
         
         Rule 3 Logic: Convert trader MT to BBL, compare with exchange BBL using BBL tolerance only.
-        Example: 2040 MT × 6.35 = 12,954 BBL vs 13,000 BBL = 46 BBL diff < 100 BBL tolerance ✅
+        Example: 2040 MT × 6.35 = 12,954 BBL vs 13,000 BBL = 46 BBL diff < 1000 BBL tolerance ✅
         
         Args:
             trader_trade: Trade from trader source (always MT)
@@ -222,7 +222,7 @@ class CrackMatcher(BaseMatcher):
             MatchResult representing the crack match
         """
         # Generate unique match ID
-        match_id = f"CRACK_{uuid.uuid4().hex[:UUID_LENGTH].upper()}"
+        match_id = self.generate_match_id(self.rule_number, "CRACK")
         
         # Rule-specific fields that matched for cracks
         rule_specific_fields = [
@@ -289,7 +289,7 @@ class CrackMatcher(BaseMatcher):
                 "Same price", 
                 "Same broker group",
                 "Same buy/sell indicator",
-                "Quantity match after MT→BBL conversion (±100 BBL tolerance)"
+                "Quantity match after MT→BBL conversion (±{} BBL tolerance)".format(self.BBL_TOLERANCE)
             ],
             "tolerances": {
                 "quantity_bbl": float(self.config_manager.get_universal_tolerance_bbl()),

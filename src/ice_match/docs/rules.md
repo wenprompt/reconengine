@@ -349,7 +349,7 @@ A **crack match** occurs when a trader executes a crack spread trade that appear
 
 - **Product identification**: Only trades with "crack" in the product name are eligible
 - **Unit conversion**: Automatic MT ↔ BBL conversion using product-specific ratios
-- **Conversion tolerance**: ±500 BBL or ±70 MT difference allowed for rounding
+- **Conversion tolerance**: Dynamic BBL tolerance (configurable in normalizer_config.json) or ±70 MT difference allowed for rounding
 - **One-to-one matching**: Each crack match removes 1 trader trade and 1 exchange trade
 
 ### Crack Trade Identification
@@ -366,7 +366,7 @@ All fields must match exactly (with unit conversion tolerance where applicable):
 1. **productname** - Must contain "crack" and match exactly after normalization
 2. **contractmonth** - Contract delivery month must match exactly
 3. **price** - Trade execution price must match exactly
-4. **quantityunits** - Quantity within unit conversion tolerance (±500 BBL or ±70 MT)
+4. **quantityunits** - Quantity within unit conversion tolerance (dynamic BBL tolerance from config or ±70 MT)
 5. **b/s** - Buy/Sell indicator must match exactly after normalization
 
 ### Crack Matching Logic
@@ -399,14 +399,14 @@ Rule 3 specifically handles MT→BBL conversion scenarios where:
 - **Trader data**: Contains crack trades in MT units (regardless of trader product unit defaults)
 - **Exchange data**: Contains crack trades in BBL units
 - **Conversion**: Always MT→BBL using product-specific ratios from configuration
-- **Tolerance**: ±100 BBL only (since MT units would have been exact matches in Rule 1)
+- **Tolerance**: Dynamic BBL tolerance only (since MT units would have been exact matches in Rule 1)
 
 **IMPORTANT**: Crack matching is **ALWAYS** MT→BBL conversion. The BBL unit defaults in trader data are only relevant for exact matching scenarios (particularly brent swap exact matches in Rule 1), not for crack matching logic.
 
 #### Conversion Tolerance:
 
-- **BBL Tolerance**: ±100 BBL for MT→BBL conversion scenarios
-- **Example**: 2040 MT × 6.35 = 12,954 BBL vs 13,000 BBL = 46 BBL difference < 100 BBL tolerance ✅
+- **BBL Tolerance**: Dynamic BBL tolerance for MT→BBL conversion scenarios
+- **Example**: 2040 MT × 6.35 = 12,954 BBL vs 13,000 BBL = 46 BBL difference < configured BBL tolerance ✅
 
 ### Crack-Specific Normalization Rules
 
@@ -499,7 +499,7 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 
 2. **Contract Month**: All trades must have identical contract months
 
-3. **Quantity Matching**: Quantities must align within tolerance (±500 BBL or ±70 MT)
+3. **Quantity Matching**: Quantities must align within tolerance (dynamic BBL tolerance from config or ±70 MT)
 
 4. **B/S Direction Logic**:
 
@@ -523,7 +523,7 @@ A **complex crack match** occurs when a trader executes a crack spread trade tha
 #### Conversion Process:
 
 1. Crack vs Base: Both in MT, direct comparison with ±50 MT tolerance
-2. Crack vs Brent: MT → BBL conversion using product-specific ratio with ±100 BBL tolerance
+2. Crack vs Brent: MT → BBL conversion using product-specific ratio with dynamic BBL tolerance
 3. Apply price formula with product-specific conversion factor
 
 ### Example: Complex Crack Match
@@ -1157,7 +1157,7 @@ An **aggregated crack match** occurs when a single crack trade from one source c
 
 1.  **Group and Aggregate**: Trades on the "many" side are grouped by their matching key (product, month, price, b/s, universal fields). The quantities within each group are summed up.
 2.  **Unit Conversion**: The quantity of the MT trade(s) is converted to BBL using the product-specific conversion ratio (e.g., 8.9 for Naphtha).
-3.  **Tolerance Check**: The aggregated BBL quantity is compared to the converted BBL quantity. The absolute difference must be within the configured tolerance (e.g., ±500 BBL).
+3.  **Tolerance Check**: The aggregated BBL quantity is compared to the converted BBL quantity. The absolute difference must be within the configured tolerance (dynamic BBL tolerance from config).
 
 ### Example: Aggregated Crack Match (1 Trader MT vs. 2 Exchange BBL)
 
@@ -1203,7 +1203,7 @@ _(Note: Trader unit is inferred as MT by default)_
 
 4.  **Tolerance Validation**: ✅
     - Difference: `|36,000 BBL - 35,600 BBL| = 400 BBL`
-    - The difference of 400 BBL is within the `crack_tolerance_bbl` of 500 BBL.
+    - The difference of 400 BBL is within the configured `tolerance_bbl` from normalizer_config.json.
 
 **Result:** ✅ **AGGREGATED CRACK MATCH**
 

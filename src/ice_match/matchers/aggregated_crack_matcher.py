@@ -39,7 +39,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
         # Use universal tolerances for consistency across all rules
-        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # Dynamic BBL tolerance from config
         self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
         
         logger.info(f"Initialized AggregatedCrackMatcher with {self.confidence}% confidence")
@@ -201,7 +201,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         
         # Generate unique match ID
         import uuid
-        match_id = f"AGG_CRACK_{uuid.uuid4().hex[:8].upper()}"
+        match_id = self.generate_match_id(self.rule_number, "AGG_CRACK")
         
         # Rule-specific fields that match
         rule_specific_fields = [

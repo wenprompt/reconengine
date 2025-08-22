@@ -914,7 +914,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
         return MatchResult(
-            match_id=f"SPREAD_{uuid.uuid4().hex[:UUID_LENGTH].upper()}",
+            match_id=self.generate_match_id(self.rule_number, "SPREAD"),
             match_type=MatchType.SPREAD,
             confidence=self.confidence,
             trader_trade=trader_trades[0],

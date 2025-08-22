@@ -42,7 +42,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         
         # Universal tolerances for consistency across all crack-related rules
         self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
-        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # Dynamic BBL tolerance from config
         
         logger.info(f"Initialized AggregatedComplexCrackMatcher with {self.confidence}% confidence")
 
@@ -231,7 +231,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         """Create MatchResult for aggregated complex crack match."""
         
         # Generate unique match ID
-        match_id = f"AGG_CRACK_{uuid.uuid4().hex[:8].upper()}"
+        match_id = self.generate_match_id(self.rule_number, "AGG_CRACK")
 
         # Primary exchange trade is the first base trade
         primary_base_trade = base_trades[0]

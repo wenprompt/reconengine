@@ -165,7 +165,7 @@ class ConfigManager:
         """Get universal BBL tolerance used by all matching rules.
 
         Returns:
-            Universal tolerance in BBL from normalizer_config.json (default ±500 BBL)
+            Universal tolerance in BBL from normalizer_config.json (default ±1000 BBL)
         """
         universal_tolerances = self._normalizer_config.get("universal_tolerances", {})
         tolerance_bbl = universal_tolerances.get("tolerance_bbl", 500)

@@ -165,8 +165,8 @@ class ExactMatcher(BaseMatcher):
         Returns:
             MatchResult representing the exact match
         """
-        # Generate unique match ID
-        match_id = f"EXACT_{uuid.uuid4().hex[:UUID_LENGTH].upper()}"
+        # Generate unique match ID using centralized helper
+        match_id = self.generate_match_id(self.rule_number, "EXACT")
         
         # Rule-specific fields that match exactly
         rule_specific_fields = [

@@ -26,8 +26,8 @@ from .matchers import (
 )
 from .cli import MatchDisplayer
 
-# Default file paths and constants
-DEFAULT_DATA_DIR = Path("src/ice_match/data")
+# Default file paths and constants - package-relative
+DEFAULT_DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_TRADER_FILE = "sourceTraders.csv"
 DEFAULT_EXCHANGE_FILE = "sourceExchange.csv"
 
