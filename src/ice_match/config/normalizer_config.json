@@ -52,6 +52,17 @@
       "field_mappings": "Maps config field (file columns) names to Trade model names"
     }
   },
+  "buy_sell_mappings": {
+    "description": "Mappings for buy/sell indicators to standardized B/S format",
+    "mappings": {
+      "b": "B",
+      "buy": "B",
+      "bought": "B",
+      "s": "S",
+      "sell": "S",
+      "sold": "S"
+    }
+  },
   "universal_tolerances": {
     "description": "Universal tolerances used across ALL matching rules for consistency",
     "tolerance_mt": 150,

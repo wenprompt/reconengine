@@ -21,10 +21,29 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
     Handles Rule 11: Aggregated Product Spread Match Rules
     Combines aggregation patterns (1-to-many, many-to-1) with product spread logic:
 
-    Scenarios:
-    - Many exchange product spread trades → One trader spread pair
-    - One exchange spread → Many trader trades per product leg
-    - Handles both hyphenated exchange products and 2-leg formats with aggregation
+    ============ TIER SYSTEM OVERVIEW ============
+    
+    TIER 1 (Scenario A): Exchange Component Aggregation → Trader Spread Pair
+    - Multiple individual exchange component trades → Single trader spread pair
+    - Example: E_001(naphtha japan 5000) + E_002(naphtha japan 5000) + E_003(naphtha nwe 10000) 
+              → T_001(naphtha japan 10000) + T_002(naphtha nwe 10000)
+    
+    TIER 2 (Scenario B): Exchange Hyphenated Spread → Trader Component Aggregation  
+    - Single exchange hyphenated spread → Multiple trader trades per component
+    - Example: E_001(naphtha japan-naphtha nwe 10000) 
+              → T_001(naphtha japan 5000) + T_002(naphtha japan 5000) + T_003(naphtha nwe 10000)
+    
+    TIER 3 (Scenario C): Cross-Spread Aggregation (Trader Spread Pairs → Exchange Components)
+    - Multiple trader spread pairs aggregate by component → Individual exchange component trades
+    - Example: T_001(marine 1000B) + T_002(380cst 1000S) + T_003(marine 2000B) + T_004(380cst 2000S)
+              → E_001(marine 3000B) + E_002(380cst 3000S)
+    
+    TIER 4 (Scenario D): Hyphenated Exchange Aggregation → Trader Spread Pair
+    - Multiple identical hyphenated exchange spreads → Single trader spread pair
+    - Example: E_001(naphtha japan-naphtha nwe 5000) + E_002(naphtha japan-naphtha nwe 5000)
+              → T_001(naphtha japan 10000) + T_002(naphtha nwe 10000)
+    
+    ============ END TIER OVERVIEW ============
     """
 
     def __init__(self, config_manager: ConfigManager, normalizer: TradeNormalizer):
@@ -58,13 +77,16 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         trader_trades = pool_manager.get_unmatched_trader_trades()
         exchange_trades = pool_manager.get_unmatched_exchange_trades()
 
-        # Scenario A: Many exchange trades → One trader spread pair
+        # ============ TIER 1 & TIER 4: EXCHANGE → TRADER MATCHING ============
+        # Scenario A (Tier 1): Many exchange component trades → One trader spread pair
+        # Scenario D (Tier 4): Many hyphenated exchange spreads → One trader spread pair
         exchange_to_trader_matches = self._find_aggregated_exchange_to_trader_matches(
             trader_trades, exchange_trades, pool_manager
         )
         matches.extend(exchange_to_trader_matches)
 
-        # Scenario B: One exchange spread → Many trader trades per leg
+        # ============ TIER 2: TRADER → EXCHANGE MATCHING ============
+        # Scenario B (Tier 2): One exchange spread → Many trader trades per leg
         trader_to_exchange_matches = self._find_aggregated_trader_to_exchange_matches(
             trader_trades, exchange_trades, pool_manager
         )
@@ -104,7 +126,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             f"Processing {len(trader_spread_pairs)} trader spread pairs for exchange aggregation"
         )
 
-        # For each trader spread pair, try to find aggregated exchange trades (Scenario A)
+        # ============ TIER 1: EXCHANGE COMPONENT AGGREGATION → TRADER SPREAD PAIR ============
+        # For each trader spread pair, try to find aggregated exchange component trades (Scenario A)
         for trader_spread_pair in trader_spread_pairs:
             if any(
                 pool_manager.is_trade_matched(trade) for trade in trader_spread_pair
@@ -117,8 +140,25 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             if match:
                 matches.append(match)
                 pool_manager.record_match(match)
-                logger.info(f"Found aggregated exchange→trader match: {match.match_id}")
+                logger.info(f"Found Tier 1 aggregated exchange→trader match: {match.match_id}")
 
+        # ============ TIER 4: HYPHENATED EXCHANGE AGGREGATION → TRADER SPREAD PAIR ============
+        # For each trader spread pair, try to find aggregated hyphenated exchange spreads (Scenario D)
+        for trader_spread_pair in trader_spread_pairs:
+            if any(
+                pool_manager.is_trade_matched(trade) for trade in trader_spread_pair
+            ):
+                continue
+
+            match = self._find_hyphenated_exchange_aggregation_for_trader_spread(
+                trader_spread_pair, exchange_trades, pool_manager
+            )
+            if match:
+                matches.append(match)
+                pool_manager.record_match(match)
+                logger.info(f"Found Tier 4 hyphenated exchange aggregation→trader match: {match.match_id}")
+
+        # ============ TIER 3: CROSS-SPREAD AGGREGATION ============
         # Also try cross-spread aggregation (Scenario C)
         cross_match = self._find_cross_spread_aggregation_match(
             trader_spread_pairs, exchange_trades, pool_manager
@@ -130,6 +170,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
         logger.info(f"Found {len(matches)} aggregated exchange→trader matches")
         return matches
+
+    # ============ TIER 2: TRADER → EXCHANGE MATCHING ============
 
     def _find_aggregated_trader_to_exchange_matches(
         self,
@@ -652,6 +694,234 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         return self._create_exchange_aggregated_spread_match_result(
             trader_spread_pair, product1_aggregation, product2_aggregation
         )
+
+    # ============ TIER 4: HYPHENATED EXCHANGE AGGREGATION → TRADER SPREAD PAIR ============
+
+    def _find_hyphenated_exchange_aggregation_for_trader_spread(
+        self,
+        trader_spread_pair: Tuple[Trade, Trade],
+        exchange_trades: List[Trade],
+        pool_manager: UnmatchedPoolManager,
+    ) -> Optional[MatchResult]:
+        """Find aggregated hyphenated exchange spreads that match trader spread pair.
+
+        Tier 4 (Scenario D): Multiple identical hyphenated exchange spreads → Single trader spread pair
+        
+        Example: E_0044 + E_0045 (both "naphtha japan-naphtha nwe", 5000 MT each, same price/direction)
+                → T_0078 (naphtha japan, 10000 MT, S) + T_0079 (naphtha nwe, 10000 MT, B)
+        """
+        price_trade, zero_trade = trader_spread_pair
+
+        # Skip if trades are already matched
+        if pool_manager.is_trade_matched(price_trade) or pool_manager.is_trade_matched(
+            zero_trade
+        ):
+            return None
+
+        # Parse trader product components - must be different products for a spread
+        if not self._is_different_products(price_trade, zero_trade):
+            logger.debug("Trader spread pair doesn't have different products")
+            return None
+
+        logger.debug(
+            f"Tier 4: Finding hyphenated exchange aggregation for trader spread: {price_trade.product_name}({price_trade.quantity_mt}) + {zero_trade.product_name}({zero_trade.quantity_mt})"
+        )
+
+        # Generate expected hyphenated product patterns
+        expected_hyphenated_patterns = [
+            f"{price_trade.product_name}-{zero_trade.product_name}",
+            f"{zero_trade.product_name}-{price_trade.product_name}",
+        ]
+
+        # Find hyphenated exchange spreads that match the trader spread pattern
+        matching_hyphenated_groups = []
+        
+        for expected_pattern in expected_hyphenated_patterns:
+            hyphenated_candidates = []
+            
+            for exchange_trade in exchange_trades:
+                if pool_manager.is_trade_matched(exchange_trade):
+                    continue
+
+                # Check if this exchange trade matches our expected hyphenated pattern
+                if (exchange_trade.product_name == expected_pattern and
+                    exchange_trade.contract_month == price_trade.contract_month and
+                    self.validate_universal_fields(price_trade, exchange_trade)):
+                    hyphenated_candidates.append(exchange_trade)
+
+            if hyphenated_candidates:
+                # Group by identical characteristics for aggregation
+                aggregation_groups = self._group_hyphenated_trades_for_aggregation(
+                    hyphenated_candidates, expected_pattern
+                )
+                
+                # Try to find aggregation that matches trader spread quantities
+                for group_trades in aggregation_groups:
+                    aggregation_result = self._validate_hyphenated_aggregation_match(
+                        trader_spread_pair, group_trades, expected_pattern
+                    )
+                    if aggregation_result:
+                        matching_hyphenated_groups.append((group_trades, expected_pattern))
+                        break  # Take first valid aggregation for this pattern
+
+        if not matching_hyphenated_groups:
+            logger.debug("Tier 4: No valid hyphenated exchange aggregations found")
+            return None
+
+        # Use the first matching aggregation group
+        aggregated_exchange_trades, hyphenated_pattern = matching_hyphenated_groups[0]
+        
+        logger.info(
+            f"Tier 4: Found hyphenated exchange aggregation: {len(aggregated_exchange_trades)} trades ({hyphenated_pattern}) → trader spread pair"
+        )
+        return self._create_hyphenated_aggregation_match_result(
+            trader_spread_pair, aggregated_exchange_trades, hyphenated_pattern
+        )
+
+    def _group_hyphenated_trades_for_aggregation(
+        self, candidates: List[Trade], expected_pattern: str
+    ) -> List[List[Trade]]:
+        """Group hyphenated exchange trades by identical characteristics for aggregation."""
+        # Group by aggregation characteristics (price, buy_sell, universal fields already validated)
+        aggregation_groups = defaultdict(list)
+        
+        for trade in candidates:
+            # Group by characteristics that must be identical for aggregation
+            group_key = (
+                trade.price,
+                trade.buy_sell,
+                # Universal fields are already validated in caller
+            )
+            aggregation_groups[group_key].append(trade)
+
+        # Return groups that have sufficient trades for aggregation
+        valid_groups = []
+        for group_trades in aggregation_groups.values():
+            if len(group_trades) >= 1:  # At least 1 trade (could be single trade matching exactly)
+                valid_groups.append(group_trades)
+        
+        return valid_groups
+
+    def _validate_hyphenated_aggregation_match(
+        self,
+        trader_spread_pair: Tuple[Trade, Trade],
+        exchange_aggregation: List[Trade],
+        hyphenated_pattern: str,
+    ) -> bool:
+        """Validate that aggregated hyphenated exchange trades match trader spread pair."""
+        if not exchange_aggregation:
+            return False
+
+        price_trade, zero_trade = trader_spread_pair
+        
+        # Parse the hyphenated pattern to determine component order
+        components = self._parse_hyphenated_product(hyphenated_pattern)
+        if not components:
+            logger.debug(f"Failed to parse hyphenated pattern: {hyphenated_pattern}")
+            return False
+
+        first_component, second_component = components
+
+        # Calculate total aggregated quantity
+        total_exchange_quantity = sum(trade.quantity_mt for trade in exchange_aggregation)
+        
+        # Both trader trades should have the same quantity for a valid spread
+        if price_trade.quantity_mt != zero_trade.quantity_mt:
+            logger.debug("Trader spread pair quantities don't match")
+            return False
+
+        # Total aggregated exchange quantity should match trader spread quantity
+        if total_exchange_quantity != price_trade.quantity_mt:
+            logger.debug(
+                f"Quantity mismatch: exchange aggregated {total_exchange_quantity}MT vs trader {price_trade.quantity_mt}MT"
+            )
+            return False
+
+        # Validate price differential calculation
+        # For hyphenated spreads, the exchange price represents the spread differential
+        exchange_spread_price = exchange_aggregation[0].price  # All should have same price
+        trader_spread_price = price_trade.price - zero_trade.price
+
+        if exchange_spread_price != trader_spread_price:
+            logger.debug(
+                f"Price differential mismatch: exchange {exchange_spread_price} vs trader {trader_spread_price}"
+            )
+            return False
+
+        # Validate direction logic based on component order and exchange direction
+        exchange_direction = exchange_aggregation[0].buy_sell  # All should have same direction
+        
+        # Determine expected trader directions based on hyphenated pattern and exchange direction
+        if first_component == price_trade.product_name:
+            # Pattern: price_product-zero_product. Sell spread: Sell price_product, Buy zero_product
+            expected_directions = ("S", "B") if exchange_direction == "S" else ("B", "S")
+        else:
+            # Pattern: zero_product-price_product. Sell spread: Sell zero_product, Buy price_product
+            expected_directions = ("B", "S") if exchange_direction == "S" else ("S", "B")
+
+        expected_price_direction, expected_zero_direction = expected_directions
+
+        if (price_trade.buy_sell != expected_price_direction or 
+            zero_trade.buy_sell != expected_zero_direction):
+            logger.debug(
+                f"Direction mismatch: expected {expected_price_direction}/{expected_zero_direction}, "
+                f"got {price_trade.buy_sell}/{zero_trade.buy_sell}"
+            )
+            return False
+
+        logger.debug(f"✅ Tier 4: Hyphenated aggregation validation passed for {hyphenated_pattern}")
+        return True
+
+    def _create_hyphenated_aggregation_match_result(
+        self,
+        trader_spread_pair: Tuple[Trade, Trade],
+        aggregated_exchange_trades: List[Trade],
+        hyphenated_pattern: str,
+    ) -> MatchResult:
+        """Create match result for Tier 4 hyphenated exchange aggregation → trader spread pair."""
+        price_trade, zero_trade = trader_spread_pair
+
+        # Generate unique match ID
+        match_id = self.generate_match_id(self.rule_number, "AGG_PROD_SPREAD")
+
+        # Rule-specific fields for Tier 4
+        rule_specific_fields = [
+            "hyphenated_exchange_aggregation",
+            "product_spread_components",
+            "contract_month",
+            "quantity_aggregation",
+            "buy_sell_spread_logic",
+            "price_differential",
+        ]
+
+        # Get complete matched fields with universal fields
+        matched_fields = self.get_universal_matched_fields(rule_specific_fields)
+
+        # Create synthetic spread trade for display purposes
+        display_trade = price_trade.model_copy(
+            update={
+                "product_name": f"{price_trade.product_name}/{zero_trade.product_name}"
+            }
+        )
+
+        return MatchResult(
+            match_id=match_id,
+            match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
+            confidence=self.confidence,
+            trader_trade=display_trade,  # Display trade showing spread format
+            exchange_trade=aggregated_exchange_trades[0],  # Primary exchange trade
+            additional_trader_trades=[zero_trade],  # Zero price trader trade
+            additional_exchange_trades=aggregated_exchange_trades[1:],  # Remaining exchange trades
+            matched_fields=matched_fields,
+            tolerances_applied={
+                "aggregation": f"Tier 4: {len(aggregated_exchange_trades)} hyphenated exchange trades aggregated",
+                "pattern": f"hyphenated pattern: {hyphenated_pattern}",
+                "scenario": "D - Many hyphenated exchange spreads → One trader spread pair",
+            },
+            rule_order=self.rule_number,
+        )
+
+    # ============ HELPER METHODS ============
 
     def _find_exchange_quantity_aggregation(
         self, candidates: List[Trade], target_quantity: Decimal

@@ -243,6 +243,15 @@ class ConfigManager:
         """Get default units for trader products."""
         return self._normalizer_config.get("traders_product_unit_defaults", {})
 
+    def get_buy_sell_mappings(self) -> Dict[str, str]:
+        """Get buy/sell indicator mappings for normalization.
+        
+        Returns:
+            Dictionary mapping buy/sell values to standardized B/S format
+        """
+        buy_sell_config = self._normalizer_config.get("buy_sell_mappings", {})
+        return buy_sell_config.get("mappings", {})
+
 
     def update_config(self, **kwargs) -> "ConfigManager":
         """Create new ConfigManager with updated values.

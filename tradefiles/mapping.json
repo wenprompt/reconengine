@@ -9,7 +9,7 @@
   "naphtha c&f japan mini": "naphtha japan",
   "naphtha c&f japan cg": "naphtha japan",
   "naphtha c&f japan (platts)/brent 1st line": "naphtha japan crack",
-  "naphtha c&f japan cg/naphtha cif nwe cg": "naptha japan-naphtha nwe",
+  "naphtha c&f japan cg/naphtha cif nwe cg": "naphtha japan-naphtha nwe",
   "marine 0.5% fob sing (platts) micro": "marine 0.5%",
   "naphtha cif nwe cg (platts)/brent 1st line": "naphtha nwe crack",
   "naphtha cif nwe cg mini": "naphtha nwe",
@@ -25,5 +25,9 @@
   "M65F": "M65",
   "CWF": "CAPE",
   "PVF": "PMX",
-  "SWF": "SMX"
+  "SWF": "SMX",
+  "mopj": "naphtha japan",
+  "nwe": "naphtha nwe",
+  "mopj_crack": "naphtha japan crack",
+  "nwe_crack": "naphtha nwe crack"
 }
