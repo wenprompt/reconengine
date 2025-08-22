@@ -9,7 +9,7 @@ from collections import defaultdict
 from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
-from .base_matcher import BaseMatcher
+from .base_matcher import BaseMatcher, UUID_LENGTH
 from ..utils.conversion_helpers import (
     get_product_conversion_ratio,
     convert_mt_to_bbl_with_product_ratio,
@@ -222,7 +222,7 @@ class CrackMatcher(BaseMatcher):
             MatchResult representing the crack match
         """
         # Generate unique match ID
-        match_id = f"CRACK_{uuid.uuid4().hex[:8].upper()}"
+        match_id = f"CRACK_{uuid.uuid4().hex[:UUID_LENGTH].upper()}"
         
         # Rule-specific fields that matched for cracks
         rule_specific_fields = [

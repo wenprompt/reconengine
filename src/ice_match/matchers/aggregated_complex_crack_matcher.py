@@ -33,8 +33,8 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             config_manager: Configuration manager with rule settings
             normalizer: Trade normalizer for data processing and shared conversion methods
         """
-        # Initialize parent class with normalizer, config_manager parameter order
-        super().__init__(normalizer, config_manager)
+        # Initialize parent class with config_manager, normalizer parameter order
+        super().__init__(config_manager, normalizer)
         
         # Override rule-specific settings for Rule 7
         self.rule_number = 7

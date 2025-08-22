@@ -31,7 +31,7 @@ class ComplexCrackMatcher(BaseMatcher):
     """
 
     def __init__(
-        self, normalizer: TradeNormalizer, config_manager: ConfigManager
+        self, config_manager: ConfigManager, normalizer: TradeNormalizer
     ):  # Modified __init__
         """Initialize the complex crack matcher."""
         self.normalizer = normalizer

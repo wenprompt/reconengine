@@ -329,7 +329,7 @@ class SGXCSVLoader:
                     self._get_field_value(row, "clearingstatus", field_mappings)
                 ),
                 trader_name=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "trader", field_mappings)
+                    self._get_field_value(row, "traderid", field_mappings)
                 ),
                 trading_session=self.normalizer.normalize_string_field(
                     self._get_field_value(row, "tradingsession", field_mappings)

@@ -8,7 +8,7 @@ import uuid
 from ..models import Trade, TradeSource, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
-from .base_matcher import BaseMatcher
+from .base_matcher import BaseMatcher, UUID_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ class ExactMatcher(BaseMatcher):
             MatchResult representing the exact match
         """
         # Generate unique match ID
-        match_id = f"EXACT_{uuid.uuid4().hex[:8].upper()}"
+        match_id = f"EXACT_{uuid.uuid4().hex[:UUID_LENGTH].upper()}"
         
         # Rule-specific fields that match exactly
         rule_specific_fields = [

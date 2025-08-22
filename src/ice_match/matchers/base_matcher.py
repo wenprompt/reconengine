@@ -5,6 +5,9 @@ from typing import List, Tuple, Any
 from ..models import Trade
 from ..config import ConfigManager
 
+# Constants
+UUID_LENGTH = 8  # Length of UUID suffix for match IDs
+
 
 class BaseMatcher(ABC):
     """Base class for all matchers providing universal field handling."""

@@ -11,6 +11,7 @@ from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
 from .multi_leg_base_matcher import MultiLegBaseMatcher
+from .base_matcher import UUID_LENGTH
 from ..utils.trade_helpers import get_month_order_tuple
 
 logger = logging.getLogger(__name__)
@@ -913,7 +914,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
         return MatchResult(
-            match_id=f"SPREAD_{uuid.uuid4().hex[:8].upper()}",
+            match_id=f"SPREAD_{uuid.uuid4().hex[:UUID_LENGTH].upper()}",
             match_type=MatchType.SPREAD,
             confidence=self.confidence,
             trader_trade=trader_trades[0],
