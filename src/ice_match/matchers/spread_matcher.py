@@ -3,7 +3,6 @@
 from typing import List, Optional, Dict, Tuple
 from decimal import Decimal
 import logging
-import uuid
 from collections import defaultdict
 
 from ..models import Trade, MatchResult, MatchType
@@ -419,8 +418,6 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
         # 🏁 SEQUENTIAL EXECUTION COMPLETE: Return cumulative results from all tiers
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-        total_groups = len(all_trade_groups)
-        total_trades = sum(len(trades) for trades in all_trade_groups.values())
         total_spread_pairs = sum(tier_match_counts.values())
 
         logger.info(
@@ -581,11 +578,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         """Check if there are trader spreads that match this exchange spread with calculated price."""
         trader_trades = pool_manager.get_unmatched_trader_trades()
 
-        # Create expected contract months set from exchange trades
-        exchange_months = {
-            exchange_trade1.contract_month,
-            exchange_trade2.contract_month,
-        }
+        # Exchange trades define the contract months we need to match
 
         # Look for trader spread pairs where:
         # - One leg has the calculated spread_price
@@ -913,7 +906,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
         return MatchResult(
-            match_id=f"SPREAD_{uuid.uuid4().hex[:8].upper()}",
+            match_id=self.generate_match_id(self.rule_number, "SPREAD"),
             match_type=MatchType.SPREAD,
             confidence=self.confidence,
             trader_trade=trader_trades[0],

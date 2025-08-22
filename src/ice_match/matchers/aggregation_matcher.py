@@ -1,10 +1,7 @@
 """Aggregation matcher for Rule 6 - Aggregation matching (split/combined trades)."""
 
 import logging
-import uuid
-from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
-from collections import defaultdict
+from typing import List, Optional
 
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
@@ -106,8 +103,7 @@ class AggregationMatcher(AggregationBaseMatcher):
         """
         try:
             # Generate unique match ID
-            import uuid
-            match_id = f"AGG_{uuid.uuid4().hex[:8].upper()}"
+            match_id = self.generate_match_id(self.rule_number, "AGG")
             
             # Rule-specific fields that match exactly (all except quantity)
             rule_specific_fields = [

@@ -1,7 +1,6 @@
 """Complex crack roll matcher for Rule 10: Calendar spreads of crack positions."""
 
 import logging
-import uuid
 from decimal import Decimal
 from typing import List, Tuple, Dict, Optional
 
@@ -22,7 +21,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
     Handles Rule 10: Complex Crack Roll Match Rules (Calendar Spread of Crack Positions)
     - Processes trades that remain unmatched after Rules 1-9
     - Matches 2 consecutive trader crack trades against 4 exchange trades (2 complete crack positions)
-    - Applies enhanced unit conversion tolerance (±145 MT, ±500 BBL)
+    - Applies enhanced unit conversion tolerance (±145 MT, dynamic BBL from config)
     - Validates crack roll spread calculation and price pattern (one price, one 0.0)
     
     Pattern: 2 consecutive trader crack trades ↔ 4 exchange trades (2 complete crack positions)
@@ -37,7 +36,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         
         # Use universal tolerances (enhanced tolerance for crack roll matching)
         self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
-        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # Dynamic BBL tolerance from config
         
         logger.info(f"Initialized ComplexCrackRollMatcher with {self.confidence}% confidence")
 
@@ -457,7 +456,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         }
         
         return MatchResult(
-            match_id=f"COMPLEX_CRACK_ROLL_{uuid.uuid4().hex[:8].upper()}",
+            match_id=self.generate_match_id(self.rule_number, "COMPLEX_CRACK_ROLL"),
             match_type=MatchType.COMPLEX_CRACK_ROLL,
             confidence=self.confidence,
             trader_trade=trader1,

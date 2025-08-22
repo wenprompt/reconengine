@@ -107,10 +107,10 @@ def remap_row(row, old_headers, target_headers, product_mapping):
 
     # Conditional mapping for buyer/seller info and b/s determination
     if get_value("Buyer Account"):
-        mapped_row[target_headers.index("trader")] = get_value("Buyer Trader")
+        mapped_row[target_headers.index("traderid")] = get_value("Buyer Trader")
         mapped_row[target_headers.index("b/s")] = "B"
     elif get_value("Seller Account"):
-        mapped_row[target_headers.index("trader")] = get_value("Seller Trader")
+        mapped_row[target_headers.index("traderid")] = get_value("Seller Trader")
         mapped_row[target_headers.index("b/s")] = "S"
 
     # Hardcoded values
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         target_headers = [
             "tradedate", "tradedatetime", "dealid", "tradeid", "productname", 
             "contractmonth", "quantitylots", "quantityunits", "price", 
-            "clearingstatus", "exchclearingacctid", "trader", "brokergroupid", "exchangegroupid",
+            "clearingstatus", "exchclearingacctid", "traderid", "brokergroupid", "exchangegroupid",
             "tradingsession", "cleareddate", "strike", "unit", "put/call", "b/s"
         ]
         

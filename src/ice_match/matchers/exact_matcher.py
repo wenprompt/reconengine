@@ -1,9 +1,7 @@
 """Exact matching implementation for Rule 1."""
 
 from typing import List, Optional, Dict
-from decimal import Decimal
 import logging
-import uuid
 
 from ..models import Trade, TradeSource, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
@@ -70,7 +68,7 @@ class ExactMatcher(BaseMatcher):
                 success = pool_manager.record_match(match_result)
                 
                 if not success:
-                    logger.error(f"Failed to record exact match in pool")
+                    logger.error("Failed to record exact match in pool")
                 else:
                     logger.debug(f"Created and recorded exact match: {match_result}")
         
@@ -165,8 +163,8 @@ class ExactMatcher(BaseMatcher):
         Returns:
             MatchResult representing the exact match
         """
-        # Generate unique match ID
-        match_id = f"EXACT_{uuid.uuid4().hex[:8].upper()}"
+        # Generate unique match ID using centralized helper
+        match_id = self.generate_match_id(self.rule_number, "EXACT")
         
         # Rule-specific fields that match exactly
         rule_specific_fields = [

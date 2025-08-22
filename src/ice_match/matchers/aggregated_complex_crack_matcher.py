@@ -1,9 +1,8 @@
 """Aggregated complex crack matcher for Rule 7 - Aggregated complex crack matching (2-leg with split base products)."""
 
 import logging
-import uuid
 from decimal import Decimal
-from typing import List, Tuple, Dict, Optional
+from typing import List, Optional
 from collections import defaultdict
 
 from ..models import Trade, MatchResult, MatchType
@@ -33,8 +32,8 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             config_manager: Configuration manager with rule settings
             normalizer: Trade normalizer for data processing and shared conversion methods
         """
-        # Initialize parent class with normalizer, config_manager parameter order
-        super().__init__(normalizer, config_manager)
+        # Initialize parent class with config_manager, normalizer parameter order
+        super().__init__(config_manager, normalizer)
         
         # Override rule-specific settings for Rule 7
         self.rule_number = 7
@@ -42,7 +41,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         
         # Universal tolerances for consistency across all crack-related rules
         self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
-        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # Dynamic BBL tolerance from config
         
         logger.info(f"Initialized AggregatedComplexCrackMatcher with {self.confidence}% confidence")
 
@@ -231,7 +230,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         """Create MatchResult for aggregated complex crack match."""
         
         # Generate unique match ID
-        match_id = f"AGG_CRACK_{uuid.uuid4().hex[:8].upper()}"
+        match_id = self.generate_match_id(self.rule_number, "AGG_CRACK")
 
         # Primary exchange trade is the first base trade
         primary_base_trade = base_trades[0]

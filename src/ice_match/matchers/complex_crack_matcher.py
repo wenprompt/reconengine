@@ -1,10 +1,7 @@
 """Complex crack matcher for 2-leg crack trades (base product + brent swap)."""
 
 import logging
-import uuid
-from decimal import Decimal
-from typing import List, Tuple, Dict, Optional
-from collections import defaultdict
+from typing import List, Tuple, Optional
 
 from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
@@ -31,7 +28,7 @@ class ComplexCrackMatcher(BaseMatcher):
     """
 
     def __init__(
-        self, normalizer: TradeNormalizer, config_manager: ConfigManager
+        self, config_manager: ConfigManager, normalizer: TradeNormalizer
     ):  # Modified __init__
         """Initialize the complex crack matcher."""
         self.normalizer = normalizer
@@ -42,7 +39,7 @@ class ComplexCrackMatcher(BaseMatcher):
         )  # Get confidence from config
         # Get universal tolerances (shared across all rules for consistency)
         self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
-        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl() # ±500 BBL
+        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # Dynamic BBL tolerance from config
 
         self.matches_found: List[MatchResult] = []  # Added type annotation
 
@@ -140,7 +137,7 @@ class ComplexCrackMatcher(BaseMatcher):
                     crack_trade, base_trade, brent_trade
                 ):
                     return MatchResult(
-                        match_id=str(uuid.uuid4()),
+                        match_id=self.generate_match_id(self.rule_number, "COMPLEX_CRACK"),
                         match_type=MatchType.COMPLEX_CRACK,
                         confidence=self.confidence,  # Get confidence from config
                         trader_trade=crack_trade,

@@ -1,7 +1,6 @@
 """Product spread matcher for Rule 5 - Product spread matching (hyphenated products)."""
 
 import logging
-import uuid
 from decimal import Decimal
 from typing import List, Tuple, Dict, Optional, Any
 from collections import defaultdict
@@ -255,7 +254,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         # Filter out hyphenated products (they're handled separately)
         non_hyphenated_trades = [
             t for t in exchange_trades 
-            if pool_manager.is_trade_matched(t) == False and 
+            if not pool_manager.is_trade_matched(t) and 
                (("-" not in t.product_name) or self._parse_hyphenated_product(t.product_name) is None)
         ]
         
@@ -493,7 +492,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         exchange1_ordered, exchange2_ordered = exchange_order
         
         # Generate unique match ID
-        match_id = f"PROD_SPREAD_2LEG_{uuid.uuid4().hex[:8].upper()}"
+        match_id = self.generate_match_id(self.rule_number, "PROD_SPREAD_2LEG")
         
         # Rule-specific fields that match exactly
         rule_specific_fields = [
@@ -647,7 +646,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             MatchResult representing the product spread match
         """
         # Generate unique match ID
-        match_id = f"PROD_SPREAD_{uuid.uuid4().hex[:8].upper()}"
+        match_id = self.generate_match_id(self.rule_number, "PROD_SPREAD")
         
         # Rule-specific fields that match exactly
         rule_specific_fields = [

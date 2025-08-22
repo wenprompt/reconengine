@@ -1,0 +1,40 @@
+{
+  "product_mappings": {
+    "fe": "FE",
+    "pmx": "PMX",
+    "cape": "CAPE",
+    "smx": "SMX",
+    "m65": "M65"
+  },
+  "month_patterns": {
+    "(?i)^jan[\\s\\-]?(\\d{2})$": "Jan\\1",
+    "(?i)^feb[\\s\\-]?(\\d{2})$": "Feb\\1",
+    "(?i)^mar[\\s\\-]?(\\d{2})$": "Mar\\1",
+    "(?i)^apr[\\s\\-]?(\\d{2})$": "Apr\\1",
+    "(?i)^may[\\s\\-]?(\\d{2})$": "May\\1",
+    "(?i)^jun[\\s\\-]?(\\d{2})$": "Jun\\1",
+    "(?i)^jul[\\s\\-]?(\\d{2})$": "Jul\\1",
+    "(?i)^aug[\\s\\-]?(\\d{2})$": "Aug\\1",
+    "(?i)^sep[\\s\\-]?(\\d{2})$": "Sep\\1",
+    "(?i)^sept[\\s\\-]?(\\d{2})$": "Sep\\1",
+    "(?i)^oct[\\s\\-]?(\\d{2})$": "Oct\\1",
+    "(?i)^nov[\\s\\-]?(\\d{2})$": "Nov\\1",
+    "(?i)^dec[\\s\\-]?(\\d{2})$": "Dec\\1"
+  },
+  "buy_sell_mappings": {
+    "b": "B",
+    "s": "S",
+    "buy": "B",
+    "sell": "S",
+    "bought": "B",
+    "sold": "S"
+  },
+  "universal_matching_fields": {
+    "description": "Fields that must match across ALL SGX matching rules",
+    "required_fields": ["brokergroupid", "exchclearingacctid"],
+    "field_mappings": {
+      "brokergroupid": "broker_group_id",
+      "exchclearingacctid": "exch_clearing_acct_id"
+    }
+  }
+}

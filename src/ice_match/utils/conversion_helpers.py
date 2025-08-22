@@ -108,7 +108,7 @@ def validate_mt_to_bbl_quantity_match(
         trader_quantity_mt: Trader quantity in MT
         exchange_quantity_bbl: Exchange quantity in BBL
         product_name: Product name for conversion ratio
-        bbl_tolerance: BBL tolerance (e.g., ±500 BBL)
+        bbl_tolerance: BBL tolerance (dynamically loaded from config)
         config_manager: Configuration manager with product conversion ratios
         
     Returns:

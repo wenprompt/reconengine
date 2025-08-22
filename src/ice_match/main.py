@@ -26,6 +26,11 @@ from .matchers import (
 )
 from .cli import MatchDisplayer
 
+# Default file paths and constants - package-relative
+DEFAULT_DATA_DIR = Path(__file__).parent / "data"
+DEFAULT_TRADER_FILE = "sourceTraders.csv"
+DEFAULT_EXCHANGE_FILE = "sourceExchange.csv"
+
 
 def setup_logging(log_level: str = "INFO", show_logs: bool = False):
     """Setup logging configuration.
@@ -146,7 +151,7 @@ class ICEMatchingEngine:
             # Rule 4: Complex crack matching
             self.logger.info("Applying Rule 4: Complex crack matching...")
             complex_crack_matcher = ComplexCrackMatcher(
-                self.normalizer, self.config_manager
+                self.config_manager, self.normalizer
             )
             complex_crack_matches = complex_crack_matcher.find_matches(
                 pool_manager  # Pass pool_manager directly
@@ -298,16 +303,16 @@ Examples:
         "trader_csv",
         type=Path,
         nargs="?",
-        default=Path("src/ice_match/data/sourceTraders.csv"),
-        help="Path to trader CSV file (default: src/ice_match/data/sourceTraders.csv)",
+        default=DEFAULT_DATA_DIR / DEFAULT_TRADER_FILE,
+        help=f"Path to trader CSV file (default: {DEFAULT_DATA_DIR / DEFAULT_TRADER_FILE})",
     )
 
     parser.add_argument(
         "exchange_csv",
         type=Path,
         nargs="?",
-        default=Path("src/ice_match/data/sourceExchange.csv"),
-        help="Path to exchange CSV file (default: src/ice_match/data/sourceExchange.csv)",
+        default=DEFAULT_DATA_DIR / DEFAULT_EXCHANGE_FILE,
+        help=f"Path to exchange CSV file (default: {DEFAULT_DATA_DIR / DEFAULT_EXCHANGE_FILE})",
     )
 
     parser.add_argument(
@@ -354,7 +359,7 @@ Examples:
         exact_matcher = ExactMatcher(config_manager)
         spread_matcher = SpreadMatcher(config_manager, normalizer)
         crack_matcher = CrackMatcher(config_manager, normalizer)
-        complex_crack_matcher = ComplexCrackMatcher(normalizer, config_manager)
+        complex_crack_matcher = ComplexCrackMatcher(config_manager, normalizer)
         product_spread_matcher = ProductSpreadMatcher(config_manager, normalizer)
         aggregation_matcher = AggregationMatcher(config_manager)
         aggregated_complex_crack_matcher = AggregatedComplexCrackMatcher(
@@ -387,11 +392,11 @@ Examples:
                 print(f"\nRule {rule_info['rule_number']}: {rule_info['rule_name']}")
                 print(f"  Confidence: {rule_info['confidence']}%")
                 print(f"  Description: {rule_info['description']}")
-                print(f"  Requirements:")
+                print("  Requirements:")
                 for req in rule_info["requirements"]:
                     print(f"    - {req}")
                 if "tolerances" in rule_info and rule_info["tolerances"]:
-                    print(f"  Tolerances:")
+                    print("  Tolerances:")
                     for k, v in rule_info["tolerances"].items():
                         print(f"    - {k}: {v}")
         print("\n-----------------------------------")
