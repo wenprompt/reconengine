@@ -13,6 +13,11 @@ from .matchers import SGXExactMatcher
 from .models import SGXMatchResult
 from .cli import SGXDisplay
 
+# Default file paths
+DEFAULT_DATA_DIR = Path(__file__).parent / "data"
+DEFAULT_TRADER_FILE = "sourceTraders.csv"
+DEFAULT_EXCHANGE_FILE = "sourceExchange.csv"
+
 
 # Configure logging
 logging.basicConfig(
@@ -137,14 +142,14 @@ def main():
     parser.add_argument(
         "--trader-csv",
         type=Path,
-        default=Path(__file__).parent / "data" / "sourceTraders.csv",
+        default=DEFAULT_DATA_DIR / DEFAULT_TRADER_FILE,
         help="Path to trader CSV file"
     )
     
     parser.add_argument(
         "--exchange-csv", 
         type=Path,
-        default=Path(__file__).parent / "data" / "sourceExchange.csv",
+        default=DEFAULT_DATA_DIR / DEFAULT_EXCHANGE_FILE,
         help="Path to exchange CSV file"
     )
     

@@ -76,20 +76,17 @@ class SGXTrade(BaseModel):
     @property
     def is_option(self) -> bool:
         """Check if this trade is an option (has strike price or put/call indicator)."""
-        return self.strike is not None or self.put_call is not None
+        return self.strike is not None or bool(self.put_call)
     
     @property
     def is_spread_trade(self) -> bool:
         """Check if this trade is part of a spread (has spread indicator)."""
-        return self.spread is not None
+        return bool(self.spread)
     
     @property
     def display_id(self) -> str:
         """Get a display-friendly ID for logging and output."""
-        if self.source == SGXTradeSource.TRADER:
-            return f"T_{self.trader_id or 'UNKNOWN'}"
-        else:
-            return f"E_{self.deal_id or 'UNKNOWN'}_{self.trade_id}"
+        return self.trade_id  # Show the unique trade_id (T_index_uuid or E_index_uuid)
     
     @property
     def product_contract_key(self) -> str:

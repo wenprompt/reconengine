@@ -9,6 +9,9 @@ from rich import box
 
 from ..models import SGXMatchResult, SGXTrade
 
+# Display configuration constants
+MAX_UNMATCHED_DISPLAY = 100  # Maximum unmatched trades to show
+
 
 class SGXDisplay:
     """Rich console display for SGX matching results."""
@@ -139,7 +142,11 @@ class SGXDisplay:
     
     def _show_unmatched_trader_table(self, trades: List[SGXTrade]) -> None:
         """Show unmatched trader trades table."""
-        table = Table(title=f"Unmatched Trader Trades ({len(trades)})", box=box.ROUNDED)
+        display_count = min(len(trades), MAX_UNMATCHED_DISPLAY)
+        title = f"Unmatched Trader Trades ({len(trades)})"
+        if len(trades) > MAX_UNMATCHED_DISPLAY:
+            title += f" - Showing first {MAX_UNMATCHED_DISPLAY}"
+        table = Table(title=title, box=box.ROUNDED)
         table.add_column("ID", style="cyan")
         table.add_column("Product", style="green")
         table.add_column("Contract", style="yellow")
@@ -150,7 +157,7 @@ class SGXDisplay:
         table.add_column("Broker Group", justify="right")
         table.add_column("Remarks", style="dim")
         
-        for trade in trades:  # Show all trades
+        for trade in trades[:MAX_UNMATCHED_DISPLAY]:  # Limit display for performance
             table.add_row(
                 trade.display_id,
                 trade.product_name,
@@ -168,7 +175,11 @@ class SGXDisplay:
     
     def _show_unmatched_exchange_table(self, trades: List[SGXTrade]) -> None:
         """Show unmatched exchange trades table."""
-        table = Table(title=f"Unmatched Exchange Trades ({len(trades)})", box=box.ROUNDED)
+        display_count = min(len(trades), MAX_UNMATCHED_DISPLAY)
+        title = f"Unmatched Exchange Trades ({len(trades)})"
+        if len(trades) > MAX_UNMATCHED_DISPLAY:
+            title += f" - Showing first {MAX_UNMATCHED_DISPLAY}"
+        table = Table(title=title, box=box.ROUNDED)
         table.add_column("ID", style="cyan")
         table.add_column("Deal ID", justify="right")
         table.add_column("Product", style="green")
@@ -178,7 +189,7 @@ class SGXDisplay:
         table.add_column("B/S", justify="center")
         table.add_column("Trader", style="dim")
         
-        for trade in trades:  # Show all trades
+        for trade in trades[:MAX_UNMATCHED_DISPLAY]:  # Limit display for performance
             table.add_row(
                 trade.display_id,
                 str(trade.deal_id or ""),

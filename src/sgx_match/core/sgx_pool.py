@@ -1,11 +1,9 @@
 """Unmatched SGX trade pool manager for ensuring non-duplication."""
 
-from typing import List, Set, Dict, Optional, Tuple, Any
-from collections import defaultdict
+from typing import List, Set, Dict, Tuple, Any
 import logging
-from decimal import Decimal
 
-from ..models import SGXTrade, SGXTradeSource, SGXMatchResult
+from ..models import SGXTrade, SGXTradeSource
 
 logger = logging.getLogger(__name__)
 

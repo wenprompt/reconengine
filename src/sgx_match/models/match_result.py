@@ -3,7 +3,7 @@
 from decimal import Decimal
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict, Optional
+from typing import List
 from pydantic import BaseModel, Field, ConfigDict
 from .trade import SGXTrade
 
@@ -50,10 +50,6 @@ class SGXMatchResult(BaseModel):
         default_factory=list, 
         description="List of fields that matched exactly"
     )
-    tolerances_applied: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Any tolerances that were applied during matching"
-    )
     
     # Timestamps
     match_timestamp: datetime = Field(
@@ -98,11 +94,10 @@ class SGXMatchResult(BaseModel):
     
     @property
     def is_exact_match(self) -> bool:
-        """Check if this is an exact match with zero tolerances."""
+        """Check if this is an exact match."""
         return (
             self.price_difference == Decimal("0") and
-            self.quantity_difference == Decimal("0") and
-            not self.tolerances_applied
+            self.quantity_difference == Decimal("0")
         )
     
     @property

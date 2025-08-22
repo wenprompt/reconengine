@@ -9,11 +9,13 @@ wheels/
 # Virtual environments
 .venv
 
+
 # serena
 .serena/
 
 # data files (sensitive)
 src/ice_match/data/
+src/sgx_match/data/
 tradefiles/input/
 tradefiles/output/
 tradefiles/input_traders/

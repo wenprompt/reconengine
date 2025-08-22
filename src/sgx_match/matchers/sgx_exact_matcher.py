@@ -1,7 +1,6 @@
 """Exact matching implementation for SGX Rule 1."""
 
-from typing import List, Optional, Dict
-from decimal import Decimal
+from typing import List, Dict
 import logging
 import uuid
 from collections import defaultdict
@@ -12,6 +11,9 @@ from ..config import SGXConfigManager
 from .sgx_base_matcher import SGXBaseMatcher
 
 logger = logging.getLogger(__name__)
+
+# Constants
+UUID_LENGTH = 8  # Length of UUID suffix for match IDs
 
 
 class SGXExactMatcher(SGXBaseMatcher):
@@ -149,7 +151,7 @@ class SGXExactMatcher(SGXBaseMatcher):
         Returns:
             SGXMatchResult representing this match
         """
-        match_id = f"{self.config_manager.get_match_id_prefix()}_{self.rule_number}_{uuid.uuid4().hex[:8]}"
+        match_id = f"{self.config_manager.get_match_id_prefix()}_{self.rule_number}_{uuid.uuid4().hex[:UUID_LENGTH]}"
         
         # Fields that matched exactly (rule-specific + universal)
         rule_fields = ["product_name", "contract_month", "quantity_units", "price", "buy_sell"]
@@ -162,6 +164,5 @@ class SGXExactMatcher(SGXBaseMatcher):
             confidence=self.confidence,
             trader_trade=trader_trade,
             exchange_trade=exchange_trade,
-            matched_fields=matched_fields,
-            tolerances_applied={}  # No tolerances for exact matching
+            matched_fields=matched_fields
         )

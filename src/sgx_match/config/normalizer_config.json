@@ -1,20 +1,10 @@
 {
   "product_mappings": {
-    "FE": "FE",
     "fe": "FE",
-    "iron ore": "FE",
-    "PMX": "PMX",
     "pmx": "PMX",
-    "palm oil": "PMX",
-    "CAPE": "CAPE",
     "cape": "CAPE",
-    "capesize": "CAPE",
-    "SMX": "SMX",
     "smx": "SMX",
-    "steel making": "SMX",
-    "M65": "M65",
-    "m65": "M65",
-    "iron ore 65%": "M65"
+    "m65": "M65"
   },
   "month_patterns": {
     "(?i)^jan[\\s\\-]?(\\d{2})$": "Jan\\1",
@@ -32,10 +22,8 @@
     "(?i)^dec[\\s\\-]?(\\d{2})$": "Dec\\1"
   },
   "buy_sell_mappings": {
-    "B": "B",
-    "S": "S",
-    "Buy": "B",
-    "Sell": "S",
+    "b": "B",
+    "s": "S",
     "buy": "B",
     "sell": "S",
     "bought": "B",
@@ -47,11 +35,6 @@
     "field_mappings": {
       "brokergroupid": "broker_group_id",
       "exchclearingacctid": "exch_clearing_acct_id"
-    },
-    "notes": {
-      "brokergroupid": "Broker group identifier - must match exactly",
-      "exchclearingacctid": "Exchange clearing account identifier - must match exactly",
-      "field_mappings": "Maps CSV column names to SGXTrade model attributes"
     }
   }
 }

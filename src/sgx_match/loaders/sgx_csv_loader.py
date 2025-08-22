@@ -115,10 +115,11 @@ class SGXCSVLoader:
             SGXTrade object or None if invalid
         """
         try:
-            # Generate trade ID if not present
-            trade_id = self._get_field_value(row, "traderid", field_mappings)
-            if not trade_id:
-                trade_id = f"T_{index}_{uuid.uuid4().hex[:6]}"
+            # Extract trader ID from CSV (keep distinct from trade_id)
+            trader_id = self._get_field_value(row, "traderid", field_mappings)
+            
+            # Generate unique trade ID (always generate, don't conflate with trader_id)
+            trade_id = f"T_{index}_{uuid.uuid4().hex[:6]}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(
@@ -196,7 +197,7 @@ class SGXCSVLoader:
                     self._get_field_value(row, "tradetime", field_mappings)
                 ),
                 trade_datetime=None,  # Trader data doesn't have combined datetime
-                trader_id=trade_id,
+                trader_id=trader_id,
                 product_id=self.normalizer.normalize_string_field(
                     self._get_field_value(row, "productid", field_mappings)
                 ),
@@ -236,13 +237,8 @@ class SGXCSVLoader:
             SGXTrade object or None if invalid
         """
         try:
-            # Extract trade ID
-            trade_id = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "tradeid", field_mappings)
-            )
-            
-            if not trade_id:
-                trade_id = f"E_{index}_{uuid.uuid4().hex[:6]}"
+            # Always generate consistent trade ID with row index for easy identification
+            trade_id = f"E_{index}_{uuid.uuid4().hex[:6]}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(
