@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Tuple
 from decimal import Decimal
 import logging
 from collections import defaultdict
-from itertools import combinations
+from itertools import combinations, permutations
 from dataclasses import dataclass
 
 from ..models import Trade, MatchResult, MatchType
@@ -205,32 +205,40 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         return True
 
     def _get_trader_spread_info(self, trader_pair: List[Trade]) -> Optional[Dict]:
-        """Extract spread info from trader pair (price leg + zero leg)."""
+        """Extract spread info from trader pair, organizing legs chronologically."""
         if len(trader_pair) != 2:
             return None
-            
-        # Identify price leg vs zero leg
+
         price_trade = next((t for t in trader_pair if t.price != 0), None)
         zero_trade = next((t for t in trader_pair if t.price == 0), None)
-        
+
         if not price_trade or not zero_trade:
             return None
-            
-        # Determine spread direction and months
-        if price_trade.buy_sell == 'S':  # Sell price leg means sell spread
-            sold_month = price_trade.contract_month
-            bought_month = zero_trade.contract_month
-        else:  # Buy price leg means buy spread
-            bought_month = price_trade.contract_month
-            sold_month = zero_trade.contract_month
-            
+
+        # Determine chronological order of trader legs
+        try:
+            price_month_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(price_trade.contract_month))
+            zero_month_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(zero_trade.contract_month))
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Could not determine month order for trader pair {price_trade.trade_id}/{zero_trade.trade_id}: {e}")
+            return None
+
+        # Handle cases where a month cannot be ordered (e.g., 'Balmo')
+        if not price_month_tuple or not zero_month_tuple:
+            return None
+
+        if price_month_tuple < zero_month_tuple:
+            earlier_leg = price_trade
+            later_leg = zero_trade
+        else:
+            earlier_leg = zero_trade
+            later_leg = price_trade
+
         return {
-            "sold_month": sold_month,
-            "bought_month": bought_month,
-            # Preserve sign to respect directionality
-            "spread_price": price_trade.price,
+            "earlier_leg": earlier_leg,
+            "later_leg": later_leg,
+            "spread_price": price_trade.price,  # Preserve sign for direction
             "quantity": self._get_quantity_for_grouping(price_trade, self.normalizer),
-            "is_sell_spread": price_trade.buy_sell == "S",
         }
 
     def _pre_identify_exchange_spreads(self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[ExchangeSpread]:
@@ -347,116 +355,169 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
 
     def _find_tier1_netting_combination(self, trader_pair: List[Trade], trader_spread_info: Dict, exchange_spreads: List[ExchangeSpread]) -> Optional[MatchResult]:
         """Tier 1: Find 2 exchange spreads that net to match the trader spread."""
-        target_sold_month = trader_spread_info['sold_month']
-        target_bought_month = trader_spread_info['bought_month'] 
-        target_price = trader_spread_info['spread_price']
-        target_quantity = trader_spread_info['quantity']
+        trader_earlier_leg = trader_spread_info["earlier_leg"]
+        trader_later_leg = trader_spread_info["later_leg"]
+        target_price = trader_spread_info["spread_price"]
+        target_quantity = trader_spread_info["quantity"]
         target_product = trader_pair[0].product_name
-        target_broker = trader_pair[0].broker_group_id
-        target_clearing = trader_pair[0].exch_clearing_acct_id
-        
-        # Filter spreads once for efficiency
+
+        # Filter spreads once for efficiency based on product and quantity
         matching_spreads = [
             spread for spread in exchange_spreads
-            if (spread.leg1.product_name == target_product and
-                spread.leg1.broker_group_id == target_broker and
-                spread.leg1.exch_clearing_acct_id == target_clearing and
-                self._get_quantity_for_grouping(spread.leg1, self.normalizer) == target_quantity)
+            if (spread.product_name == target_product and
+                self._get_quantity_for_grouping(spread.leg1, self.normalizer) == target_quantity and
+                self.validate_universal_fields(spread.leg1, trader_pair[0]))
         ]
-        
-        logger.debug(f"Tier 1: {len(matching_spreads)} spreads match criteria for {target_sold_month}/{target_bought_month}")
-        
+
+        logger.debug(f"Tier 1: Found {len(matching_spreads)} spreads with matching product/quantity/universal fields")
+
         # Try combinations of 2 spreads (O(s^2) instead of O(n^4))
         for spread1, spread2 in combinations(matching_spreads, 2):
+            # Ensure the two spreads also share universal fields between them
+            if not self.validate_universal_fields(spread1.leg1, spread2.leg1):
+                continue
+
             net_result = spread1.calculate_net_spread_with(spread2)
-            if net_result:
-                net_sold_month, net_bought_month, net_price = net_result
-                if (net_sold_month == target_sold_month and 
-                    net_bought_month == target_bought_month and
-                    net_price == target_price):  # EXACT price match - no tolerance
-                    
-                    logger.debug(f"Found Tier 1 netting: {spread1.spread_months} + {spread2.spread_months}")
-                    return self._create_match_result_from_spreads(trader_pair, [spread1, spread2])
-        
+            if not net_result:
+                continue
+
+            _, _, net_price = net_result
+
+            # Identify outer legs and netting legs
+            outer_leg_earlier, outer_leg_later = None, None
+            netting_leg1, netting_leg2 = None, None
+
+            if spread1.spread_months[1] == spread2.spread_months[0]:  # A/B + B/C
+                outer_leg_earlier, outer_leg_later = spread1.leg1, spread2.leg2
+                netting_leg1, netting_leg2 = spread1.leg2, spread2.leg1
+            elif spread2.spread_months[1] == spread1.spread_months[0]:  # B/C + A/B
+                outer_leg_earlier, outer_leg_later = spread2.leg1, spread1.leg2
+                netting_leg1, netting_leg2 = spread2.leg2, spread1.leg1
+            else:
+                continue  # Should not happen due to net_result check
+
+            # --- Tier 1 Specific Validations ---
+            # 1. Perfect Netting: Internal legs must have opposite B/S (prices don't need to match)
+            if netting_leg1.buy_sell == netting_leg2.buy_sell:
+                continue
+
+            # 2. Outer Leg Match: Chronological legs must match month and B/S direction
+            if not (outer_leg_earlier.contract_month == trader_earlier_leg.contract_month and
+                    outer_leg_earlier.buy_sell == trader_earlier_leg.buy_sell and
+                    outer_leg_later.contract_month == trader_later_leg.contract_month and
+                    outer_leg_later.buy_sell == trader_later_leg.buy_sell):
+                continue
+
+            # 3. Price Match: Combined price must match trader's spread price exactly
+            if net_price != target_price:
+                continue
+
+            # --- Match Found ---
+            logger.debug(f"Found Tier 1 netting: {spread1.spread_months} + {spread2.spread_months}")
+            return self._create_match_result_from_spreads(trader_pair, [spread1, spread2])
+
         return None
 
     def _find_tier2_netting_combination(self, trader_pair: List[Trade], trader_spread_info: Dict, exchange_spreads: List[ExchangeSpread]) -> Optional[MatchResult]:
         """Tier 2: Find 3 exchange spreads forming consecutive chain to match trader spread."""
-        target_sold_month = trader_spread_info['sold_month']
-        target_bought_month = trader_spread_info['bought_month'] 
-        target_price = trader_spread_info['spread_price']
-        target_quantity = trader_spread_info['quantity']
+        trader_earlier_leg = trader_spread_info["earlier_leg"]
+        trader_later_leg = trader_spread_info["later_leg"]
+        target_price = trader_spread_info["spread_price"]
+        target_quantity = trader_spread_info["quantity"]
         target_product = trader_pair[0].product_name
-        target_broker = trader_pair[0].broker_group_id
-        target_clearing = trader_pair[0].exch_clearing_acct_id
-        
+
         # Filter spreads once for efficiency
         matching_spreads = [
             spread for spread in exchange_spreads
-            if (spread.leg1.product_name == target_product and
-                spread.leg1.broker_group_id == target_broker and
-                spread.leg1.exch_clearing_acct_id == target_clearing and
-                self._get_quantity_for_grouping(spread.leg1, self.normalizer) == target_quantity)
+            if (spread.product_name == target_product and
+                self._get_quantity_for_grouping(spread.leg1, self.normalizer) == target_quantity and
+                self.validate_universal_fields(spread.leg1, trader_pair[0]))
         ]
-        
-        logger.debug(f"Tier 2: {len(matching_spreads)} spreads match criteria for {target_sold_month}/{target_bought_month}")
-        
+
+        if len(matching_spreads) < 3:
+            return None
+
+        logger.debug(f"Tier 2: Found {len(matching_spreads)} spreads for potential combination")
+
         # Try combinations of 3 spreads (O(s^3) instead of O(n^6))
-        for spread1, spread2, spread3 in combinations(matching_spreads, 3):
-            if self._validate_tier2_spread_netting([spread1, spread2, spread3], target_sold_month, target_bought_month, target_price):
-                logger.debug(f"Found Tier 2 chain: {spread1.spread_months} + {spread2.spread_months} + {spread3.spread_months}")
-                return self._create_match_result_from_spreads(trader_pair, [spread1, spread2, spread3])
+        for spread_combination in combinations(matching_spreads, 3):
+            # Ensure all three spreads share universal fields
+            if not (self.validate_universal_fields(spread_combination[0].leg1, spread_combination[1].leg1) and
+                    self.validate_universal_fields(spread_combination[0].leg1, spread_combination[2].leg1)):
+                continue
+
+            # Validate if this combination can form the target trader spread
+            if self._validate_tier2_spread_netting(
+                spreads=list(spread_combination),
+                trader_earlier_leg=trader_earlier_leg,
+                trader_later_leg=trader_later_leg,
+                target_price=target_price
+            ):
+                logger.debug(f"Found Tier 2 chain: {[s.spread_months for s in spread_combination]}")
+                return self._create_match_result_from_spreads(trader_pair, list(spread_combination))
         
         return None
 
-    def _validate_tier2_spread_netting(self, spreads: List[ExchangeSpread], target_sold_month: str, target_bought_month: str, target_price: Decimal) -> bool:
-        """Validate that 3 spreads form consecutive chain to match target spread."""
-        spread1, spread2, spread3 = spreads
-        
-        # Try all possible orderings of the 3 spreads
-        for first, second, third in [(spread1, spread2, spread3), (spread1, spread3, spread2), 
-                                    (spread2, spread1, spread3), (spread2, spread3, spread1),
-                                    (spread3, spread1, spread2), (spread3, spread2, spread1)]:
-            
-            # Try to chain: first + second = intermediate
+    def _validate_tier2_spread_netting(self, spreads: List[ExchangeSpread], trader_earlier_leg: Trade, trader_later_leg: Trade, target_price: Decimal) -> bool:
+        """Validate that 3 spreads form a consecutive chain that matches the target trader spread."""
+        # Try all 6 possible orderings of the 3 spreads to find a valid chain
+        for p in permutations(spreads):
+            first, second, third = p[0], p[1], p[2]
+
+            # Chain the first two spreads (e.g., A/B + B/C = A/C)
             intermediate_result = first.calculate_net_spread_with(second)
             if not intermediate_result:
                 continue
-                
-            intermediate_start, intermediate_end, intermediate_price = intermediate_result
             
-            # Check if third can complete the chain to reach target
-            if self._can_third_spread_complete_chain(third, intermediate_start, intermediate_end, 
-                                                   intermediate_price, target_sold_month, target_bought_month, target_price):
+            # Determine the outer legs of the intermediate spread
+            inter_outer_earlier, inter_outer_later = None, None
+            if first.spread_months[1] == second.spread_months[0]: # A/B + B/C
+                # Netting validation: B/S must be opposite for flexible netting
+                if first.leg2.buy_sell == second.leg1.buy_sell:
+                    continue
+                inter_outer_earlier, inter_outer_later = first.leg1, second.leg2
+            elif second.spread_months[1] == first.spread_months[0]: # B/C + A/B
+                # Netting validation: B/S must be opposite for flexible netting
+                if second.leg2.buy_sell == first.leg1.buy_sell:
+                    continue
+                inter_outer_earlier, inter_outer_later = second.leg1, first.leg2
+            else:
+                continue
+
+            # Chain the intermediate result with the third spread
+            final_result = self._calculate_final_net_spread(inter_outer_earlier, inter_outer_later, intermediate_result[2], third)
+            if not final_result:
+                continue
+
+            final_outer_earlier, final_outer_later, final_price = final_result
+
+            # Final validation: check if the final outer legs and price match the trader spread
+            if (final_outer_earlier.contract_month == trader_earlier_leg.contract_month and
+                final_outer_earlier.buy_sell == trader_earlier_leg.buy_sell and
+                final_outer_later.contract_month == trader_later_leg.contract_month and
+                final_outer_later.buy_sell == trader_later_leg.buy_sell and
+                final_price == target_price):
                 return True
         
         return False
 
-    def _can_third_spread_complete_chain(self, third_spread: ExchangeSpread, 
-                                        intermediate_start: str, intermediate_end: str, intermediate_price: Decimal,
-                                        target_sold_month: str, target_bought_month: str, target_price: Decimal) -> bool:
-        """Check if third spread can complete the chain to reach target."""
-        # Case 1: third spread starts where intermediate ends
-        if intermediate_end == third_spread.spread_months[0]:
-            final_start = intermediate_start
-            final_end = third_spread.spread_months[1]
-            final_price = intermediate_price + third_spread.spread_price
-            
-            if (final_start == target_sold_month and final_end == target_bought_month and
-                final_price == target_price):  # EXACT price match - no tolerance
-                return True
-        
-        # Case 2: third spread ends where intermediate starts
-        if intermediate_start == third_spread.spread_months[1]:
-            final_start = third_spread.spread_months[0]
-            final_end = intermediate_end
-            final_price = third_spread.spread_price + intermediate_price
-            
-            if (final_start == target_sold_month and final_end == target_bought_month and
-                final_price == target_price):  # EXACT price match - no tolerance
-                return True
-        
-        return False
+    def _calculate_final_net_spread(self, inter_earlier: Trade, inter_later: Trade, inter_price: Decimal, third_spread: ExchangeSpread) -> Optional[Tuple[Trade, Trade, Decimal]]:
+        """Helper to chain an intermediate spread with a third spread."""
+        # Case 1: Third spread starts where intermediate ends (A/C + C/D = A/D)
+        if inter_later.contract_month == third_spread.leg1.contract_month:
+            # Netting validation: B/S must be opposite
+            if inter_later.buy_sell != third_spread.leg1.buy_sell:
+                final_price = inter_price + third_spread.spread_price
+                return inter_earlier, third_spread.leg2, final_price
+
+        # Case 2: Third spread ends where intermediate starts (D/A + A/C = D/C)
+        if inter_earlier.contract_month == third_spread.leg2.contract_month:
+            # Netting validation: B/S must be opposite
+            if inter_earlier.buy_sell != third_spread.leg2.buy_sell:
+                final_price = third_spread.spread_price + inter_price
+                return third_spread.leg1, inter_later, final_price
+
+        return None
 
     def _create_match_result_from_spreads(self, trader_pair: List[Trade], exchange_spreads: List[ExchangeSpread]) -> MatchResult:
         """Create match result from trader pair and exchange spreads."""
