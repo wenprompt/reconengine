@@ -14,6 +14,7 @@ wheels/
 .serena/
 
 # data files (sensitive)
+src/unified_recon/data/
 src/ice_match/data/
 src/sgx_match/data/
 tradefiles/input/

@@ -1,109 +1,125 @@
 # GEMINI.md
 
-This file provides comprehensive guidance to Gemini when working with this **ICE Trade Matching System** project.
+This file provides comprehensive guidance to Gemini when working with this **Reconciliation Engine** project.
 
 ## 🎯 Project Overview
 
-This is an **ICE Trade Matching System** that matches trades between trader and exchange data sources using a sequential, rule-based approach. The system is designed to be robust, extensible, and maintainable, with a focus on clear data processing pipelines and strong data integrity. It now supports a growing set of matching rules, including complex scenarios like multi-leg crack spreads, product spreads, aggregation, and advanced decomposition and netting. All 10 rules defined in `docs/rules.md` are now implemented.
+This is a **Reconciliation Engine** that contains multiple specialized matching systems, orchestrated by a central routing system.
+
+- **Unified Reconciliation System** (`src/unified_recon/`): The main entry point. It acts as a centralized data router that groups trades by `exchangegroupid` and routes them to the appropriate matching system (e.g., Group 1 → ICE, Group 2 → SGX). It then aggregates the results from all systems for unified reporting.
+
+- **ICE Trade Matching System** (`src/ice_match/`): A specialized subsystem for matching energy derivatives. It uses a sequential, 12-rule engine to find complex matches.
+
+- **SGX Trade Matching System** (`src/sgx_match/`): A specialized subsystem for matching Singapore Exchange iron ore futures using a simple exact matching rule.
 
 ### Key Features
 
-- **Universal Data Normalization**: `TradeNormalizer` standardizes product names, contract months, buy/sell indicators, and unit conversions.
-- **Universal Matching Fields**: A data-driven system ensures specified fields (e.g., `brokergroupid`) must match across ALL matching rules, providing system-wide consistency.
-- **Configuration Management**: Centralized settings with rule confidence levels, tolerances, and conversion ratios.
-- **Sequential Rule Processing**: Implements rules in priority order (exact matches first) with non-duplication.
-- **Rich CLI Interface**: Beautiful terminal output with progress indicators and detailed results.
-- **Product-Specific Unit Conversion**: MT→BBL conversion with product-specific ratios (6.35, 8.9, 7.0 default).
+- **Centralized Routing**: The `UnifiedTradeRouter` loads master data files, validates them, and routes trades to the correct subsystem based on exchange group.
+- **Modular Matching Systems**: Each matching system (ICE, SGX) is self-contained with its own rules, models, and configuration, allowing for independent operation and maintenance.
+- **Sequential Rule Processing**: The ICE system implements 12 rules in priority order (exact matches first) with non-duplication to handle complex trade scenarios.
+- **Universal Data Normalization**: Each subsystem's `TradeNormalizer` standardizes product names, contract months, buy/sell indicators, and unit conversions.
+- **Universal Matching Fields**: A data-driven system ensures specified fields (e.g., `brokergroupid`) must match across ALL matching rules within a subsystem.
+- **Rich CLI Interface**: Beautiful terminal output with progress indicators and detailed, aggregated results.
 - **Pydantic v2 Data Models**: Strict validation and type safety for all trade data.
 - **Complete Type Safety**: Full mypy compliance with pandas-stubs integration.
 
 ## 🌊 Data Processing Flow
 
-The system follows a clear, sequential data processing pipeline:
+The system follows a clear, sequential data processing pipeline orchestrated by the **Unified Reconciliation System**:
 
-1.  **Load**: Raw data is loaded from CSV files (e.g., `sourceTraders.csv` and `sourceExchange.csv`) by the `CSVTradeLoader`.
-2.  **Normalize**: The `TradeNormalizer` cleans and standardizes critical fields (`product_name`, `contract_month`, `buy_sell`, etc.) from the raw data using rules loaded from `normalizer_config.json`. It also provides product-specific unit conversion ratios and shared conversion/validation methods. This is a crucial step to ensure consistent comparisons.
-3.  **Instantiate**: Validated and normalized data is used to create immutable `Trade` objects.
-4.  **Pool**: All `Trade` objects are placed into the `UnmatchedPoolManager`, which tracks the state of all matched and unmatched trades, preventing duplicate matches.
-5.  **Match**: A sequence of `Matcher` modules are run in order of confidence (as defined in `rules.md` and configured in `ConfigManager`). Each matcher operates on the trades remaining in the pool.
-    -   **Rule 1 (ExactMatcher)**: Finds exact matches based on 6 fields.
-    -   **Rule 2 (SpreadMatcher)**: Finds 2-leg calendar spread matches.
-    -   **Rule 3 (CrackMatcher)**: Finds 1-to-1 crack spread matches with unit conversion.
-    -   **Rule 4 (ComplexCrackMatcher)**: Finds 2-leg complex crack matches (trader crack vs. exchange base product + Brent swap).
-    -   **Rule 5 (ProductSpreadMatcher)**: Matches product combination spreads.
-    -   **Rule 6 (AggregationMatcher)**: Matches trades that are split or combined across sources.
-    -   **Rule 7 (AggregatedComplexCrackMatcher)**: Finds 2-leg complex crack matches with aggregated base products.
-    -   **Rule 8 (AggregatedSpreadMatcher)**: Finds spread matches with aggregated exchange trades.
-    -   **Rule 9 (AggregatedCrackMatcher)**: Finds aggregated crack matches.
-    -   **Rule 10 (ComplexCrackRollMatcher)**: Finds calendar spreads of complex crack positions.
-    -   **Rule 11 (CrossMonthDecompositionMatcher)**: Finds cross-month decomposed positions.
-    -   **Rule 12 (ComplexProductSpreadDecompositionMatcher)**: Finds complex product spread decomposition and netting matches.
-6.  **Display**: The `MatchDisplayer` presents the results, including matches, unmatched trades, and statistics, in a clear, user-friendly format.
+1.  **Load & Validate**: The `UnifiedTradeRouter` loads the master `sourceTraders.csv` and `sourceExchange.csv` files from `src/unified_recon/data/`. It performs initial validation to ensure data integrity and the presence of `exchangegroupid`.
+2.  **Group & Route**: Trades are grouped by their `exchangegroupid`. Each group of trades is routed to its designated matching system as defined in `unified_config.json`.
+3.  **Subsystem Processing**: Each matching system (e.g., `ice_match`) executes its own internal pipeline:
+    a.  **Load**: The subsystem-specific loader (e.g., `CSVTradeLoader` for ICE) loads the filtered data.
+    b.  **Normalize**: The subsystem's `TradeNormalizer` cleans and standardizes critical fields.
+    c.  **Instantiate**: Validated and normalized data is used to create immutable `Trade` objects.
+    d.  **Pool**: All `Trade` objects are placed into a `UnmatchedPoolManager` to track state.
+    e.  **Match**: A sequence of `Matcher` modules are run in order of confidence. For the ICE system, this includes 12 rules.
+4.  **Aggregate Results**: The `ResultAggregator` collects the results (matches, statistics) from each subsystem that was run.
+5.  **Display**: The `UnifiedDisplay` presents the aggregated results, including a system-wide summary and detailed breakdowns for each exchange group.
+
+### ICE Matcher Rule Sequence
+
+The `ice_match` subsystem processes trades with the following 12 rules in order:
+- **Rule 1 (ExactMatcher)**: Finds exact matches.
+- **Rule 2 (SpreadMatcher)**: Finds 2-leg calendar spread matches.
+- **Rule 3 (CrackMatcher)**: Finds 1-to-1 crack spread matches with unit conversion.
+- **Rule 4 (ComplexCrackMatcher)**: Finds 2-leg complex crack matches.
+- **Rule 5 (ProductSpreadMatcher)**: Matches product combination spreads.
+- **Rule 6 (AggregationMatcher)**: Matches trades that are split or combined.
+- **Rule 7 (AggregatedComplexCrackMatcher)**: Finds complex crack matches with aggregated legs.
+- **Rule 8 (AggregatedSpreadMatcher)**: Finds spread matches with aggregated legs.
+- **Rule 9 (MultilegSpreadMatcher)**: Finds complex multi-leg spreads with internal netting.
+- **Rule 10 (AggregatedCrackMatcher)**: Finds crack matches with aggregation.
+- **Rule 11 (ComplexCrackRollMatcher)**: Finds calendar spreads of complex crack positions.
+- **Rule 12 (AggregatedProductSpreadMatcher)**: Finds product spreads with aggregation.
 
 ## 🏗️ Project Architecture
 
+### Unified Reconciliation System
+```
+src/unified_recon/
+├── main.py                 # Main entry point for unified reconciliation
+├── config/
+│   └── unified_config.json # System mappings and routing configuration
+├── core/
+│   ├── group_router.py    # Data loading, validation, and routing by exchangegroupid
+│   └── result_aggregator.py # Cross-system result aggregation and statistics
+├── utils/
+│   └── data_validator.py  # CSV validation and exchange group detection
+├── cli/
+│   └── unified_display.py # Unified reporting and DataFrame display
+└── data/
+    ├── sourceTraders.csv   # Master trader data
+    └── sourceExchange.csv  # Master exchange data
+```
+
+### ICE Match Module
 ```
 src/ice_match/
-├── main.py                 # Main application entry point and CLI. Orchestrates the data flow.
+├── main.py                 # Main application entry point for standalone ICE matching
 ├── models/
-│   ├── trade.py           # Core `Trade` model. The single source of truth for a trade.
+│   ├── trade.py           # Core `Trade` model for ICE.
 │   └── match_result.py    # `MatchResult` model for storing match details.
 ├── loaders/
 │   └── csv_loader.py     # Handles loading raw data from CSV files.
 ├── normalizers/
-│   └── trade_normalizer.py # Cleans and standardizes trade data using external configurations.
+│   └── trade_normalizer.py # Cleans and standardizes ICE trade data.
 ├── matchers/
-│   ├── exact_matcher.py   # Implements Rule 1: Exact Matching.
-│   ├── spread_matcher.py  # Implements Rule 2: Spread Matching.
-│   ├── crack_matcher.py   # Implements Rule 3: Crack Matching.
-│   ├── complex_crack_matcher.py # Implements Rule 4: Complex Crack Matching.
-│   ├── product_spread_matcher.py # Implements Rule 5: Product Spread Matching.
-│   ├── aggregation_matcher.py # Implements Rule 6: Aggregation Matching.
-│   ├── aggregated_complex_crack_matcher.py # Implements Rule 7: Aggregated Complex Crack Matching.
-│   ├── aggregated_spread_matcher.py # Implements Rule 8: Aggregated Spread Matching.
-│   ├── aggregated_crack_matcher.py # Implements Rule 9: Aggregated Crack Matching.
-│   ├── complex_crack_roll_matcher.py # Implements Rule 10: Complex Crack Roll Matching.
-│   ├── cross_month_decomposition_matcher.py # Implements Rule 11: Cross-Month Decomposition Matching.
-│   └── complex_product_spread_decomposition_matcher.py # Implements Rule 12: Complex Product Spread Decomposition and Netting Matching.
-├── utils/
-│   └── trade_helpers.py   # Helper functions for trade manipulation.
+│   ├── exact_matcher.py   # Rule 1: Exact Matching.
+│   ├── spread_matcher.py  # Rule 2: Spread Matching.
+│   ├── crack_matcher.py   # Rule 3: Crack Matching.
+│   ├── complex_crack_matcher.py # Rule 4: Complex Crack Matching.
+│   ├── product_spread_matcher.py # Rule 5: Product Spread Matching.
+│   ├── aggregation_matcher.py # Rule 6: Aggregation Matching.
+│   ├── aggregated_complex_crack_matcher.py # Rule 7: Aggregated Complex Crack Matching.
+│   ├── aggregated_spread_matcher.py # Rule 8: Aggregated Spread Matching.
+│   ├── multileg_spread_matcher.py # Rule 9: Multileg Spread Matching.
+│   ├── aggregated_crack_matcher.py # Rule 10: Aggregated Crack Matching.
+│   ├── complex_crack_roll_matcher.py # Rule 11: Complex Crack Roll Matching.
+│   └── aggregated_product_spread_matcher.py # Rule 12: Aggregated Product Spread Matching.
 ├── core/
 │   └── unmatched_pool.py # State manager for all trades, preventing duplicate matches.
 ├── config/
-│   ├── config_manager.py # Centralized system settings and normalization rules. Single source of truth for all configurations.
-│   └── normalizer_config.json # External JSON file for normalization mappings (products, months, universal fields).
-├── cli/
-│   └── display.py   # Rich terminal output and progress display.
-├── data/
-│   ├── sourceTraders.csv    # Default trader data.
-│   └── sourceExchange.csv   # Default exchange data.
-│   └── ...                  # Additional data directories for specific dates or test cases.
-└── docs/
-    └── rules.md        # The complete 12-rule specification. The primary source for business logic.
+│   └── config_manager.py # Centralized system settings for ICE.
+└── cli/
+    └── display.py         # Rich terminal output for ICE results.
 ```
 
 ## ⚙️ Universal Matching Fields System
 
-The system implements a sophisticated universal field matching architecture that ensures consistency across all matching rules. This is a key feature for data integrity, ensuring that fundamental trade attributes like the broker or clearing account are consistent for any match, regardless of the rule that finds it.
+The system implements a sophisticated universal field matching architecture that ensures consistency across all matching rules **within a given subsystem (e.g., ICE or SGX)**. This is a key feature for data integrity.
 
 ### Architecture Overview
 
-- **JSON-Driven Configuration**: All universal fields are defined in `src/ice_match/config/normalizer_config.json` under the `universal_matching_fields` key. This allows for easy modification of universal requirements without code changes.
-- **Centralized Management**: The `ConfigManager` is the single source of truth for all configuration, including universal field rules. It loads the `normalizer_config.json` once and provides the settings to all other components, ensuring consistency and performance.
-- **BaseMatcher Inheritance**: All matcher classes (e.g., `ExactMatcher`, `SpreadMatcher`) inherit from a common `BaseMatcher`. This base class contains the logic to dynamically build matching signatures and validate trades against the universal fields defined in the configuration.
-- **Dynamic Field Access**: The system uses `getattr()` along with a field mapping configuration to dynamically access the correct attributes on the `Trade` model. This makes the system highly extensible.
+- **JSON-Driven Configuration**: All universal fields for a subsystem are defined in its `normalizer_config.json`.
+- **Centralized Management**: The subsystem's `ConfigManager` is the single source of truth for its configuration.
+- **BaseMatcher Inheritance**: All matcher classes inherit from a common `BaseMatcher` which contains the logic to validate trades against the universal fields.
+- **Dynamic Field Access**: The system uses `getattr()` to dynamically access the correct attributes on the `Trade` model.
 
-### Current Universal Fields
+### Current Universal Fields (ICE & SGX)
 
-The following fields are currently configured as universal and must match for any trade reconciliation:
+The following fields are currently configured as universal and must match for any trade reconciliation within their respective subsystems:
 
 - **`brokergroupid`** → `broker_group_id`
 - **`exchclearingacctid`** → `exch_clearing_acct_id`
-
-### How to Add a New Universal Field
-
-1.  **Update `normalizer_config.json`**:
-    -   Add the new field's name (as it appears in the source CSV) to the `required_fields` array.
-    -   Add a mapping from the CSV field name to the corresponding `Trade` model attribute name in the `field_mappings` object.
-2.  **Verify `Trade` Model**: Ensure the `Trade` model in `src/ice_match/models/trade.py` has the corresponding attribute.
-3.  **No Code Changes Needed**: The `BaseMatcher` architecture ensures that no changes are needed in the individual matcher files. The new universal field will be automatically applied to all matching rules.
