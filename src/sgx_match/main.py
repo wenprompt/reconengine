@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import argparse
 import sys
 
@@ -19,11 +19,6 @@ DEFAULT_TRADER_FILE = "sourceTraders.csv"
 DEFAULT_EXCHANGE_FILE = "sourceExchange.csv"
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 
@@ -116,6 +111,59 @@ class SGXMatchingEngine:
             logger.error(f"SGX matching failed: {e}")
             self.display.show_error(str(e))
             raise
+
+    def run_matching_minimal(self, trader_csv_path: Path, exchange_csv_path: Path) -> tuple[List[SGXMatchResult], Dict[str, Any]]:
+        """Run SGX matching process without display output for unified system.
+        
+        Args:
+            trader_csv_path: Path to trader CSV file  
+            exchange_csv_path: Path to exchange CSV file
+            
+        Returns:
+            Tuple of (matches, statistics) for unified system integration
+        """
+        try:
+            # Load data
+            trader_trades = self.csv_loader.load_trader_trades(trader_csv_path)
+            exchange_trades = self.csv_loader.load_exchange_trades(exchange_csv_path)
+            
+            # Initialize pool manager
+            pool_manager = SGXUnmatchedPool(trader_trades, exchange_trades)
+            
+            # Run matching rules in sequence
+            all_matches = []
+            processing_order = self.config_manager.get_processing_order()
+            
+            for rule_number in processing_order:
+                matcher = self._get_matcher_for_rule(rule_number)
+                if not matcher:
+                    continue
+                
+                matches = matcher.find_matches(pool_manager)
+                all_matches.extend(matches)
+                
+                # Record matches in pool
+                for match in matches:
+                    pool_manager.record_match(
+                        match.trader_trade.trade_id,
+                        match.exchange_trade.trade_id,
+                        match.match_type.value
+                    )
+            
+            # Get statistics and unmatched trades
+            statistics = pool_manager.get_match_statistics()
+            unmatched_trader = pool_manager.get_unmatched_trader_trades()
+            unmatched_exchange = pool_manager.get_unmatched_exchange_trades()
+            
+            # Add unmatched trades to statistics for unified system
+            statistics['unmatched_trader_trades'] = unmatched_trader
+            statistics['unmatched_exchange_trades'] = unmatched_exchange
+            
+            return all_matches, statistics
+            
+        except Exception as e:
+            logger.error(f"SGX minimal matching failed: {e}")
+            raise RuntimeError(f"SGX matching failed: {e}")
     
     def _get_matcher_for_rule(self, rule_number: int):
         """Get matcher for specific rule number.
@@ -132,7 +180,40 @@ class SGXMatchingEngine:
         return None
 
 
-def main():
+def setup_logging(log_level: str = "INFO") -> None:
+    """Set up logging configuration for SGX matching.
+    
+    Args:
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
+    """
+    # Remove any existing handlers to avoid duplicates
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    # Only set up logging if DEBUG level is requested
+    if log_level == "DEBUG":
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[logging.StreamHandler(sys.stdout)]
+        )
+    elif log_level == "INFO":
+        # For INFO and above, only show warnings and errors to keep output clean
+        logging.basicConfig(
+            level=logging.WARNING,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[logging.StreamHandler(sys.stdout)]
+        )
+    else:
+        # For WARNING and ERROR, use the specified level
+        logging.basicConfig(
+            level=getattr(logging, log_level.upper()),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[logging.StreamHandler(sys.stdout)]
+        )
+
+def main() -> None:
     """Main entry point for SGX matching CLI."""
     parser = argparse.ArgumentParser(
         description="SGX Trade Matching System",
@@ -154,9 +235,9 @@ def main():
     )
     
     parser.add_argument(
-        "--show-unmatched",
+        "--no-unmatched",
         action="store_true",
-        help="Show unmatched trades in output"
+        help="Hide unmatched trades in output (default: show unmatched)"
     )
     
     parser.add_argument(
@@ -168,8 +249,8 @@ def main():
     
     args = parser.parse_args()
     
-    # Set logging level
-    logging.getLogger().setLevel(getattr(logging, args.log_level))
+    # Set up logging
+    setup_logging(args.log_level)
     
     # Validate input files
     if not args.trader_csv.exists():
@@ -186,7 +267,7 @@ def main():
         matches = engine.run_matching(
             args.trader_csv,
             args.exchange_csv,
-            args.show_unmatched
+            show_unmatched=not args.no_unmatched  # Show unmatched by default, hide if --no-unmatched
         )
         
         # Exit with appropriate code

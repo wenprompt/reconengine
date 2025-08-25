@@ -48,7 +48,7 @@ class MatchingConfig(BaseModel):
             8: Decimal("70"),  # Aggregated spread match
             9: Decimal("68"),  # Multileg spread match
             10: Decimal("68"),  # Aggregated crack match
-            11: Decimal("65"),  # Crack roll match
+            11: Decimal("65"),  # Complex crack roll match
             12: Decimal("62"),  # Aggregated product spread match
         },
         description="Confidence levels for each matching rule (implemented rules)",
@@ -138,7 +138,7 @@ class ConfigManager:
         """Get confidence level for a specific rule.
 
         Args:
-            rule_number: Rule number (1-9)
+            rule_number: Rule number (1-12)
 
         Returns:
             Confidence level as percentage

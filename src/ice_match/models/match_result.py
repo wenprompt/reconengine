@@ -62,7 +62,7 @@ class MatchResult(BaseModel):
     
     # Metadata
     matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
-    rule_order: int = Field(..., ge=1, le=11, description="Order of rule that created this match (1-11)")
+    rule_order: int = Field(..., ge=1, le=12, description="Order of rule that created this match (1-12)")
     
     def __str__(self) -> str:
         """Human-readable string representation."""

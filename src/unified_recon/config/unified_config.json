@@ -1,0 +1,31 @@
+{
+  "exchange_group_mappings": {
+    "1": "ice_match",
+    "2": "sgx_match"
+  },
+  "system_configs": {
+    "ice_match": {
+      "module": "src.ice_match.main",
+      "description": "ICE - 12 rules"
+    },
+    "sgx_match": {
+      "module": "src.sgx_match.main",
+      "description": "SGX - Exact"
+    }
+  },
+  "data_settings": {
+    "default_data_dir": "src/unified_recon/data",
+    "exchange_file": "sourceExchange.csv",
+    "trader_file": "sourceTraders.csv",
+    "required_columns": {
+      "exchange": [
+        "exchangegroupid",
+        "tradedate",
+        "productname",
+        "b/s",
+        "price"
+      ],
+      "trader": ["exchangegroupid", "tradedate", "productname", "b/s", "price"]
+    }
+  }
+}

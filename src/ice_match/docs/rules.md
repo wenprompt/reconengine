@@ -1798,7 +1798,7 @@ An **aggregated product spread match** occurs when product spread trades require
 
 #### Implementation Architecture
 
-**Rule 12** has been successfully implemented with the following key features:
+**Rule 11** has been successfully implemented with the following key features:
 
 - **Comprehensive Type Safety**: Full mypy compliance with proper type annotations
 - **Enhanced Error Handling**: Detailed logging with descriptive error messages and guard clauses
@@ -1822,7 +1822,7 @@ An **aggregated product spread match** occurs when product spread trades require
 - **Reliability**: Comprehensive validation with detailed audit trails
 - **Extensibility**: Built on AggregationBaseMatcher for consistent patterns
 
-## 12. Cross-Month Decomposition Match Rules
+## 13. Cross-Month Decomposition Match Rules
 
 ### Definition
 
@@ -1981,7 +1981,7 @@ A **cross-month decomposition match** occurs when a trader executes a complex cr
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 - **Pattern Driven**: Relies on consecutive index patterns with 0.0 price indicators
 
-## 13. Complex Product Spread Decomposition and Netting Match Rules
+## 14. Complex Product Spread Decomposition and Netting Match Rules
 
 ### Definition
 
@@ -2158,7 +2158,7 @@ A **complex product spread decomposition and netting match** occurs when exchang
 - **Fallback Nature**: Only processes trades that no other matching rule can handle
 - **Mathematical Validation**: All price relationships must validate exactly
 
-## 14. Hybrid Product Spread with Mixed Format Aggregation Match Rules
+## 15. Hybrid Product Spread with Mixed Format Aggregation Match Rules
 
 ### Definition
 
