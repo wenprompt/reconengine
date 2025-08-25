@@ -181,7 +181,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         # Find spread pairs within each group
         for trades_list in grouped_trades.values():
             for i, trade1 in enumerate(trades_list):
-                for _j, trade2 in enumerate(trades_list[i + 1:], i + 1):
+                for trade2 in trades_list[i + 1:]:
                     if self._is_trader_spread_pair(trade1, trade2):
                         pairs.append([trade1, trade2])
         
