@@ -103,9 +103,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             "confidence": float(self.confidence),
             "description": "Matches 2 trader spreads against 4+ exchange trades with netting",
             "fields_matched": self.get_universal_matched_fields([
-                "product_name",
-                "broker_group_id", 
-                "exch_clearing_acct_id"
+                "product_name"
             ]),
             "requirements": [
                 "Trader: Exactly 2 spread trades with different contract months and opposite B/S",
@@ -173,21 +171,17 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         
         pairs = []
         
-        # Group by product, broker details, and quantity
+        # Group by universal signature + product and quantity
         grouped_trades = defaultdict(list)
         for trade in available_trades:
-            key = (
-                trade.product_name,
-                trade.broker_group_id,
-                trade.exch_clearing_acct_id,
-                self._get_quantity_for_grouping(trade, self.normalizer)
-            )
+            quantity_for_grouping = self._get_quantity_for_grouping(trade, self.normalizer)
+            key = self.create_universal_signature(trade, [trade.product_name, quantity_for_grouping])
             grouped_trades[key].append(trade)
         
         # Find spread pairs within each group
         for trades_list in grouped_trades.values():
             for i, trade1 in enumerate(trades_list):
-                for trade2 in trades_list[i+1:]:
+                for _j, trade2 in enumerate(trades_list[i + 1:], i + 1):
                     if self._is_trader_spread_pair(trade1, trade2):
                         pairs.append([trade1, trade2])
         
@@ -471,8 +465,9 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         
         match_id = f"multileg_spread_{primary_trader.trade_id}_{primary_exchange.trade_id}"
         
+        # Only pass rule-specific fields - universal fields added automatically
         matched_fields = self.get_universal_matched_fields([
-            "product_name", "broker_group_id", "exch_clearing_acct_id", "quantity"
+            "product_name", "quantity"
         ])
         
         # Add spread-specific metadata - NO price tolerance
