@@ -15,7 +15,8 @@ class MatchingConfig(BaseModel):
     """
 
     model_config = ConfigDict(
-        frozen=True, validate_assignment=True  # Immutable configuration
+        frozen=True,
+        validate_assignment=True,  # Immutable configuration
     )
 
     # Unit conversion
@@ -45,16 +46,27 @@ class MatchingConfig(BaseModel):
             6: Decimal("72"),  # Aggregation match
             7: Decimal("65"),  # Aggregated complex crack match
             8: Decimal("70"),  # Aggregated spread match
-            9: Decimal("68"),  # Aggregated crack match
-            10: Decimal("65"),  # Crack roll match
-            11: Decimal("62"),  # Aggregated product spread match
+            9: Decimal("68"),  # Multileg spread match
+            10: Decimal("68"),  # Aggregated crack match
+            11: Decimal("65"),  # Crack roll match
+            12: Decimal("62"),  # Aggregated product spread match
         },
         description="Confidence levels for each matching rule (implemented rules)",
     )
 
+    # Tier-specific confidence levels for SpreadMatcher (Rule 2)
+    spread_tier_confidence_levels: Dict[str, Decimal] = Field(
+        default={
+            "tier1": Decimal("95"),  # DealID/TradeID-based (most accurate)
+            "tier2": Decimal("92"),  # Time-based with price calculation
+            "tier3": Decimal("90"),  # Product/quantity-based (fallback)
+        },
+        description="Confidence levels for SpreadMatcher tiers",
+    )
+
     # Processing order (from rules.md) - implemented rules
     rule_processing_order: list[int] = Field(
-        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         description="Order in which rules should be processed (implemented rules)",
     )
 
@@ -108,10 +120,12 @@ class ConfigManager:
         config_dir = Path(__file__).parent
         normalizer_config_path = config_dir / "normalizer_config.json"
         try:
-            with open(normalizer_config_path, 'r') as f:
+            with open(normalizer_config_path, "r") as f:
                 self._normalizer_config = json.load(f)
         except FileNotFoundError:
-            raise FileNotFoundError(f"Normalizer config file not found: {normalizer_config_path}")
+            raise FileNotFoundError(
+                f"Normalizer config file not found: {normalizer_config_path}"
+            )
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in normalizer_config.json: {e}")
 
@@ -136,6 +150,23 @@ class ConfigManager:
             raise ValueError(f"Invalid rule number: {rule_number}")
 
         return self._config.rule_confidence_levels[rule_number]
+
+    def get_spread_tier_confidence(self, tier: str) -> Decimal:
+        """Get confidence level for a specific SpreadMatcher tier.
+
+        Args:
+            tier: Tier name ("tier1", "tier2", "tier3")
+
+        Returns:
+            Confidence level as percentage
+
+        Raises:
+            ValueError: If tier is invalid
+        """
+        if tier not in self._config.spread_tier_confidence_levels:
+            raise ValueError(f"Invalid spread tier: {tier}")
+
+        return self._config.spread_tier_confidence_levels[tier]
 
     def get_processing_order(self) -> list[int]:
         """Get the order in which rules should be processed.
@@ -196,12 +227,12 @@ class ConfigManager:
 
     def get_universal_matching_fields(self) -> List[str]:
         """Get universal matching fields that must match across ALL rules.
-        
+
         Loads from normalizer_config.json under universal_matching_fields.required_fields
-        
+
         Returns:
             List of field names that must match in all matching rules
-            
+
         Raises:
             KeyError: If required configuration keys are missing
         """
@@ -210,13 +241,13 @@ class ConfigManager:
             return universal_config["required_fields"]
         except KeyError as e:
             raise KeyError(f"Missing required key in normalizer_config.json: {e}")
-    
+
     def get_universal_field_mappings(self) -> Dict[str, str]:
         """Get universal field mappings from config (config field name -> Trade attribute name).
-        
+
         Returns:
             Dictionary mapping config field names to Trade model attribute names
-            
+
         Raises:
             KeyError: If required configuration keys are missing
         """
@@ -234,7 +265,6 @@ class ConfigManager:
         """Get contract month normalization regex patterns."""
         return self._normalizer_config.get("month_patterns", {})
 
-
     def get_product_conversion_ratios(self) -> Dict[str, float]:
         """Get product-specific MT to BBL conversion ratios."""
         return self._normalizer_config.get("product_conversion_ratios", {})
@@ -245,13 +275,12 @@ class ConfigManager:
 
     def get_buy_sell_mappings(self) -> Dict[str, str]:
         """Get buy/sell indicator mappings for normalization.
-        
+
         Returns:
             Dictionary mapping buy/sell values to standardized B/S format
         """
         buy_sell_config = self._normalizer_config.get("buy_sell_mappings", {})
         return buy_sell_config.get("mappings", {})
-
 
     def update_config(self, **kwargs) -> "ConfigManager":
         """Create new ConfigManager with updated values.

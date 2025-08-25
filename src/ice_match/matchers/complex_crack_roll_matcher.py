@@ -31,7 +31,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         """Initialize the complex crack roll matcher."""
         super().__init__(config_manager)
         self.normalizer = normalizer
-        self.rule_number = 10
+        self.rule_number = 11
         self.confidence = config_manager.get_rule_confidence(self.rule_number)  # 65%
         
         # Use universal tolerances (enhanced tolerance for crack roll matching)

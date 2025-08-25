@@ -21,6 +21,7 @@ from .matchers import (
     AggregationMatcher,
     AggregatedComplexCrackMatcher,
     AggregatedSpreadMatcher,
+    MultilegSpreadMatcher,
     AggregatedCrackMatcher,
     ComplexCrackRollMatcher,
     AggregatedProductSpreadMatcher,
@@ -195,8 +196,18 @@ class ICEMatchingEngine:
             )
             all_matches.extend(aggregated_spread_matches)
 
-            # Rule 9: Aggregated crack matching
-            self.logger.info("Applying Rule 9: Aggregated crack matching...")
+            # Rule 9: Multileg spread matching
+            self.logger.info("Applying Rule 9: Multileg spread matching...")
+            multileg_spread_matcher = MultilegSpreadMatcher(
+                self.config_manager, self.normalizer
+            )
+            multileg_spread_matches = multileg_spread_matcher.find_matches(
+                pool_manager
+            )
+            all_matches.extend(multileg_spread_matches)
+
+            # Rule 10: Aggregated crack matching
+            self.logger.info("Applying Rule 10: Aggregated crack matching...")
             aggregated_crack_matcher = AggregatedCrackMatcher(
                 self.config_manager, self.normalizer
             )
@@ -205,16 +216,16 @@ class ICEMatchingEngine:
             )
             all_matches.extend(aggregated_crack_matches)
 
-            # Rule 10: Complex crack roll matching
-            self.logger.info("Applying Rule 10: Complex crack roll matching...")
+            # Rule 11: Complex crack roll matching
+            self.logger.info("Applying Rule 11: Complex crack roll matching...")
             complex_crack_roll_matcher = ComplexCrackRollMatcher(
                 self.config_manager, self.normalizer
             )
             complex_crack_roll_matches = complex_crack_roll_matcher.find_matches(pool_manager)
             all_matches.extend(complex_crack_roll_matches)
 
-            # Rule 11: Aggregated product spread matching
-            self.logger.info("Applying Rule 11: Aggregated product spread matching...")
+            # Rule 12: Aggregated product spread matching
+            self.logger.info("Applying Rule 12: Aggregated product spread matching...")
             aggregated_product_spread_matcher = AggregatedProductSpreadMatcher(
                 self.config_manager, self.normalizer
             )
@@ -376,6 +387,7 @@ Examples:
             config_manager, normalizer
         )
         aggregated_spread_matcher = AggregatedSpreadMatcher(config_manager, normalizer)
+        multileg_spread_matcher = MultilegSpreadMatcher(config_manager, normalizer)
         aggregated_crack_matcher = AggregatedCrackMatcher(config_manager, normalizer)
         complex_crack_roll_matcher = ComplexCrackRollMatcher(config_manager, normalizer)
         aggregated_product_spread_matcher = AggregatedProductSpreadMatcher(config_manager, normalizer)
@@ -390,6 +402,7 @@ Examples:
             aggregation_matcher,
             aggregated_complex_crack_matcher,
             aggregated_spread_matcher,
+            multileg_spread_matcher,
             aggregated_crack_matcher,
             complex_crack_roll_matcher,
             aggregated_product_spread_matcher,

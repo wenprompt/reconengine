@@ -34,8 +34,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
         exchange_trades = pool_manager.get_unmatched_exchange_trades()
 
         trader_spread_groups = self._group_trader_spreads(trader_trades, pool_manager)
-        exchange_spread_groups, tier_potential_counts, tier_trade_mapping = self._group_exchange_spreads(
-            exchange_trades, pool_manager
+        exchange_spread_groups, tier_potential_counts, tier_trade_mapping = (
+            self._group_exchange_spreads(exchange_trades, pool_manager)
         )
 
         # Track actual matches created from each tier
@@ -52,17 +52,21 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 matches.append(match_result)
                 if source_tier:
                     tier_actual_matches[source_tier] += 1
-                
+
                 if not pool_manager.record_match(match_result):
                     logger.error(
                         "Failed to record spread match and remove trades from pool"
                     )
                 else:
-                    logger.debug(f"Created spread match: {match_result} (from {source_tier})")
+                    logger.debug(
+                        f"Created spread match: {match_result} (from {source_tier})"
+                    )
 
         # Log accurate tier breakdown based on actual matches created
         logger.info(f"Found {len(matches)} spread matches")
-        logger.info(f"   📊 ACTUAL TIER BREAKDOWN: Tier 1: {tier_actual_matches['tier1']}, Tier 2: {tier_actual_matches['tier2']}, Tier 3: {tier_actual_matches['tier3']}")
+        logger.info(
+            f"   📊 ACTUAL TIER BREAKDOWN: Tier 1: {tier_actual_matches['tier1']}, Tier 2: {tier_actual_matches['tier2']}, Tier 3: {tier_actual_matches['tier3']}"
+        )
         return matches
 
     def _group_trader_spreads(
@@ -210,42 +214,45 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
         # Step 2: Within each dealid group, find valid spread pairs
         for dealid, trades_in_group in dealid_groups.items():
-            if len(trades_in_group) < 2:
+            # A spread group must have exactly 2 legs
+            if len(trades_in_group) != 2:
+                if len(trades_in_group) > 2:
+                    logger.warning(
+                        f"DealID {dealid} has {len(trades_in_group)} legs, which is more than 2. "
+                        f"This group will be skipped for Tier 1 spread matching."
+                    )
                 continue
 
-            # Check all pairs within this dealid group
-            for i in range(len(trades_in_group)):
-                for j in range(i + 1, len(trades_in_group)):
-                    trade1, trade2 = trades_in_group[i], trades_in_group[j]
+            trade1, trade2 = trades_in_group[0], trades_in_group[1]
 
-                    # Extract tradeids for comparison
-                    tradeid1 = str(trade1.raw_data.get("tradeid", "")).strip()
-                    tradeid2 = str(trade2.raw_data.get("tradeid", "")).strip()
+            # Extract tradeids for comparison
+            tradeid1 = str(trade1.raw_data.get("tradeid", "")).strip()
+            tradeid2 = str(trade2.raw_data.get("tradeid", "")).strip()
 
-                    # Must have different tradeids (same dealid + different tradeid = spread pair)
-                    if tradeid1 == tradeid2 or not tradeid1 or not tradeid2:
-                        continue
+            # Must have different tradeids (same dealid + different tradeid = spread pair)
+            if tradeid1 == tradeid2 or not tradeid1 or not tradeid2:
+                continue
 
-                    # Step 3: Validate spread characteristics
-                    if self.validate_spread_pair_characteristics(
-                        trade1, trade2, self.normalizer
-                    ):
-                        # Step 4: Add to results using same key structure as fallback method
-                        # This ensures compatibility with existing _find_spread_match() logic
-                        quantity_for_key = self._get_quantity_for_grouping(
-                            trade1, self.normalizer
-                        )
+            # Step 3: Validate spread characteristics
+            if self.validate_spread_pair_characteristics(
+                trade1, trade2, self.normalizer
+            ):
+                # Step 4: Add to results using same key structure as fallback method
+                # This ensures compatibility with existing _find_spread_match() logic
+                quantity_for_key = self._get_quantity_for_grouping(
+                    trade1, self.normalizer
+                )
 
-                        group_key = self.create_universal_signature(
-                            trade1, [trade1.product_name, quantity_for_key]
-                        )
-                        trade_groups[group_key].extend([trade1, trade2])
-                        spread_pairs_found += 1
+                group_key = self.create_universal_signature(
+                    trade1, [trade1.product_name, quantity_for_key]
+                )
+                trade_groups[group_key].extend([trade1, trade2])
+                spread_pairs_found += 1
 
-                        logger.debug(
-                            f"Found valid dealid spread pair: {trade1.trade_id}/{trade2.trade_id} "
-                            f"(dealid: {dealid}, tradeids: {tradeid1}/{tradeid2})"
-                        )
+                logger.debug(
+                    f"Found valid dealid spread pair: {trade1.trade_id}/{trade2.trade_id} "
+                    f"(dealid: {dealid}, tradeids: {tradeid1}/{tradeid2})"
+                )
 
         return trade_groups, spread_pairs_found
 
@@ -392,8 +399,10 @@ class SpreadMatcher(MultiLegBaseMatcher):
         )
 
         if remaining_trades:
-            tier3_groups, tier3_spread_count = self._group_exchange_spreads_by_product_quantity(
-                remaining_trades, pool_manager
+            tier3_groups, tier3_spread_count = (
+                self._group_exchange_spreads_by_product_quantity(
+                    remaining_trades, pool_manager
+                )
             )
             tier_match_counts["tier3"] = tier3_spread_count
 
@@ -545,8 +554,12 @@ class SpreadMatcher(MultiLegBaseMatcher):
     ) -> Optional[Decimal]:
         """Calculate spread price from exchange pair (earlier month - later month)."""
         try:
-            month1_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(trade1.contract_month))
-            month2_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(trade2.contract_month))
+            month1_tuple = get_month_order_tuple(
+                self.normalizer.normalize_contract_month(trade1.contract_month)
+            )
+            month2_tuple = get_month_order_tuple(
+                self.normalizer.normalize_contract_month(trade2.contract_month)
+            )
 
             if not month1_tuple or not month2_tuple:
                 return None
@@ -660,6 +673,23 @@ class SpreadMatcher(MultiLegBaseMatcher):
         }
 
         return trader_month_bs == exchange_month_bs
+
+    def _get_confidence_for_tier(self, tier: str) -> Decimal:
+        """Get appropriate confidence level for the given tier.
+
+        Args:
+            tier: Tier identifier ("tier1", "tier2", "tier3", or other)
+
+        Returns:
+            Decimal: Tier-specific confidence level, or default rule confidence for unknown tiers
+        """
+        try:
+            if tier in {"tier1", "tier2", "tier3"}:
+                return self.config_manager.get_spread_tier_confidence(tier)
+        except ValueError:
+            logger.debug(f"Invalid tier '{tier}', using default confidence")
+
+        return self.confidence
 
     def _group_exchange_spreads_by_product_quantity(
         self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
@@ -799,6 +829,21 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     exchange_candidates[j],
                 )
 
+                # For Tier 1 matches, ensure both legs have the same dealid
+                source_tier1 = tier_trade_mapping.get(exchange_trade1.trade_id)
+                source_tier2 = tier_trade_mapping.get(exchange_trade2.trade_id)
+                if source_tier1 == "tier1" and source_tier2 == "tier1":
+                    dealid1 = str(exchange_trade1.raw_data.get("dealid", "")).strip()
+                    dealid2 = str(exchange_trade2.raw_data.get("dealid", "")).strip()
+                    if not dealid1 or not dealid2 or dealid1 != dealid2:
+                        if dealid1 != dealid2:
+                            logger.debug(
+                                f"Skipping Tier 1 pair with mismatched dealids: "
+                                f"{exchange_trade1.trade_id} (dealid: {dealid1}) and "
+                                f"{exchange_trade2.trade_id} (dealid: {dealid2})"
+                            )
+                        continue
+
                 if pool_manager.is_trade_matched(
                     exchange_trade1
                 ) or pool_manager.is_trade_matched(exchange_trade2):
@@ -810,10 +855,17 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     trader_group, [exchange_trade1, exchange_trade2]
                 ):
                     # Determine which tier this match came from
-                    source_tier = tier_trade_mapping.get(exchange_trade1.trade_id, "unknown")
-                    
+                    source_tier = tier_trade_mapping.get(
+                        exchange_trade1.trade_id, "unknown"
+                    )
+
+                    # Get tier-specific confidence level
+                    tier_confidence = self._get_confidence_for_tier(source_tier)
+
                     match_result = self._create_spread_match_result(
-                        trader_group, [exchange_trade1, exchange_trade2]
+                        trader_group,
+                        [exchange_trade1, exchange_trade2],
+                        tier_confidence,
                     )
                     return match_result, source_tier
         return None, None
@@ -887,11 +939,14 @@ class SpreadMatcher(MultiLegBaseMatcher):
             if month1_tuple < month2_tuple
             else exchange_trade2.price - exchange_trade1.price
         )
-        
+
         return trader_spread_price == exchange_spread_price
 
     def _create_spread_match_result(
-        self, trader_trades: List[Trade], exchange_trades: List[Trade]
+        self,
+        trader_trades: List[Trade],
+        exchange_trades: List[Trade],
+        confidence: Optional[Decimal] = None,
     ) -> MatchResult:
         """Create MatchResult for spread match."""
         # Rule-specific matched fields
@@ -908,7 +963,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return MatchResult(
             match_id=self.generate_match_id(self.rule_number, "SPREAD"),
             match_type=MatchType.SPREAD,
-            confidence=self.confidence,
+            confidence=confidence if confidence is not None else self.confidence,
             trader_trade=trader_trades[0],
             exchange_trade=exchange_trades[0],
             matched_fields=matched_fields,
