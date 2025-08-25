@@ -225,11 +225,12 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             sold_month = zero_trade.contract_month
             
         return {
-            'sold_month': sold_month,
-            'bought_month': bought_month,
-            'spread_price': abs(price_trade.price),  # Spread price magnitude
-            'quantity': self._get_quantity_for_grouping(price_trade, self.normalizer),
-            'is_sell_spread': price_trade.buy_sell == 'S'
+            "sold_month": sold_month,
+            "bought_month": bought_month,
+            # Preserve sign to respect directionality
+            "spread_price": price_trade.price,
+            "quantity": self._get_quantity_for_grouping(price_trade, self.normalizer),
+            "is_sell_spread": price_trade.buy_sell == "S",
         }
 
     def _pre_identify_exchange_spreads(self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[ExchangeSpread]:
