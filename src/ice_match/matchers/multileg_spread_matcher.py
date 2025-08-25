@@ -254,16 +254,25 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
                 if i + 1 < len(group_trades):
                     trade1, trade2 = group_trades[i], group_trades[i + 1]
                     
+                    # Guard against mixed-tier pairs to avoid cross-tier contamination
+                    tier1 = tier_mapping.get(trade1.trade_id)
+                    tier2 = tier_mapping.get(trade2.trade_id)
+                    
+                    if tier1 != tier2:
+                        logger.debug(f"Skipping mixed-tier pair: {trade1.trade_id} ({tier1}) + {trade2.trade_id} ({tier2})")
+                        continue
+                    
                     # Verify spread pair validity using inherited validation
                     if temp_spread_matcher.validate_spread_pair_characteristics(trade1, trade2, self.normalizer):
                         # Determine dealid if this spread came from Tier 1 (dealid-based)
                         dealid = None
-                        if tier_mapping.get(trade1.trade_id) == "tier1":
+                        if tier1 == "tier1":
                             dealid = str(trade1.raw_data.get("dealid", "")).strip() or None
                         
                         spread = self._create_exchange_spread(trade1, trade2, dealid)
                         if spread:
                             spreads.append(spread)
+                            logger.debug(f"Created {tier1} ExchangeSpread: {spread.spread_months[0]}/{spread.spread_months[1]} @ {spread.spread_price}")
                     else:
                         logger.debug(f"Spread validation failed for {trade1.trade_id}/{trade2.trade_id}")
         
