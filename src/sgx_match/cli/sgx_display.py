@@ -96,7 +96,24 @@ class SGXDisplay:
         self.console.print(table)
     
     def _show_detailed_matches(self, matches: List[SGXMatchResult]) -> None:
-        """Show detailed match results."""
+        """Show detailed match results, separating single-leg and multi-leg matches."""
+        if not matches:
+            return
+        
+        # Separate single-leg and multi-leg matches
+        single_leg_matches = [m for m in matches if not m.additional_trader_trades and not m.additional_exchange_trades]
+        multi_leg_matches = [m for m in matches if m.additional_trader_trades or m.additional_exchange_trades]
+        
+        # Show single-leg matches
+        if single_leg_matches:
+            self._show_single_leg_matches(single_leg_matches)
+        
+        # Show multi-leg matches (spreads)
+        if multi_leg_matches:
+            self._show_multi_leg_matches(multi_leg_matches)
+    
+    def _show_single_leg_matches(self, matches: List[SGXMatchResult]) -> None:
+        """Show single-leg match results."""
         table = Table(title=f"Detailed Matches ({len(matches)} found)", box=box.ROUNDED)
         table.add_column("Match ID", style="cyan")
         table.add_column("Rule", justify="center")
@@ -120,6 +137,59 @@ class SGXDisplay:
                 match.trader_trade.buy_sell,
                 match.trader_trade.display_id,
                 match.exchange_trade.display_id,
+                f"{match.confidence}%"
+            )
+        
+        self.console.print("\n")
+        self.console.print(table)
+    
+    def _show_multi_leg_matches(self, matches: List[SGXMatchResult]) -> None:
+        """Show multi-leg match results (spreads)."""
+        table = Table(title=f"Multi-Leg Matches ({len(matches)} found)", box=box.ROUNDED)
+        table.add_column("Match ID", style="cyan")
+        table.add_column("Rule", justify="center")
+        table.add_column("Product", style="green")
+        table.add_column("Contracts", style="yellow")
+        table.add_column("Quantity", justify="right", style="blue")
+        table.add_column("Spread Price", justify="right", style="magenta")
+        table.add_column("Directions", justify="center")
+        table.add_column("Trader IDs", style="dim")
+        table.add_column("Exchange IDs", style="dim")
+        table.add_column("Confidence", justify="right", style="bold green")
+        
+        for match in matches:
+            # Get all trades
+            all_trader_trades = [match.trader_trade] + match.additional_trader_trades
+            all_exchange_trades = [match.exchange_trade] + match.additional_exchange_trades
+            
+            # Format trader IDs
+            trader_ids = " + ".join([trade.display_id for trade in all_trader_trades])
+            
+            # Format exchange IDs  
+            exchange_ids = " + ".join([trade.display_id for trade in all_exchange_trades])
+            
+            # Format contract months (sorted for consistency)
+            trader_months = sorted(set(trade.contract_month for trade in all_trader_trades))
+            contract_display = "/".join(trader_months)
+            
+            # Format directions (B/S for each leg)
+            trader_directions = [trade.buy_sell for trade in all_trader_trades]
+            exchange_directions = [trade.buy_sell for trade in all_exchange_trades]
+            directions = f"{'/'.join(trader_directions)}↔{'/'.join(exchange_directions)}"
+            
+            # Use spread price from trader (should be same for both legs in new pattern)
+            spread_price = match.trader_trade.price
+            
+            table.add_row(
+                match.match_id,
+                str(match.rule_order),
+                match.matched_product,
+                contract_display,
+                str(match.matched_quantity),
+                str(spread_price),
+                directions,
+                trader_ids,
+                exchange_ids,
                 f"{match.confidence}%"
             )
         
@@ -227,3 +297,69 @@ class SGXDisplay:
             message: Warning message to display
         """
         self.console.print(f"[bold yellow]Warning:[/bold yellow] {message}")
+    
+    def show_rules_information(self, rules_info: List[Dict[str, Any]]) -> None:
+        """Display detailed information about matching rules.
+        
+        Args:
+            rules_info: List of rule information dictionaries
+        """
+        self.console.print("\n")
+        
+        # Header
+        header = Text("SGX Trade Matching Rules", style="bold blue")
+        self.console.print(Panel.fit(header, border_style="blue"))
+        
+        # Rules table
+        table = Table(title="Rule Overview", box=box.ROUNDED)
+        table.add_column("Rule", justify="center", style="cyan")
+        table.add_column("Name", style="bold")
+        table.add_column("Type", style="green")  
+        table.add_column("Confidence", justify="right", style="yellow")
+        table.add_column("Description", style="dim")
+        
+        for rule in rules_info:
+            table.add_row(
+                str(rule.get("rule_number", "N/A")),
+                rule.get("rule_name", "Unknown"),
+                rule.get("match_type", "unknown"),
+                f"{rule.get('confidence', 0):.1f}%",
+                rule.get("description", "No description available")
+            )
+        
+        self.console.print("\n")
+        self.console.print(table)
+        
+        # Detailed requirements for each rule
+        for rule in rules_info:
+            self._show_rule_details(rule)
+    
+    def _show_rule_details(self, rule: Dict[str, Any]) -> None:
+        """Show detailed requirements for a single rule.
+        
+        Args:
+            rule: Rule information dictionary
+        """
+        rule_name = rule.get("rule_name", "Unknown Rule")
+        rule_number = rule.get("rule_number", "N/A")
+        
+        # Requirements
+        requirements = rule.get("requirements", [])
+        
+        if requirements:
+            req_text = "\n".join([f"• {req}" for req in requirements])
+            
+            panel_content = Group(
+                Text(f"Rule {rule_number}: {rule_name}", style="bold cyan"),
+                Text(""),
+                Text("Requirements:", style="bold"),
+                Text(req_text, style="dim")
+            )
+            
+            self.console.print("\n")
+            self.console.print(Panel(
+                panel_content,
+                title=f"Rule {rule_number}",
+                border_style="green",
+                padding=(1, 2)
+            ))

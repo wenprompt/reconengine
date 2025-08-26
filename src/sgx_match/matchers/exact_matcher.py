@@ -8,7 +8,7 @@ from collections import defaultdict
 from ..models import SGXTrade, SGXTradeSource, SGXMatchResult, SGXMatchType
 from ..core import SGXUnmatchedPool
 from ..config import SGXConfigManager
-from .sgx_base_matcher import SGXBaseMatcher
+from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 UUID_LENGTH = 8  # Length of UUID suffix for match IDs
 
 
-class SGXExactMatcher(SGXBaseMatcher):
-    """Implements SGX Rule 1: Exact matching on key fields.
+class ExactMatcher(BaseMatcher):
+    """Implements Rule 1: Exact matching on key fields.
     
     From SGX rules.md:
     - ProductName (exact match, e.g., "FE")
@@ -41,7 +41,7 @@ class SGXExactMatcher(SGXBaseMatcher):
         self.rule_number = 1
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
-        logger.info(f"Initialized SGXExactMatcher with {self.confidence}% confidence")
+        logger.info(f"Initialized ExactMatcher with {self.confidence}% confidence")
     
     def find_matches(self, pool_manager: SGXUnmatchedPool) -> List[SGXMatchResult]:
         """Find all exact matches between unmatched trader and exchange trades.
@@ -52,7 +52,7 @@ class SGXExactMatcher(SGXBaseMatcher):
         Returns:
             List of SGXMatchResult objects for exact matches found
         """
-        logger.info("Starting SGX exact matching (Rule 1)")
+        logger.info("Starting exact matching (Rule 1)")
         matches = []
         
         # Get unmatched trades
@@ -85,7 +85,7 @@ class SGXExactMatcher(SGXBaseMatcher):
                     # Break after first match to avoid duplicates
                     break
         
-        logger.info(f"SGX exact matching completed. Found {len(matches)} matches")
+        logger.info(f"Exact matching completed. Found {len(matches)} matches")
         return matches
     
     def _create_exchange_index(self, exchange_trades: List[SGXTrade]) -> Dict[tuple, List[SGXTrade]]:
@@ -166,3 +166,25 @@ class SGXExactMatcher(SGXBaseMatcher):
             exchange_trade=exchange_trade,
             matched_fields=matched_fields
         )
+    
+    def get_rule_info(self) -> dict:
+        """Get information about this matching rule.
+        
+        Returns:
+            Dict containing rule metadata and requirements
+        """
+        return {
+            "rule_number": self.rule_number,
+            "rule_name": "Exact Match",
+            "match_type": SGXMatchType.EXACT.value,
+            "confidence": float(self.confidence),
+            "description": "Exact matching on all key fields for SGX trades",
+            "requirements": [
+                "Product name must match exactly (e.g., 'FE')",
+                "Contract month must match exactly (e.g., 'Oct25')",
+                "Quantity units must match exactly (e.g., 15000.0)",
+                "Price must match exactly (e.g., 101.65)",
+                "Buy/Sell direction must match exactly ('B' or 'S')",
+                "Universal fields must match (broker group, clearing account)"
+            ]
+        }

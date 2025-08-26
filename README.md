@@ -69,3 +69,10 @@ SGX and EEX is done
 
 for iron ore recon is basis T+1 from T-1 + T trades
 for FFA recon is basis T trades and T+1 current day
+for petchem recon its the same
+
+why is the CLI not inheriting directly from sgx or ice_match
+uv run python -m src.unified_recon.main # Shows all matches+unmatches
+uv run python -m src.sgx_match.main # Shows all matches+unmatches
+
+doesnt get back the same CLI

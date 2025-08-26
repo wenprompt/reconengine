@@ -6,7 +6,7 @@ from ..models import SGXTrade
 from ..config import SGXConfigManager
 
 
-class SGXBaseMatcher(ABC):
+class BaseMatcher(ABC):
     """Base class for all SGX matchers providing universal field handling."""
     
     def __init__(self, config_manager: SGXConfigManager):
