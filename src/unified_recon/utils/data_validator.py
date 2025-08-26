@@ -25,10 +25,10 @@ class DataValidator:
         self.required_columns = required_columns
     
     def validate_file_exists(self, file_path: Path) -> bool:
-        """Check if file exists and is readable.
+        """Validate that file exists and is readable.
         
         Args:
-            file_path: Path to the file to check
+            file_path: Path to file to validate
             
         Returns:
             True if file exists and is readable
@@ -37,16 +37,17 @@ class DataValidator:
             DataValidationError: If file doesn't exist or isn't readable
         """
         if not file_path.exists():
-            raise DataValidationError(f"Data file not found: {file_path}")
+            raise DataValidationError(f"File not found: {file_path}")
         
         if not file_path.is_file():
             raise DataValidationError(f"Path is not a file: {file_path}")
         
+        # Try to read the file
         try:
             with open(file_path, 'r') as f:
                 f.read(1)  # Try to read first character
         except Exception as e:
-            raise DataValidationError(f"Cannot read file {file_path}: {e}")
+            raise DataValidationError(f"Cannot read file {file_path}: {e}") from e
         
         return True
     

@@ -18,7 +18,7 @@ def parse_fo_xlsx(input_path, output_path, mapping_path):
     try:
         with open(mapping_path, 'r') as f:
             product_mapping = json.load(f)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         console.print(f"[bold yellow]Warning:[/bold yellow] Mapping file not found at {mapping_path}. Product names will not be mapped.")
         product_mapping = {}
 
@@ -98,9 +98,9 @@ def parse_fo_xlsx(input_path, output_path, mapping_path):
                 bs = 'S'
             else:
                 bs = ''
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
             console.print(f"[bold red]Error:[/bold red] Invalid 'Size' value in row {row_index}: '{size_val}'.")
-            raise
+            raise ValueError(f"Invalid 'Size' value in row {row_index}: '{size_val}'") from e
 
         # price
         price = price_val

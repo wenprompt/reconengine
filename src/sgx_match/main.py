@@ -43,7 +43,7 @@ class SGXMatchingEngine:
         logger.info("Initialized SGX matching engine")
     
     def run_matching(self, trader_csv_path: Path, exchange_csv_path: Path,
-                    show_unmatched: bool = False) -> List[SGXMatchResult]:
+                     show_unmatched: bool = False) -> List[SGXMatchResult]:
         """Run the complete SGX matching process.
         
         Args:
@@ -110,7 +110,7 @@ class SGXMatchingEngine:
         except Exception as e:
             logger.error(f"SGX matching failed: {e}")
             self.display.show_error(str(e))
-            raise
+            raise RuntimeError(f"SGX matching failed: {e}") from e
 
     def run_matching_minimal(self, trader_csv_path: Path, exchange_csv_path: Path) -> tuple[List[SGXMatchResult], Dict[str, Any]]:
         """Run SGX matching process without display output for unified system.
@@ -163,7 +163,7 @@ class SGXMatchingEngine:
             
         except Exception as e:
             logger.error(f"SGX minimal matching failed: {e}")
-            raise RuntimeError(f"SGX matching failed: {e}")
+            raise RuntimeError(f"SGX matching failed: {e}") from e
     
     def _get_matcher_for_rule(self, rule_number: int):
         """Get matcher for specific rule number.
@@ -199,9 +199,9 @@ def setup_logging(log_level: str = "INFO") -> None:
             handlers=[logging.StreamHandler(sys.stdout)]
         )
     elif log_level == "INFO":
-        # For INFO and above, only show warnings and errors to keep output clean
+        # For INFO level, show INFO, WARNING, and ERROR messages
         logging.basicConfig(
-            level=logging.WARNING,
+            level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[logging.StreamHandler(sys.stdout)]
         )
@@ -277,7 +277,7 @@ def main() -> None:
         print("\nOperation cancelled by user")
         sys.exit(130)
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.exception(f"Fatal error: {e}")  # Use logger.exception to capture full traceback
         sys.exit(1)
 
 

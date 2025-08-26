@@ -25,24 +25,24 @@ class UnifiedTradeRouter:
         self.validator = DataValidator(self.config['data_settings']['required_columns'])
         
     def _load_config(self) -> Dict[str, Any]:
-        """Load unified configuration from JSON file.
+        """Load configuration from JSON file.
         
         Returns:
             Configuration dictionary
             
         Raises:
-            FileNotFoundError: If config file doesn't exist
-            ValueError: If config is invalid JSON
+            FileNotFoundError: If config file not found
+            ValueError: If config file has invalid JSON
         """
         try:
-            with open(self.config_path, 'r') as f:
-                config = cast(Dict[str, Any], json.load(f))
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                config: Dict[str, Any] = json.load(f)
             logger.info(f"Loaded unified configuration from {self.config_path}")
             return config
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Configuration file not found: {self.config_path}")
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Configuration file not found: {self.config_path}") from e
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in configuration file {self.config_path}: {e}")
+            raise ValueError(f"Invalid JSON in configuration file {self.config_path}: {e}") from e
     
     def load_and_validate_data(self, data_dir: Optional[Path] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Load and validate trader and exchange data.
@@ -74,25 +74,23 @@ class UnifiedTradeRouter:
             trader_df = pd.read_csv(trader_file)
             exchange_df = pd.read_csv(exchange_file)
         except Exception as e:
-            raise DataValidationError(f"Failed to load CSV files: {e}")
+            raise DataValidationError(f"Failed to load CSV files: {e}") from e
         
         # Validate structure
         self.validator.validate_csv_structure(trader_df, 'trader', trader_file)
         self.validator.validate_csv_structure(exchange_df, 'exchange', exchange_file)
         
-        # Validate exchange groups
+        # Validate and get exchange groups
         trader_groups, trader_counts = self.validator.validate_exchange_groups(trader_df, trader_file)
         exchange_groups, exchange_counts = self.validator.validate_exchange_groups(exchange_df, exchange_file)
         
         # Validate consistency between datasets
         self.validator.validate_data_consistency(trader_groups, exchange_groups)
         
-        logger.info(f"Loaded trader data: {len(trader_df)} rows")
-        logger.info(f"Loaded exchange data: {len(exchange_df)} rows")
-        logger.info(f"Trader group distribution: {trader_counts}")
-        logger.info(f"Exchange group distribution: {exchange_counts}")
-        
+        logger.info(f"Successfully loaded and validated data: {len(trader_df)} trader trades, {len(exchange_df)} exchange trades")
         return trader_df, exchange_df
+        
+        # Validate structure
     
     def group_trades_by_exchange_group(self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[int, Dict[str, Any]]:
         """Group trades by exchange group and prepare for routing.
@@ -198,9 +196,14 @@ class UnifiedTradeRouter:
         Returns:
             Dict with data prepared for the target system
         """
-        # For now, pass data as-is since both systems expect similar CSV structure
-        # Future enhancement: add system-specific data transformations here
-        
+        # Derive system_config from the requested system
+        resolved_config = self.config["system_configs"].get(system_name, {})
+        if group_info["system"] != system_name:
+            logger.warning(
+                f"System override for group {group_info['group_id']}: "
+                f"{group_info['system']} -> {system_name}"
+            )
+
         prepared_data = {
             'group_id': group_info['group_id'],
             'system': system_name,
@@ -208,7 +211,7 @@ class UnifiedTradeRouter:
             'exchange_data': group_info['exchange_data'],
             'trader_count': group_info['trader_count'],
             'exchange_count': group_info['exchange_count'],
-            'system_config': group_info['system_config']
+            'system_config': resolved_config,
         }
         
         logger.debug(f"Prepared data for group {group_info['group_id']} → {system_name}: "

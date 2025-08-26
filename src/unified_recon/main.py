@@ -39,9 +39,9 @@ def setup_logging(log_level: str = "INFO") -> None:
             handlers=[logging.StreamHandler(sys.stdout)]
         )
     elif log_level == "INFO":
-        # For INFO and above, only show warnings and errors to keep output clean
+        # For INFO level, show INFO, WARNING, and ERROR messages
         logging.basicConfig(
-            level=logging.WARNING,
+            level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[logging.StreamHandler(sys.stdout)]
         )
@@ -74,105 +74,35 @@ def call_ice_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, te
     
     # Import and call ICE match system
     try:
-        from ..ice_match.loaders.csv_loader import CSVTradeLoader  # type: ignore
-        from ..ice_match.config import ConfigManager  # type: ignore
-        from ..ice_match.normalizers import TradeNormalizer  # type: ignore
-        from ..ice_match.core import UnmatchedPoolManager  # type: ignore
+        from ..ice_match.main import ICEMatchingEngine  # type: ignore
         
-        # Set up ICE system components
-        config_manager = ConfigManager()
-        normalizer = TradeNormalizer(config_manager)
-        loader = CSVTradeLoader(normalizer)
+        # Set up ICE system engine
+        engine = ICEMatchingEngine()
         
         # Load and process data through ICE system
         start_time = time.time()
         
-        # Load data using ICE system's loader
-        trader_trades = loader.load_trader_csv(trader_csv)
-        exchange_trades = loader.load_exchange_csv(exchange_csv)
-        
-        # Create pool manager and process through ICE rules
-        pool_manager = UnmatchedPoolManager(trader_trades, exchange_trades)
-        
-        # Get ICE rule processing order and matchers
-        processing_order = config_manager.get_processing_order()
-        
-        # Import all ICE matchers
-        from ..ice_match.matchers import (  # type: ignore
-            ExactMatcher, SpreadMatcher, CrackMatcher, ComplexCrackMatcher,
-            ProductSpreadMatcher, AggregationMatcher, AggregatedComplexCrackMatcher,
-            AggregatedSpreadMatcher, MultilegSpreadMatcher, AggregatedCrackMatcher,
-            ComplexCrackRollMatcher, AggregatedProductSpreadMatcher
-        )
-        
-        # Create matcher instances
-        matchers = {
-            1: ExactMatcher(config_manager),
-            2: SpreadMatcher(config_manager, normalizer), 
-            3: CrackMatcher(config_manager, normalizer),
-            4: ComplexCrackMatcher(config_manager, normalizer),
-            5: ProductSpreadMatcher(config_manager, normalizer),
-            6: AggregationMatcher(config_manager),
-            7: AggregatedComplexCrackMatcher(config_manager, normalizer),
-            8: AggregatedSpreadMatcher(config_manager, normalizer),
-            9: MultilegSpreadMatcher(config_manager, normalizer),
-            10: AggregatedCrackMatcher(config_manager, normalizer),
-            11: ComplexCrackRollMatcher(config_manager, normalizer),
-            12: AggregatedProductSpreadMatcher(config_manager, normalizer)
-        }
-        
-        # Process through all rules in sequence
-        all_matches = []
-        for rule_num in processing_order:
-            if rule_num in matchers:
-                matcher = matchers[rule_num]
-                rule_matches = matcher.find_matches(pool_manager)
-                all_matches.extend(rule_matches)
+        # Use ICE engine to run minimal matching process (no display, optimized for unified system)
+        matches, statistics = engine.run_matching_minimal(trader_csv, exchange_csv)
         
         processing_time = time.time() - start_time
         
-        # Calculate statistics using ICE system convention
-        # Get statistics from pool manager (same as ICE system)
-        pool_stats = pool_manager.get_statistics()
-        
-        # Extract match rates using ICE system's calculation method
-        trader_match_rate = float(pool_stats['match_rates']['trader'].replace('%', ''))
-        exchange_match_rate = float(pool_stats['match_rates']['exchange'].replace('%', ''))
-        overall_match_rate = float(pool_stats['match_rates']['overall'].replace('%', ''))
-        
-        total_trader_trades = len(trader_trades)
-        total_matches = len(all_matches)
-        match_rate = overall_match_rate  # Use ICE system's overall calculation
-        
-        # Get rule breakdown
-        rule_breakdown: Dict[int, int] = {}
-        for match in all_matches:
-            rule_num = match.rule_order
-            rule_breakdown[rule_num] = rule_breakdown.get(rule_num, 0) + 1
-        
-        # Generate DataFrame output like ICE system
-        from ..ice_match.utils.dataframe_output import create_reconciliation_dataframe  # type: ignore
-        from datetime import datetime
-        
-        execution_time = datetime.now()
-        df = create_reconciliation_dataframe(all_matches, pool_manager, execution_time)
+        # Get match rate from ICE statistics (overall match rate)
+        match_rate = statistics['match_rate']
         
         return {
-            'matches_found': total_matches,
-            'match_rate': match_rate,  # Overall match rate (ICE convention)
-            'trader_match_rate': trader_match_rate,
-            'exchange_match_rate': exchange_match_rate,
+            'matches_found': statistics['matches_found'],
+            'match_rate': match_rate,
             'processing_time': processing_time,
-            'rule_breakdown': rule_breakdown,
-            'detailed_results': all_matches,
-            'reconciliation_dataframe': df,
-            'pool_statistics': pool_stats  # Full ICE statistics
+            'detailed_results': matches,
+            'unmatched_trader_trades': statistics['unmatched_trader_trades'],
+            'unmatched_exchange_trades': statistics['unmatched_exchange_trades']
         }
         
     except ImportError as e:
-        raise ImportError(f"Failed to import ICE match system: {e}")
+        raise ImportError(f"Failed to import ICE match system: {e}") from e
     except Exception as e:
-        raise RuntimeError(f"ICE match system processing failed: {e}")
+        raise RuntimeError(f"ICE match system processing failed: {e}") from e
 
 
 def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, temp_data_dir: Path) -> Dict[str, Any]:
@@ -229,9 +159,9 @@ def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, te
         }
         
     except ImportError as e:
-        raise ImportError(f"Failed to import SGX match system: {e}")
+        raise ImportError(f"Failed to import SGX match system: {e}") from e
     except Exception as e:
-        raise RuntimeError(f"SGX match system processing failed: {e}")
+        raise RuntimeError(f"SGX match system processing failed: {e}") from e
 
 
 def main() -> int:

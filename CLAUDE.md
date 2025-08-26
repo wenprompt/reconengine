@@ -284,27 +284,23 @@ uv run python -m mypy src/ice_match
 uv run python -m mypy src/sgx_match
 uv run python -m mypy src/unified_recon
 
-# 🔄 UNIFIED RECONCILIATION SYSTEM (RECOMMENDED)
 # Centralized data routing with master data processing
-uv run python -m src.unified_recon.main                    # Shows matches + unmatched by default
-uv run python -m src.unified_recon.main --help            # See all unified options
+uv run python -m src.unified_recon.main                    # Shows all matches+unmatches
 uv run python -m src.unified_recon.main --log-level DEBUG # Enable debug logging
 
 # Run ICE match system directly
 uv run python -m src.ice_match.main
-uv run python -m src.ice_match.main --help  # See all options
 uv run python -m src.ice_match.main --show-rules  # Display detailed rule information
-uv run python -m src.ice_match.main --no-stats --no-unmatched  # Show only matches and beautiful RICH DataFrame output
+uv run python -m src.ice_match.main --log-level DEBUG  # Enable debug logging
 
-# Run SGX match system directly
-uv run python -m src.sgx_match.main  # Shows matches + unmatched by default
-uv run python -m src.sgx_match.main --no-unmatched  # Hide unmatched trades (matches only)
-uv run python -m src.sgx_match.main --help  # See all options
-uv run python -m src.sgx_match.main --log-level DEBUG  # Show detailed logging output
+# Run SGX match system directly  
+uv run python -m src.sgx_match.main  # Shows all matches+unmatches
+uv run python -m src.sgx_match.main --log-level DEBUG  # Enable debug logging
 
-# Logging and debugging
-uv run python -m src.ice_match.main --show-logs  # Show detailed logging output
-uv run python -m src.ice_match.main --show-logs --log-level DEBUG  # Enable debug logging
+# options
+--help
+--log-level DEBUG
+--no-unmatched
 ```
 
 ## 📋 Style & Conventions

@@ -176,11 +176,18 @@ class UnifiedDisplay:
             
             # Display detailed results if available and details requested
             if show_details:
-                if result.statistics and "reconciliation_dataframe" in result.statistics:
-                    # ICE system - show DataFrame
-                    self.display_reconciliation_dataframe(result.statistics["reconciliation_dataframe"])
+                # ICE system - show matches and DataFrame
+                if result.system_name == "ice_match" and result.detailed_results:
+                    self.display_ice_matches(result.detailed_results)
+                    if result.statistics and "reconciliation_dataframe" in result.statistics:
+                        self.display_reconciliation_dataframe(result.statistics["reconciliation_dataframe"])
+                    if show_unmatched and result.statistics and "unmatched_trader_trades" in result.statistics and "unmatched_exchange_trades" in result.statistics:
+                        self.display_ice_unmatched_trades(
+                            result.statistics["unmatched_trader_trades"],
+                            result.statistics["unmatched_exchange_trades"]
+                        )
+                # SGX system - show match table and unmatched trades
                 elif result.detailed_results and result.system_name == "sgx_match":
-                    # SGX system - show match table and unmatched trades
                     self.display_sgx_matches(result.detailed_results)
                     if show_unmatched and result.statistics and "unmatched_trader_trades" in result.statistics and "unmatched_exchange_trades" in result.statistics:
                         self.display_sgx_unmatched_trades(
@@ -191,12 +198,158 @@ class UnifiedDisplay:
         self.console.print()
     
     def display_reconciliation_dataframe(self, df: "pd.DataFrame") -> None:
-        """Display reconciliation DataFrame using ICE system's display function."""
+        """Display reconciliation DataFrame with basic Rich formatting."""
+        if df is None:
+            self.console.print("[yellow]No DataFrame to display[/yellow]")
+            return
+            
         try:
-            from ...ice_match.utils.dataframe_output import display_reconciliation_dataframe  # type: ignore
-            display_reconciliation_dataframe(df)
-        except ImportError:
-            self.console.print("[yellow]DataFrame display not available[/yellow]")
+            # Simple display without deep ICE coupling
+            import pandas as pd
+            
+            if df.empty:
+                self.console.print("📊 Reconciliation DataFrame: No data to display", style="yellow")
+                return
+            
+            self.console.print(f"\n📊 ICE Reconciliation DataFrame ({len(df)} records)", style="bold cyan")
+            
+            # Create a simple table showing key metrics
+            from rich.table import Table
+            
+            table = Table(title="DataFrame Summary", box=box.ROUNDED)
+            table.add_column("Metric", style="cyan")
+            table.add_column("Count", justify="right", style="green")
+            
+            if 'reconStatus' in df.columns:
+                total = len(df)
+                matched = len(df[df['reconStatus'] == 'matched'])
+                table.add_row("Total Records", str(total))
+                table.add_row("Matched Records", str(matched))
+                table.add_row("Match Rate", f"{matched/total*100:.1f}%" if total > 0 else "0%")
+            else:
+                table.add_row("Total Records", str(len(df)))
+            
+            self.console.print()
+            self.console.print(table)
+            self.console.print("[dim]📋 Full ICE DataFrame details available in ICE-specific output[/dim]")
+            
+        except Exception as e:
+            self.console.print(f"[yellow]DataFrame display error: {e}[/yellow]")
+
+    
+    def display_ice_matches(self, matches: List[Any]) -> None:
+        """Display ICE matches in a table format similar to ICE system."""
+        
+        table = Table(title=f"Detailed Matches ({len(matches)} found)", box=box.ROUNDED)
+        table.add_column("Match ID", style="cyan")
+        table.add_column("Rule", justify="center")
+        table.add_column("Product", style="green")
+        table.add_column("Contract", style="yellow")
+        table.add_column("Quantity", justify="right", style="blue")
+        table.add_column("Price", justify="right", style="magenta")
+        table.add_column("B/S", justify="center")
+        table.add_column("Trader ID", style="dim")
+        table.add_column("Exchange ID", style="dim")
+        table.add_column("Confidence", justify="right", style="bold green")
+        table.add_column("Match Type", style="white")
+        
+        for match in matches:
+            # Handle different ICE match structures
+            trader_id = match.trader_trade.display_id if hasattr(match.trader_trade, 'display_id') else str(match.trader_trade.trade_id)
+            exchange_id = match.exchange_trade.display_id if hasattr(match.exchange_trade, 'display_id') else str(match.exchange_trade.trade_id)
+            
+            table.add_row(
+                match.match_id,
+                str(match.rule_order),
+                match.trader_trade.product_name,
+                match.trader_trade.contract_month,
+                f"{match.trader_trade.quantity}{match.trader_trade.unit}",
+                str(match.trader_trade.price),
+                match.trader_trade.buy_sell,
+                trader_id,
+                exchange_id,
+                f"{match.confidence}%",
+                match.match_type.value if hasattr(match.match_type, 'value') else str(match.match_type)
+            )
+        
+        self.console.print()
+        self.console.print(table)
+
+    def display_ice_unmatched_trades(self, trader_trades: List[Any], exchange_trades: List[Any]) -> None:
+        """Display ICE unmatched trades similar to ICE system."""
+        
+        if trader_trades:
+            title = f"Unmatched Trader Trades ({len(trader_trades)})"
+            if len(trader_trades) > MAX_UNMATCHED_DISPLAY:
+                title += f" - Showing first {MAX_UNMATCHED_DISPLAY}"
+                
+            table = Table(title=title, box=box.ROUNDED)
+            table.add_column("ID", style="cyan")
+            table.add_column("Product", style="green")
+            table.add_column("Contract", style="yellow")
+            table.add_column("Quantity", justify="right", style="blue")
+            table.add_column("Price", justify="right", style="magenta")
+            table.add_column("B/S", justify="center")
+            table.add_column("Trade Time", style="dim")
+            table.add_column("Broker Group", justify="right")
+            table.add_column("Unit", style="dim")
+            
+            for trade in trader_trades[:MAX_UNMATCHED_DISPLAY]:
+                # Handle ICE trade structure
+                trade_id = trade.display_id if hasattr(trade, 'display_id') else str(trade.trade_id)
+                trade_time = trade.trade_time or "" if hasattr(trade, 'trade_time') else ""
+                broker_group = str(trade.broker_group_id or "") if hasattr(trade, 'broker_group_id') else ""
+                unit = str(trade.unit or "") if hasattr(trade, 'unit') else ""
+                
+                table.add_row(
+                    trade_id,
+                    trade.product_name,
+                    trade.contract_month,
+                    f"{trade.quantity}{trade.unit}",
+                    str(trade.price),
+                    trade.buy_sell,
+                    trade_time,
+                    broker_group,
+                    unit
+                )
+            
+            self.console.print()
+            self.console.print(table)
+        
+        if exchange_trades:
+            title = f"Unmatched Exchange Trades ({len(exchange_trades)})"
+            if len(exchange_trades) > MAX_UNMATCHED_DISPLAY:
+                title += f" - Showing first {MAX_UNMATCHED_DISPLAY}"
+                
+            table = Table(title=title, box=box.ROUNDED)
+            table.add_column("ID", style="cyan")
+            table.add_column("Deal ID", justify="right")
+            table.add_column("Product", style="green")
+            table.add_column("Contract", style="yellow")
+            table.add_column("Quantity", justify="right", style="blue")
+            table.add_column("Price", justify="right", style="magenta")
+            table.add_column("B/S", justify="center")
+            table.add_column("Unit", style="dim")
+            
+            for trade in exchange_trades[:MAX_UNMATCHED_DISPLAY]:
+                # Handle ICE trade structure
+                trade_id = trade.display_id if hasattr(trade, 'display_id') else str(trade.trade_id)
+                deal_id = str(trade.deal_id or "") if hasattr(trade, 'deal_id') else ""
+                unit = str(trade.unit or "") if hasattr(trade, 'unit') else ""
+                
+                table.add_row(
+                    trade_id,
+                    deal_id,
+                    trade.product_name,
+                    trade.contract_month,
+                    f"{trade.quantity}{trade.unit}",
+                    str(trade.price),
+                    trade.buy_sell,
+                    unit
+                )
+            
+            self.console.print()
+            self.console.print(table)
 
     
     def display_sgx_matches(self, matches: List[Any]) -> None:
@@ -256,7 +409,7 @@ class UnifiedDisplay:
                     trade.display_id,
                     trade.product_name,
                     trade.contract_month,
-                    str(trade.quantity_units),
+                    f"{trade.quantity}{trade.unit}",
                     str(trade.price),
                     trade.buy_sell,
                     trade.trade_time or "",
@@ -288,7 +441,7 @@ class UnifiedDisplay:
                     str(trade.deal_id or ""),
                     trade.product_name,
                     trade.contract_month,
-                    str(trade.quantity_units),
+                    f"{trade.quantity}{trade.unit}",
                     str(trade.price),
                     trade.buy_sell,
                     trade.trader_name or ""
