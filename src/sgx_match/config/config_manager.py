@@ -148,6 +148,21 @@ class SGXConfigManager:
             String prefix for generating match IDs
         """
         return self.matching_config.match_id_prefix
+
+    
+    def get_field_mappings(self) -> Dict[str, Dict[str, str]]:
+        """Get field mappings for trader and exchange CSV files.
+        
+        Returns:
+            Dictionary with trader_mappings and exchange_mappings
+            
+        Raises:
+            KeyError: If field mappings not found in config
+        """
+        try:
+            return self.normalizer_config["field_mappings"]
+        except KeyError as e:
+            raise KeyError(f"Missing field mappings in normalizer config: {e}") from e
     
     def reload_config(self) -> None:
         """Reload configuration from files.

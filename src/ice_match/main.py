@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Protocol
 from decimal import Decimal
 
 from .models import MatchResult, Trade
@@ -29,28 +29,38 @@ from .matchers import (
 from .cli import MatchDisplayer
 from .utils.dataframe_output import create_reconciliation_dataframe, display_reconciliation_dataframe
 
+
+class MatcherProtocol(Protocol):
+    """Protocol for matcher classes with a find_matches method."""
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]: ...
+
+
 # Default file paths and constants - package-relative
 DEFAULT_DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_TRADER_FILE = "sourceTraders.csv"
 DEFAULT_EXCHANGE_FILE = "sourceExchange.csv"
 
 
-def setup_logging(log_level: str = "INFO", show_logs: bool = False):
+def setup_logging(log_level: str = "INFO") -> None:
     """Setup logging configuration.
 
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        show_logs: Whether to show log output to console
     """
-    if show_logs:
-        logging.basicConfig(
-            level=getattr(logging, log_level),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler()],
-        )
-    else:
-        # Disable console logging, only keep ERROR and above
-        logging.basicConfig(level=logging.ERROR, handlers=[logging.NullHandler()])
+    # Remove any existing handlers to avoid duplicates
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    # Set up logging based on level, with uppercasing and fallback
+    log_level_upper = log_level.upper()
+    level = getattr(logging, log_level_upper, logging.INFO)
+    
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()]
+    )
 
 
 class ICEMatchingEngine:
@@ -63,13 +73,11 @@ class ICEMatchingEngine:
     def __init__(
         self,
         config_manager: Optional[ConfigManager] = None,
-        show_logs: bool = False,
     ):
         """Initialize the matching engine.
 
         Args:
             config_manager: Optional configuration manager, uses defaults if None
-            show_logs: Whether to show log output to console
         """
         self.config_manager = config_manager or ConfigManager.default()
         self.normalizer = TradeNormalizer(self.config_manager)
@@ -77,7 +85,7 @@ class ICEMatchingEngine:
         self.displayer = MatchDisplayer(self.config_manager)
 
         # Setup logging
-        setup_logging(self.config_manager.config.log_level, show_logs)
+        setup_logging(self.config_manager.config.log_level)
         self.logger = logging.getLogger(__name__)
 
     def run_matching(
@@ -303,6 +311,106 @@ class ICEMatchingEngine:
             "avg_confidence": float(avg_confidence),
         }
 
+    def run_matching_minimal(self, trader_csv_path: Path, exchange_csv_path: Path) -> tuple[List[MatchResult], Dict[str, Any]]:
+        """Run ICE matching process without display output for unified system.
+        
+        Args:
+            trader_csv_path: Path to trader CSV file
+            exchange_csv_path: Path to exchange CSV file
+            
+        Returns:
+            Tuple of (matches, statistics) for unified system integration
+        """
+        from datetime import datetime
+        from .utils.dataframe_output import create_reconciliation_dataframe
+        
+        start_time = time.time()
+        execution_datetime = datetime.now()
+
+        try:
+            # Set conversion ratio for all Trade instances
+            Trade.set_conversion_ratio(self.config_manager.get_conversion_ratio())
+
+            # Load data
+            trader_trades, exchange_trades = self.loader.load_both_files(
+                trader_csv_path, exchange_csv_path
+            )
+
+            # Initialize pool manager
+            pool_manager = UnmatchedPoolManager(trader_trades, exchange_trades)
+
+            # Run all matching rules in sequence
+            all_matches = []
+            
+            # Get processing order from config
+            processing_order = self.config_manager.get_processing_order()
+            
+            # Create matcher instances based on config
+            matchers: Dict[int, MatcherProtocol] = {
+                1: ExactMatcher(self.config_manager),
+                2: SpreadMatcher(self.config_manager, self.normalizer),
+                3: CrackMatcher(self.config_manager, self.normalizer),
+                4: ComplexCrackMatcher(self.config_manager, self.normalizer),
+                5: ProductSpreadMatcher(self.config_manager, self.normalizer),
+                6: AggregationMatcher(self.config_manager),
+                7: AggregatedComplexCrackMatcher(self.config_manager, self.normalizer),
+                8: AggregatedSpreadMatcher(self.config_manager, self.normalizer),
+                9: MultilegSpreadMatcher(self.config_manager, self.normalizer),
+                10: AggregatedCrackMatcher(self.config_manager, self.normalizer),
+                11: ComplexCrackRollMatcher(self.config_manager, self.normalizer),
+                12: AggregatedProductSpreadMatcher(self.config_manager, self.normalizer)
+            }
+            
+            # Process through all rules in sequence
+            for rule_num in processing_order:
+                if rule_num in matchers:
+                    matcher = matchers[rule_num]
+                    rule_matches = matcher.find_matches(pool_manager)
+                    all_matches.extend(rule_matches)
+
+            processing_time = time.time() - start_time
+
+            # Get statistics from pool manager (same as ICE system)
+            pool_stats = pool_manager.get_statistics()
+
+            # Extract match rates using ICE system's calculation method
+            trader_match_rate = float(pool_stats['match_rates']['trader'].replace('%', ''))
+            exchange_match_rate = float(pool_stats['match_rates']['exchange'].replace('%', ''))
+            overall_match_rate = float(pool_stats['match_rates']['overall'].replace('%', ''))
+
+            # Get rule breakdown
+            rule_breakdown: Dict[int, int] = {}
+            for match in all_matches:
+                rule_num = match.rule_order
+                rule_breakdown[rule_num] = rule_breakdown.get(rule_num, 0) + 1
+
+            # Generate DataFrame output like ICE system
+            df = create_reconciliation_dataframe(all_matches, pool_manager, execution_datetime)
+
+            # Get unmatched trades like SGX does
+            unmatched_trader = pool_manager.get_unmatched_trader_trades()
+            unmatched_exchange = pool_manager.get_unmatched_exchange_trades()
+
+            # Prepare statistics dictionary for unified system
+            statistics = {
+                'matches_found': len(all_matches),
+                'match_rate': overall_match_rate,
+                'trader_match_rate': trader_match_rate, 
+                'exchange_match_rate': exchange_match_rate,
+                'processing_time': processing_time,
+                'rule_breakdown': rule_breakdown,
+                'reconciliation_dataframe': df,
+                'pool_statistics': pool_stats,
+                'unmatched_trader_trades': unmatched_trader,
+                'unmatched_exchange_trades': unmatched_exchange
+            }
+
+            return all_matches, statistics
+
+        except Exception as e:
+            self.logger.error(f"ICE minimal matching failed: {e}")
+            raise RuntimeError(f"ICE matching failed: {e}") from e
+
 
 def main():
     """Main entry point for command line execution."""
@@ -316,7 +424,7 @@ Examples:
   python -m ice_match.main                              # Use default sample data
   python -m ice_match.main --log-level DEBUG            # Use default data with debug logging
   python -m ice_match.main data/traders.csv data/exchange.csv    # Use custom files
-  python -m ice_match.main --show-logs custom_traders.csv custom_exchange.csv
+  python -m ice_match.main --log-level DEBUG custom_traders.csv custom_exchange.csv
         """,
     )
 
@@ -339,8 +447,8 @@ Examples:
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",  # Reverted default to INFO
-        help="Set logging level (default: INFO)",
+        default="INFO",
+        help="Set logging level (default: INFO) - automatically shows logs for DEBUG/INFO levels",
     )
 
     parser.add_argument(
@@ -348,10 +456,6 @@ Examples:
     )
 
     parser.add_argument("--no-stats", action="store_true", help="Don't show statistics")
-
-    parser.add_argument(
-        "--show-logs", action="store_true", help="Show detailed logging output"
-    )
 
     parser.add_argument(
         "--show-rules",
@@ -433,13 +537,12 @@ Examples:
     )
 
     # Run matching
-    engine = ICEMatchingEngine(config_manager, show_logs=args.show_logs)
+    engine = ICEMatchingEngine(config_manager)
 
     try:
         matches = engine.run_matching(args.trader_csv, args.exchange_csv)
 
         # Print summary for scripting
-
         summary = engine.get_match_summary(matches)
         print(f"\nMatching completed: {summary['total_matches']} matches found")
 

@@ -34,9 +34,7 @@ class CSVTradeLoader:
             raise FileNotFoundError(f"Trader CSV file not found: {file_path}")
         
         try:
-            # Force dealid and tradeid to be read as strings to prevent scientific notation conversion
-            dtype_spec: Dict[str, Any] = {'dealid': 'str', 'tradeid': 'str'}
-            df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)  # type: ignore[arg-type]
+            df = pd.read_csv(file_path, encoding='utf-8-sig')
             df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from trader CSV")
             
@@ -57,7 +55,7 @@ class CSVTradeLoader:
             
         except Exception as e:
             logger.error(f"Error loading trader CSV {file_path}: {e}")
-            raise ValueError(f"Failed to load trader CSV: {e}")
+            raise ValueError(f"Failed to load trader CSV: {e}") from e
     
     def load_exchange_csv(self, file_path: Path) -> List[Trade]:
         """Load trades from exchange CSV file."""
@@ -89,7 +87,7 @@ class CSVTradeLoader:
             
         except Exception as e:
             logger.error(f"Error loading exchange CSV {file_path}: {e}")
-            raise ValueError(f"Failed to load exchange CSV: {e}")
+            raise ValueError(f"Failed to load exchange CSV: {e}") from e
     
     def _create_trader_trade(self, row: pd.Series, index: int) -> Optional[Trade]:
         """Create a Trade object from a trader CSV row after normalization."""

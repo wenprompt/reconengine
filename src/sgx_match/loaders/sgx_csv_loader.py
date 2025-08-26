@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, cast, cast
 import logging
 import uuid
 
@@ -57,35 +57,39 @@ class SGXCSVLoader:
         """
         return self._load_trades(csv_path, self._create_exchange_trade, "exchange")
     
-    def _load_trades(self, csv_path: Path, create_trade_func: Callable[[pd.Series, Dict[str, str], int], Optional[SGXTrade]], trade_type: str) -> List[SGXTrade]:
-        """Generic method to load trades from CSV file.
+    def _load_trades(self, csv_path: Path, create_trade_func: Callable[..., Optional[SGXTrade]], trade_type: str) -> List[SGXTrade]:
+        """Generic method to load SGX CSV data and create trade objects.
         
         Args:
             csv_path: Path to CSV file
-            create_trade_func: Function to create trade from row (either _create_trader_trade or _create_exchange_trade)
-            trade_type: Type of trade for logging ("trader" or "exchange")
+            create_trade_func: Function to create trade objects (self._create_trader_trade or self._create_exchange_trade)
+            trade_type: Type of trades ('trader' or 'exchange') for logging
             
         Returns:
-            List of normalized SGX trades
+            List of SGXTrade objects created from the CSV data
             
         Raises:
-            FileNotFoundError: If CSV file doesn't exist
-            ValueError: If CSV has invalid format
+            FileNotFoundError: If CSV file not found
+            ValueError: If CSV format is invalid
         """
-        logger.info(f"Loading SGX {trade_type} trades from {csv_path}")
-        
         try:
-            df = pd.read_csv(csv_path)
-            logger.info(f"Loaded {len(df)} raw {trade_type} records")
+            logger.info(f"Loading {trade_type} CSV from: {csv_path}")
+            
+            # Load CSV with proper encoding
+            df = pd.read_csv(csv_path, encoding='utf-8-sig')
+            
+            # Clean column names
+            df.columns = df.columns.str.strip()
+            
+            logger.info(f"Successfully loaded {len(df)} rows from {trade_type} CSV")
+            
+            # Get field mappings for the trade type
+            field_mappings = self.config_manager.get_field_mappings()[f"{trade_type}_mappings"]
             
             trades = []
-            # Use empty dict since we'll work directly with column names
-            field_mappings: Dict[str, str] = {}
-            
             for idx, row in df.iterrows():
                 try:
-                    index = int(idx) if isinstance(idx, (int, float)) else 0
-                    trade = create_trade_func(row, field_mappings, index)
+                    trade = create_trade_func(row, field_mappings, cast(int, idx))
                     if trade:
                         trades.append(trade)
                 except Exception as e:
@@ -100,7 +104,7 @@ class SGXCSVLoader:
             raise
         except Exception as e:
             logger.error(f"Failed to load {trade_type} trades: {e}")
-            raise ValueError(f"Invalid {trade_type} CSV format: {e}")
+            raise ValueError(f"Invalid {trade_type} CSV format: {e}") from e
     
     def _create_trader_trade(self, row: pd.Series, field_mappings: Dict[str, str], 
                            index: int) -> Optional[SGXTrade]:

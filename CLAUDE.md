@@ -6,7 +6,8 @@ This file provides comprehensive guidance to Claude Code when working with this 
 
 This is a **Reconciliation Engine** that contains multiple specialized matching systems:
 
-- **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 11 sequential rules
+- **Unified Reconciliation System** (`src/unified_recon/`) - Centralized data routing system that groups trades by exchange and routes to appropriate matching systems
+- **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 12 sequential rules
 - **SGX Trade Matching System** (`src/sgx_match/`) - Singapore Exchange iron ore futures matching with exact rule
 - **Future Modules**: Plans for additional matching systems like `ffa_match` and others
 
@@ -14,12 +15,12 @@ Each matching system has its own specialized rules and matching logic tailored t
 
 ### ICE Match Module Summary
 
-The ice matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 11 implemented rules:
+The ice matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 12 implemented rules:
 
 - **Rules 1-3**: Basic matching (exact, spread, crack)
 - **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
-- **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, aggregated crack)
-- **Rules 10-11**: Advanced spread matching (complex crack roll, aggregated product spread)
+- **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, multileg spread)
+- **Rules 10-12**: Advanced matching (aggregated crack, complex crack roll, aggregated product spread)
 
 ### SGX Match Module Summary
 
@@ -29,6 +30,16 @@ The SGX matching system processes Singapore Exchange iron ore futures trades usi
 - **Iron Ore Focus**: Specialized for FE (Iron Ore) futures and options
 - **Options Support**: Handles puts/calls with strike prices
 - **Simple Architecture**: Streamlined design for straightforward exact matching
+
+### Unified Reconciliation System Summary
+
+The unified reconciliation system acts as a centralized data router and aggregator:
+
+- **Data Routing**: Groups trades by `exchangegroupid` and routes to appropriate systems (Group 1 → ICE, Group 2 → SGX)
+- **System Integration**: Calls individual matching systems with filtered data while maintaining system isolation
+- **Result Aggregation**: Combines results from multiple systems with unified reporting
+- **Phase 1 Architecture**: Pure data routing without centralizing normalizers/configs
+- **Rich Display**: Beautiful terminal output with detailed breakdowns and DataFrame tables
 
 Each matching system will have its own `docs/rules.md` file for detailed rule specifications.
 
@@ -46,9 +57,32 @@ Each matching system will have its own `docs/rules.md` file for detailed rule sp
 
 ### Core Structure
 
+**Unified Reconciliation System Structure:**
+
+```text
+src/unified_recon/
+├── main.py                 # Main entry point for unified reconciliation
+├── config/                 # Configuration management
+│   ├── unified_config.json # System mappings and routing configuration
+│   └── __init__.py
+├── core/                   # Core routing and aggregation logic
+│   ├── group_router.py    # Data loading, validation, and routing by exchangegroupid
+│   ├── result_aggregator.py # Cross-system result aggregation and statistics
+│   └── __init__.py
+├── utils/                  # Validation and helper utilities
+│   ├── data_validator.py  # CSV validation and exchange group detection
+│   └── __init__.py
+├── cli/                    # Rich terminal interface
+│   ├── unified_display.py # Unified reporting and DataFrame display
+│   └── __init__.py
+└── data/                   # Centralized master data (moved from individual systems)
+    ├── sourceTraders.csv   # Master trader data (104 records)
+    └── sourceExchange.csv  # Master exchange data (101 records)
+```
+
 **ICE Match Module Structure:**
 
-```
+```text
 src/ice_match/
 ├── main.py                 # Main application entry point with CLI
 ├── models/                 # Pydantic v2 data models
@@ -62,7 +96,7 @@ src/ice_match/
 │   ├── __init__.py     # Module exports and documentation
 │   ├── trade_helpers.py # Pure utility functions (no config dependencies)
 │   └── conversion_helpers.py # Config-dependent utility functions
-├── matchers/            # Matching rule implementations (11 rules)
+├── matchers/            # Matching rule implementations (12 rules)
 │   ├── exact_matcher.py # Rule 1: Exact matching
 │   ├── spread_matcher.py # Rule 2: Spread matching
 │   ├── crack_matcher.py # Rule 3: Crack matching
@@ -71,9 +105,10 @@ src/ice_match/
 │   ├── aggregation_matcher.py # Rule 6: Aggregation matching
 │   ├── aggregated_complex_crack_matcher.py # Rule 7: Aggregated complex crack
 │   ├── aggregated_spread_matcher.py # Rule 8: Aggregated spread matching
-│   ├── aggregated_crack_matcher.py # Rule 9: Aggregated crack matching
-│   ├── complex_crack_roll_matcher.py # Rule 10: Complex crack roll matching
-│   └── aggregated_product_spread_matcher.py # Rule 11: Aggregated product spread matching
+│   ├── multileg_spread_matcher.py # Rule 9: Multileg spread matching
+│   ├── aggregated_crack_matcher.py # Rule 10: Aggregated crack matching
+│   ├── complex_crack_roll_matcher.py # Rule 11: Complex crack roll matching
+│   └── aggregated_product_spread_matcher.py # Rule 12: Aggregated product spread matching
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -90,7 +125,7 @@ src/ice_match/
 
 **SGX Match Module Structure:**
 
-```
+```text
 src/sgx_match/
 ├── main.py                 # Main application entry point with CLI
 ├── models/                 # Pydantic v2 data models
@@ -177,9 +212,9 @@ src/sgx_match/
 **`matchers/`** - **Business Logic Engine**
 
 - **Rules 1-3**: Basic matching (exact, spread, crack with unit conversion)
-- **Rules 4-6**: Complex matching (2-leg crack, product spread, aggregation)
-- **Rules 7-9**: Advanced aggregated matching (complex crack + aggregation, spread + aggregation, crack + aggregation)
-- **Rules 10-11**: Advanced spread matching (complex crack roll, aggregated product spread)
+- **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
+- **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, multileg spread)
+- **Rules 10-12**: Advanced matching (aggregated crack, complex crack roll, aggregated product spread)
 - **BaseMatcher**: Universal field validation and shared matcher functionality
 - **Extensible Design**: Easy to add new rules following established patterns
 
@@ -247,27 +282,25 @@ uv python install 3.12
 # Type checking
 uv run python -m mypy src/ice_match
 uv run python -m mypy src/sgx_match
+uv run python -m mypy src/unified_recon
 
-# Run ICE match system
+# Centralized data routing with master data processing
+uv run python -m src.unified_recon.main                    # Shows all matches+unmatches
+uv run python -m src.unified_recon.main --log-level DEBUG # Enable debug logging
+
+# Run ICE match system directly
 uv run python -m src.ice_match.main
-uv run python -m src.ice_match.main --help  # See all options
 uv run python -m src.ice_match.main --show-rules  # Display detailed rule information
-uv run python -m src.ice_match.main --no-stats --no-unmatched  # Show only matches and beautiful RICH DataFrame output
+uv run python -m src.ice_match.main --log-level DEBUG  # Enable debug logging
 
-# Run SGX match system
-uv run python -m src.sgx_match.main --show-unmatched # too long list
-uv run python -m src.sgx_match.main --help  # See all options
-uv run python -m src.sgx_match.main --show-rules  # Display detailed rule information
+# Run SGX match system directly
+uv run python -m src.sgx_match.main  # Shows all matches+unmatches
+uv run python -m src.sgx_match.main --log-level DEBUG  # Enable debug logging
 
-# Logging and debugging
-uv run python -m src.ice_match.main --show-logs  # Show detailed logging output
-uv run python -m src.ice_match.main --show-logs --log-level DEBUG  # Enable debug logging
-
-# 📊 Standardized DataFrame Output
-# All matching modules now output a standardized reconciliation DataFrame with:
-# - reconid, source_traders_id, source_exch_id, reconStatus, recon_run_datetime
-# - remarks, confidence_score, quantity, contract_month, product_name, match_id, aggregation_type
-uv run python -m src.ice_match.main --no-stats --no-unmatched  # Best DataFrame view with RICH styling
+# options
+--help
+--log-level DEBUG
+--no-unmatched
 ```
 
 ## 📋 Style & Conventions
@@ -345,9 +378,9 @@ _The following sections document the specific implementation progress and update
 
 **ICE Match Module Completed**:
 
-- **11 Sequential Rules**: Implemented with enhanced match rate on sample data
-- **Complex Crack Roll Matching**: Rule 10 for calendar spreads of crack positions
-- **Aggregated Product Spread Matching**: Rule 11 with comprehensive 4-tier architecture for product spread matching with aggregation logic ⭐ **ENHANCED**
+- **12 Sequential Rules**: Implemented with enhanced match rate on sample data (66.3% on current dataset)
+- **Complex Crack Roll Matching**: Rule 11 for calendar spreads of crack positions
+- **Aggregated Product Spread Matching**: Rule 12 with comprehensive 4-tier architecture for product spread matching with aggregation logic ⭐ **ENHANCED**
 - **Refactored Utils Architecture**: Separated pure utilities from config-dependent functions
 - **3-Tier Spread Matching**: Enhanced spread detection with DealID/TradeID, time-based, and product/quantity tiers
 - **Universal Field Validation**: JSON-driven configuration system
@@ -389,6 +422,7 @@ The ice CSV loader uses the normalizer for consistent data processing:
 **Problem Solved**: Previously, Rule 11 couldn't handle cases where multiple identical hyphenated exchange spreads needed to aggregate to match a single trader spread pair.
 
 **Example Case Fixed**:
+
 - **Exchange**: E_0044 + E_0045 (both "naphtha japan-naphtha nwe", 5000 MT each, 22.25, S)
 - **Trader**: T_0078 (naphtha japan, 10000 MT, S) + T_0079 (naphtha nwe, 10000 MT, B)
 - **Before**: ❌ No match found
@@ -400,19 +434,17 @@ The ice CSV loader uses the normalizer for consistent data processing:
 
 1. **Tier 1 (Scenario A)**: Exchange Component Aggregation → Trader Spread Pair
    - Multiple individual exchange component trades → Single trader spread pair
-   
-2. **Tier 2 (Scenario B)**: Exchange Hyphenated Spread → Trader Component Aggregation  
+2. **Tier 2 (Scenario B)**: Exchange Hyphenated Spread → Trader Component Aggregation
    - Single exchange hyphenated spread → Multiple trader trades per component
-   
 3. **Tier 3 (Scenario C)**: Cross-Spread Aggregation (Trader Spread Pairs → Exchange Components)
    - Multiple trader spread pairs aggregate by component → Individual exchange component trades
-   
 4. **Tier 4 (Scenario D)**: Hyphenated Exchange Aggregation → Trader Spread Pair ⭐ **NEW**
    - Multiple identical hyphenated exchange spreads → Single trader spread pair
 
 ### Implementation Quality
 
 **Architecture Excellence**:
+
 - **Clear Tier Organization**: Section headers and comprehensive documentation
 - **Zero Technical Debt**: No unused imports, hardcoded values, or magic numbers
 - **Type Safety**: 100% mypy compliant with comprehensive type annotations
@@ -420,8 +452,9 @@ The ice CSV loader uses the normalizer for consistent data processing:
 - **Maintainability**: Well-structured code following established patterns
 
 **Test Results**:
+
 - **Successfully matches**: `AGG_PROD_SPREAD_11_ce811aca`
-- **Confidence Level**: 62% 
+- **Confidence Level**: 62%
 - **Aggregation Type**: Many-to-Many (N:N)
 - **DataFrame Integration**: Displays correctly in standardized output
 

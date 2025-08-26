@@ -67,4 +67,5 @@ how to catch BZN and PXN hmm
 
 SGX and EEX is done
 
-found a problem for ice - say if trade is sep/oct oct/nov and traders write sep/nov, the oct will be missed out
+for iron ore recon is basis T+1 from T-1 + T trades
+for FFA recon is basis T trades and T+1 current day

@@ -124,7 +124,7 @@ class BaseMatcher(ABC):
             Unique match ID string
             
         Raises:
-            ValueError: If UUID_LENGTH is invalid
+            ValueError: If UUID_LENGTH is invalid or UUID generation fails
             
         Examples:
             >>> matcher.generate_match_id(1, "EXACT")
