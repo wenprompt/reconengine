@@ -32,8 +32,7 @@ from .utils.dataframe_output import create_reconciliation_dataframe, display_rec
 
 class MatcherProtocol(Protocol):
     """Protocol for matcher classes with a find_matches method."""
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
-        ...
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]: ...
 
 
 # Default file paths and constants - package-relative
@@ -53,27 +52,15 @@ def setup_logging(log_level: str = "INFO") -> None:
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
-    # Set up logging based on level (matches SGX approach)
-    if log_level == "DEBUG":
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler()]
-        )
-    elif log_level == "INFO":
-        # For INFO level, show INFO, WARNING, and ERROR messages
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler()]
-        )
-    else:
-        # For WARNING and above, use the specified level
-        logging.basicConfig(
-            level=getattr(logging, log_level),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler()]
-        )
+    # Set up logging based on level, with uppercasing and fallback
+    log_level_upper = log_level.upper()
+    level = getattr(logging, log_level_upper, logging.INFO)
+    
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()]
+    )
 
 
 class ICEMatchingEngine:

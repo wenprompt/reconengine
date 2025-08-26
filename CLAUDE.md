@@ -59,7 +59,7 @@ Each matching system will have its own `docs/rules.md` file for detailed rule sp
 
 **Unified Reconciliation System Structure:**
 
-```
+```text
 src/unified_recon/
 ├── main.py                 # Main entry point for unified reconciliation
 ├── config/                 # Configuration management
@@ -82,7 +82,7 @@ src/unified_recon/
 
 **ICE Match Module Structure:**
 
-```
+```text
 src/ice_match/
 ├── main.py                 # Main application entry point with CLI
 ├── models/                 # Pydantic v2 data models
@@ -125,7 +125,7 @@ src/ice_match/
 
 **SGX Match Module Structure:**
 
-```
+```text
 src/sgx_match/
 ├── main.py                 # Main application entry point with CLI
 ├── models/                 # Pydantic v2 data models
@@ -293,7 +293,7 @@ uv run python -m src.ice_match.main
 uv run python -m src.ice_match.main --show-rules  # Display detailed rule information
 uv run python -m src.ice_match.main --log-level DEBUG  # Enable debug logging
 
-# Run SGX match system directly  
+# Run SGX match system directly
 uv run python -m src.sgx_match.main  # Shows all matches+unmatches
 uv run python -m src.sgx_match.main --log-level DEBUG  # Enable debug logging
 
