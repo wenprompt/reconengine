@@ -409,7 +409,7 @@ class UnifiedDisplay:
                     trade.display_id,
                     trade.product_name,
                     trade.contract_month,
-                    f"{trade.quantity}{trade.unit}",
+                    f"{trade.quantity_units}{trade.unit}",
                     str(trade.price),
                     trade.buy_sell,
                     trade.trade_time or "",
@@ -441,7 +441,7 @@ class UnifiedDisplay:
                     str(trade.deal_id or ""),
                     trade.product_name,
                     trade.contract_month,
-                    f"{trade.quantity}{trade.unit}",
+                    f"{trade.quantity_units}{trade.unit}",
                     str(trade.price),
                     trade.buy_sell,
                     trade.trader_name or ""

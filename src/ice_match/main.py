@@ -41,17 +41,21 @@ DEFAULT_TRADER_FILE = "sourceTraders.csv"
 DEFAULT_EXCHANGE_FILE = "sourceExchange.csv"
 
 
-def setup_logging(log_level: str = "INFO") -> None:
+def setup_logging(log_level: str = "NONE") -> None:
     """Setup logging configuration.
 
     Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL, NONE)
     """
     # Remove any existing handlers to avoid duplicates
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
+    # If level is NONE, do not configure the root logger
+    if log_level.upper() == "NONE":
+        return
+
     # Set up logging based on level, with uppercasing and fallback
     log_level_upper = log_level.upper()
     level = getattr(logging, log_level_upper, logging.INFO)
@@ -446,9 +450,9 @@ Examples:
 
     parser.add_argument(
         "--log-level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",
-        help="Set logging level (default: INFO) - automatically shows logs for DEBUG/INFO levels",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NONE"],
+        default="NONE",
+        help="Set logging level (default: NONE)",
     )
 
     parser.add_argument(

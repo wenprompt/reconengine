@@ -26,7 +26,7 @@ class SGXMatchingEngine:
     """Main SGX trade matching engine."""
     
     def __init__(self, config_manager: Optional[SGXConfigManager] = None):
-        """Initialize SGX matching engine.
+        """Initialize SGX matching engine. 
         
         Args:
             config_manager: Optional config manager. Creates default if None.
@@ -113,7 +113,7 @@ class SGXMatchingEngine:
             raise RuntimeError(f"SGX matching failed: {e}") from e
 
     def run_matching_minimal(self, trader_csv_path: Path, exchange_csv_path: Path) -> tuple[List[SGXMatchResult], Dict[str, Any]]:
-        """Run SGX matching process without display output for unified system.
+        """Run SGX matching process without display output for unified system. 
         
         Args:
             trader_csv_path: Path to trader CSV file  
@@ -166,7 +166,7 @@ class SGXMatchingEngine:
             raise RuntimeError(f"SGX matching failed: {e}") from e
     
     def _get_matcher_for_rule(self, rule_number: int):
-        """Get matcher for specific rule number.
+        """Get matcher for specific rule number. 
         
         Args:
             rule_number: Rule number to get matcher for
@@ -180,38 +180,27 @@ class SGXMatchingEngine:
         return None
 
 
-def setup_logging(log_level: str = "INFO") -> None:
-    """Set up logging configuration for SGX matching.
+def setup_logging(log_level: str = "NONE") -> None:
+    """Set up logging configuration for SGX matching. 
     
     Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, NONE)
     """
     # Remove any existing handlers to avoid duplicates
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
-    # Only set up logging if DEBUG level is requested
-    if log_level == "DEBUG":
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler(sys.stdout)]
-        )
-    elif log_level == "INFO":
-        # For INFO level, show INFO, WARNING, and ERROR messages
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler(sys.stdout)]
-        )
-    else:
-        # For WARNING and ERROR, use the specified level
-        logging.basicConfig(
-            level=getattr(logging, log_level.upper()),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler(sys.stdout)]
-        )
+    if log_level.upper() == "NONE":
+        return
+
+    # Set up logging based on level
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
 
 def main() -> None:
     """Main entry point for SGX matching CLI."""
@@ -242,8 +231,8 @@ def main() -> None:
     
     parser.add_argument(
         "--log-level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "NONE"],
+        default="NONE",
         help="Set logging level"
     )
     
