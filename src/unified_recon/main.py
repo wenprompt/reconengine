@@ -20,38 +20,27 @@ DEFAULT_EXCHANGE_CSV = "sourceExchange.csv"
 DEFAULT_CONFIG_FILE = "unified_config.json"
 
 
-def setup_logging(log_level: str = "INFO") -> None:
+def setup_logging(log_level: str = "NONE") -> None:
     """Set up logging configuration for unified reconciliation.
     
     Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, NONE)
     """
     # Remove any existing handlers to avoid duplicates
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
-    # Only set up logging if DEBUG level is requested
-    if log_level == "DEBUG":
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler(sys.stdout)]
-        )
-    elif log_level == "INFO":
-        # For INFO level, show INFO, WARNING, and ERROR messages
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler(sys.stdout)]
-        )
-    else:
-        # For WARNING and ERROR, use the specified level
-        logging.basicConfig(
-            level=getattr(logging, log_level.upper()),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler(sys.stdout)]
-        )
+    if log_level.upper() == "NONE":
+        return
+
+    # Set up logging based on level
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
 
 
 def call_ice_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, temp_data_dir: Path) -> Dict[str, Any]:
@@ -180,8 +169,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--log-level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "NONE"],
+        default="NONE",
         help="Set logging level"
     )
     parser.add_argument(

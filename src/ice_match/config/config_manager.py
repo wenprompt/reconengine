@@ -72,8 +72,8 @@ class MatchingConfig(BaseModel):
 
     # Logging configuration
     log_level: str = Field(
-        default="INFO",
-        pattern=r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$",
+        default="NONE",
+        pattern=r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL|NONE)$",
         description="Logging level",
     )
 
