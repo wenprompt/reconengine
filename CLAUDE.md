@@ -7,7 +7,7 @@ This file provides comprehensive guidance to Claude Code when working with this 
 This is a **Reconciliation Engine** that contains multiple specialized matching systems:
 
 - **Unified Reconciliation System** (`src/unified_recon/`) - Centralized data routing system that groups trades by exchange and routes to appropriate matching systems
-- **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 12 sequential rules
+- **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 13 sequential rules
 - **SGX Trade Matching System** (`src/sgx_match/`) - Singapore Exchange iron ore futures matching with 3 sequential rules
 - **Future Modules**: Plans for additional matching systems like `ffa_match` and others
 
@@ -15,12 +15,12 @@ Each matching system has its own specialized rules and matching logic tailored t
 
 ### ICE Match Module Summary
 
-The ice matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 12 implemented rules:
+The ice matching system processes trades between trader and exchange data sources using a sequential rule-based approach with 13 implemented rules:
 
 - **Rules 1-3**: Basic matching (exact, spread, crack)
-- **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
-- **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, multileg spread)
-- **Rules 10-12**: Advanced matching (aggregated crack, complex crack roll, aggregated product spread)
+- **Rules 4-6**: Complex matching (complex crack, product spread, fly)
+- **Rules 7-9**: Advanced aggregated matching (aggregation, aggregated complex crack, aggregated spread)
+- **Rules 10-13**: Advanced matching (multileg spread, aggregated crack, complex crack roll, aggregated product spread)
 
 ### SGX Match Module Summary
 
@@ -98,19 +98,20 @@ src/ice_match/
 │   ├── __init__.py     # Module exports and documentation
 │   ├── trade_helpers.py # Pure utility functions (no config dependencies)
 │   └── conversion_helpers.py # Config-dependent utility functions
-├── matchers/            # Matching rule implementations (12 rules)
+├── matchers/            # Matching rule implementations (13 rules)
 │   ├── exact_matcher.py # Rule 1: Exact matching
 │   ├── spread_matcher.py # Rule 2: Spread matching
 │   ├── crack_matcher.py # Rule 3: Crack matching
 │   ├── complex_crack_matcher.py # Rule 4: Complex crack matching
 │   ├── product_spread_matcher.py # Rule 5: Product spread matching
-│   ├── aggregation_matcher.py # Rule 6: Aggregation matching
-│   ├── aggregated_complex_crack_matcher.py # Rule 7: Aggregated complex crack
-│   ├── aggregated_spread_matcher.py # Rule 8: Aggregated spread matching
-│   ├── multileg_spread_matcher.py # Rule 9: Multileg spread matching
-│   ├── aggregated_crack_matcher.py # Rule 10: Aggregated crack matching
-│   ├── complex_crack_roll_matcher.py # Rule 11: Complex crack roll matching
-│   └── aggregated_product_spread_matcher.py # Rule 12: Aggregated product spread matching
+│   ├── fly_matcher.py # Rule 6: Fly matching (butterfly spread)
+│   ├── aggregation_matcher.py # Rule 7: Aggregation matching
+│   ├── aggregated_complex_crack_matcher.py # Rule 8: Aggregated complex crack
+│   ├── aggregated_spread_matcher.py # Rule 9: Aggregated spread matching
+│   ├── multileg_spread_matcher.py # Rule 10: Multileg spread matching
+│   ├── aggregated_crack_matcher.py # Rule 11: Aggregated crack matching
+│   ├── complex_crack_roll_matcher.py # Rule 12: Complex crack roll matching
+│   └── aggregated_product_spread_matcher.py # Rule 13: Aggregated product spread matching
 ├── core/               # Core system components
 │   └── unmatched_pool.py # Non-duplication pool management
 ├── config/            # Configuration management
@@ -216,9 +217,9 @@ src/sgx_match/
 **`matchers/`** - **Business Logic Engine**
 
 - **Rules 1-3**: Basic matching (exact, spread, crack with unit conversion)
-- **Rules 4-6**: Complex matching (complex crack, product spread, aggregation)
-- **Rules 7-9**: Advanced aggregated matching (aggregated complex crack, aggregated spread, multileg spread)
-- **Rules 10-12**: Advanced matching (aggregated crack, complex crack roll, aggregated product spread)
+- **Rules 4-6**: Complex matching (complex crack, product spread, fly)
+- **Rules 7-9**: Advanced aggregated matching (aggregation, aggregated complex crack, aggregated spread)
+- **Rules 10-13**: Advanced matching (multileg spread, aggregated crack, complex crack roll, aggregated product spread)
 - **BaseMatcher**: Universal field validation and shared matcher functionality
 - **Extensible Design**: Easy to add new rules following established patterns
 
@@ -382,9 +383,10 @@ _The following sections document the specific implementation progress and update
 
 **ICE Match Module Completed**:
 
-- **12 Sequential Rules**: Implemented with enhanced match rate on sample data (66.3% on current dataset)
-- **Complex Crack Roll Matching**: Rule 11 for calendar spreads of crack positions
-- **Aggregated Product Spread Matching**: Rule 12 with comprehensive 4-tier architecture for product spread matching with aggregation logic ⭐ **ENHANCED**
+- **13 Sequential Rules**: Implemented with enhanced match rate on sample data, including new Rule 6 (Fly Matcher)
+- **Fly Matching**: Rule 6 for butterfly spread trades (3-leg buy-sell-buy pattern) with dealid-based grouping ⭐ **NEW**
+- **Complex Crack Roll Matching**: Rule 12 for calendar spreads of crack positions
+- **Aggregated Product Spread Matching**: Rule 13 with comprehensive 4-tier architecture for product spread matching with aggregation logic ⭐ **ENHANCED**
 - **Refactored Utils Architecture**: Separated pure utilities from config-dependent functions
 - **3-Tier Spread Matching**: Enhanced spread detection with DealID/TradeID, time-based, and product/quantity tiers
 - **Universal Field Validation**: JSON-driven configuration system
@@ -404,7 +406,7 @@ The ice module implements a shared, product-specific unit conversion architectur
 - **Unit Logic**: Trader data defaults to MT, exchange data uses unit column
 - **Exact Matching**: Product names are pre-normalized, allowing exact ratio lookup instead of "contains" matching
 - **Shared Methods**: `convert_mt_to_bbl_with_product_ratio()` and `validate_mt_to_bbl_quantity_match()` in `utils/conversion_helpers.py`
-- **Rules 3, 4 & 10 Integration**: CrackMatcher, ComplexCrackMatcher, and ComplexCrackRollMatcher use identical conversion logic
+- **Rules 3, 4 & 12 Integration**: CrackMatcher, ComplexCrackMatcher, and ComplexCrackRollMatcher use identical conversion logic
 - **JSON Configuration**: Conversion ratios stored in `normalizer_config.json` for maintainability
 - **Modular Architecture**: Utility functions separated from TradeNormalizer for better code organization
 
@@ -419,11 +421,11 @@ The ice CSV loader uses the normalizer for consistent data processing:
 
 ---
 
-## 🚀 Recent Enhancement: Rule 11 Tier 4 Implementation
+## 🚀 Recent Enhancement: Rule 13 Tier 4 Implementation
 
 ### New Tier 4: Hyphenated Exchange Aggregation → Trader Spread Pair ⭐
 
-**Problem Solved**: Previously, Rule 11 couldn't handle cases where multiple identical hyphenated exchange spreads needed to aggregate to match a single trader spread pair.
+**Problem Solved**: Previously, Rule 13 couldn't handle cases where multiple identical hyphenated exchange spreads needed to aggregate to match a single trader spread pair.
 
 **Example Case Fixed**:
 
@@ -434,7 +436,7 @@ The ice CSV loader uses the normalizer for consistent data processing:
 
 ### Complete Four-Tier Architecture
 
-**Rule 11** now implements a comprehensive four-tier system:
+**Rule 13** now implements a comprehensive four-tier system:
 
 1. **Tier 1 (Scenario A)**: Exchange Component Aggregation → Trader Spread Pair
    - Multiple individual exchange component trades → Single trader spread pair
@@ -457,10 +459,37 @@ The ice CSV loader uses the normalizer for consistent data processing:
 
 **Test Results**:
 
-- **Successfully matches**: `AGG_PROD_SPREAD_11_ce811aca`
+- **Successfully matches**: `AGG_PROD_SPREAD_13_ce811aca`
 - **Confidence Level**: 62%
 - **Aggregation Type**: Many-to-Many (N:N)
 - **DataFrame Integration**: Displays correctly in standardized output
+
+---
+
+## 🆕 New Rule 6: Fly Matcher Implementation
+
+### Butterfly Spread (Fly) Matching ⭐ **NEWLY IMPLEMENTED**
+
+**Rule 6** implements sophisticated butterfly spread matching with dealid-based grouping inspired by SGX spread matcher Tier 1 approach:
+
+**Key Features:**
+- **3-Leg Pattern Validation**: X+Z=Y quantity relationship where outer legs sum equals middle leg
+- **Direction Pattern**: Outer legs (X,Z) same direction, middle leg (Y) opposite direction  
+- **Contract Month Sorting**: Chronological ordering (earliest → middle → latest)
+- **DealID-Based Grouping**: Exchange trades must share same dealid for fly identification
+- **Universal Field Validation**: Inherits broker group and clearing account validation
+- **Non-Duplication Protection**: Proper pool manager integration prevents trade reuse
+
+**Example Pattern:**
+- **Trader**: 3 trades with spread indicator 'S' (e.g., Buy 1000 Sep, Sell 2000 Oct, Buy 1000 Nov)
+- **Exchange**: 3 trades sharing same dealid (corresponding to the butterfly structure)
+- **Validation**: 1000 + 1000 = 2000 ✅, Buy/Sell/Buy pattern ✅
+
+**Technical Implementation:**
+- **74% Confidence Level**: Positioned between Product Spread (75%) and Aggregation (72%)
+- **Fly Price Calculation**: Validates (X_price - Y_price) + (Z_price - Y_price) = trader_fly_price
+- **Pool Integration**: `pool_manager.record_match()` ensures proper trade removal
+- **Type Safety**: 100% mypy compliant with comprehensive type annotations
 
 ---
 
@@ -522,21 +551,24 @@ The SGX CSV loader processes Singapore Exchange data files:
 The SGX system implements a 3-rule sequential matching approach:
 
 #### Rule 1: Exact Matcher
+
 - **7-Field Matching**: product_name, contract_month, quantity_units, price, buy_sell + universal fields
 - **Signature Indexing**: O(1) lookup performance using tuple signatures
 - **Universal Validation**: Inherits broker_group_id and exch_clearing_acct_id validation
 - **100% Confidence**: High confidence matching for exact field alignment
 - **Options Aware**: Handles both futures and options contracts seamlessly
 
-#### Rule 2: Spread Matcher  
+#### Rule 2: Spread Matcher
+
 - **Calendar Spread Detection**: Matches trader spread pairs against exchange spread pairs
 - **Price Validation**: Validates spread price calculations between contract months
 - **2-to-2 Matching**: Two trader trades match against two exchange trades
 - **95% Confidence**: High confidence for spread position matching
 
 #### Rule 3: Product Spread Matcher (3-Tier System)
+
 - **Tier 1 (95%)**: PS required - Trader spread pairs with "PS" indicator vs exchange pairs
-- **Tier 2 (92%)**: No PS required - Identical spread price pattern without PS indicator  
+- **Tier 2 (92%)**: No PS required - Identical spread price pattern without PS indicator
 - **Tier 3 (90%)**: Hyphenated exchange spread - Single hyphenated exchange trade vs trader pair
 - **Configuration-Driven**: Uses tier-based confidence adjustment system
 - **Product Cross-Matching**: Handles different products (M65, FE) in spread relationships

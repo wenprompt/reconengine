@@ -6,7 +6,7 @@
   "system_configs": {
     "ice_match": {
       "module": "src.ice_match.main",
-      "description": "ICE - 12 rules"
+      "description": "ICE - 13 rules"
     },
     "sgx_match": {
       "module": "src.sgx_match.main",

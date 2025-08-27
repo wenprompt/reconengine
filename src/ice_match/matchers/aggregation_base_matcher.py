@@ -23,10 +23,10 @@ class AggregationBaseMatcher(BaseMatcher):
     - Handling both many→one and one→many scenarios
     
     Used by:
-    - Rule 6: AggregationMatcher (basic aggregation)
-    - Rule 7: AggregatedComplexCrackMatcher (aggregation + complex crack)
-    - Rule 8: AggregatedSpreadMatcher (aggregation + spread)
-    - Rule 9: AggregatedCrackMatcher (aggregation + crack)
+    - Rule 7: AggregationMatcher (basic aggregation)
+    - Rule 8: AggregatedComplexCrackMatcher (aggregation + complex crack)
+    - Rule 9: AggregatedSpreadMatcher (aggregation + spread)
+    - Rule 11: AggregatedCrackMatcher (aggregation + crack)
     """
 
     def __init__(self, config_manager: ConfigManager):

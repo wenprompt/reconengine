@@ -435,7 +435,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                 trader2.quantity_mt != exchange2_ordered.quantity_mt):
                 logger.debug(f"❌ Quantity mismatch: trader({trader1.quantity_mt}+{trader2.quantity_mt}={trader1.quantity_mt + trader2.quantity_mt}MT) "
                            f"vs exchange({exchange1_ordered.quantity_mt}+{exchange2_ordered.quantity_mt}={exchange1_ordered.quantity_mt + exchange2_ordered.quantity_mt}MT) "
-                           f"- should use Aggregated Product Spread Matcher (Rule 11)")
+                           f"- should use Aggregated Product Spread Matcher (Rule 13)")
                 return False
             
             # Check product alignment

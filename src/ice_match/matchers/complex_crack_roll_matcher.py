@@ -1,4 +1,4 @@
-"""Complex crack roll matcher for Rule 10: Calendar spreads of crack positions."""
+"""Complex crack roll matcher for Rule 12: Calendar spreads of crack positions."""
 
 import logging
 from decimal import Decimal
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ComplexCrackRollMatcher(MultiLegBaseMatcher):
     """Matches complex crack roll trades (calendar spreads of crack positions).
 
-    Handles Rule 10: Complex Crack Roll Match Rules (Calendar Spread of Crack Positions)
+    Handles Rule 12: Complex Crack Roll Match Rules (Calendar Spread of Crack Positions)
     - Processes trades that remain unmatched after Rules 1-9
     - Matches 2 consecutive trader crack trades against 4 exchange trades (2 complete crack positions)
     - Applies enhanced unit conversion tolerance (±145 MT, dynamic BBL from config)
@@ -31,7 +31,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         """Initialize the complex crack roll matcher."""
         super().__init__(config_manager)
         self.normalizer = normalizer
-        self.rule_number = 11
+        self.rule_number = 12
         self.confidence = config_manager.get_rule_confidence(self.rule_number)  # 65%
         
         # Use universal tolerances (enhanced tolerance for crack roll matching)
@@ -49,7 +49,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         Returns:
             List of complex crack roll match results
         """
-        logger.info("Starting complex crack roll matching (Rule 10)")
+        logger.info("Starting complex crack roll matching (Rule 12)")
         matches: List[MatchResult] = []
         
         # Get unmatched trades

@@ -43,13 +43,14 @@ class MatchingConfig(BaseModel):
             3: Decimal("90"),  # Crack match
             4: Decimal("80"),  # Complex crack match
             5: Decimal("75"),  # Product spread match
-            6: Decimal("72"),  # Aggregation match
-            7: Decimal("65"),  # Aggregated complex crack match
-            8: Decimal("70"),  # Aggregated spread match
-            9: Decimal("68"),  # Multileg spread match
-            10: Decimal("68"),  # Aggregated crack match
-            11: Decimal("65"),  # Complex crack roll match
-            12: Decimal("62"),  # Aggregated product spread match
+            6: Decimal("74"),  # Fly match
+            7: Decimal("72"),  # Aggregation match
+            8: Decimal("65"),  # Aggregated complex crack match
+            9: Decimal("70"),  # Aggregated spread match
+            10: Decimal("68"),  # Multileg spread match
+            11: Decimal("68"),  # Aggregated crack match
+            12: Decimal("65"),  # Complex crack roll match
+            13: Decimal("62"),  # Aggregated product spread match
         },
         description="Confidence levels for each matching rule (implemented rules)",
     )
@@ -66,7 +67,7 @@ class MatchingConfig(BaseModel):
 
     # Processing order (from rules.md) - implemented rules
     rule_processing_order: list[int] = Field(
-        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        default=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
         description="Order in which rules should be processed (implemented rules)",
     )
 
@@ -138,7 +139,7 @@ class ConfigManager:
         """Get confidence level for a specific rule.
 
         Args:
-            rule_number: Rule number (1-12)
+            rule_number: Rule number (1-13)
 
         Returns:
             Confidence level as percentage

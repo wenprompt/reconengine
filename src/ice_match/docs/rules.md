@@ -752,31 +752,33 @@ A **fly match** (butterfly spread match) occurs when trader data shows three sep
 ### Fly Trade Identification
 
 - **3-Leg Pattern**: Exactly 3 trades with same product and universal fields
-- **Quantity Relationship**: Middle quantity = sum of outer two quantities (X + Z = Y)  
+- **Quantity Relationship**: Middle quantity = sum of outer two quantities (X + Z = Y)
 - **Direction Pattern**: Outer legs same direction, middle leg opposite (Buy-Sell-Buy or Sell-Buy-Sell)
 - **Contract Month Order**: Three different consecutive or related contract months
-- **Price Pattern**: Fly price shown on earliest contract month, other legs typically 0.0
+- **Price Pattern**: Price can be on any leg or all zeros (flexible pricing pattern)
 - **Spread Indicator**: Usually marked with "S" in spread column
 
 ### Required Matching Fields for Fly Spreads
 
 1. **Product name**: All three legs must have identical product names
-2. **Contract months**: Three different contract months in chronological order  
+2. **Contract months**: Three different contract months in chronological order
 3. **Quantity relationship**: Outer legs (X + Z) = Middle leg (Y)
 4. **Direction logic**: X and Z same direction, Y opposite direction
 5. **Universal fields**: broker_group_id and exch_clearing_acct_id must match
-6. **Fly price**: Non-zero price on earliest month, zeros on other legs
+6. **Fly price**: The trader's fly price (typically on the earliest month leg, with other legs being 0.0) must match the calculated fly price from the corresponding exchange legs.
 7. **Spread indicator**: "S" marker in spread column (trader data)
 
 ### Fly Direction Logic
 
 #### Buy Fly Pattern:
+
 - **X (Early month)**: Buy with fly price
 - **Y (Middle month)**: Sell with price 0.0 (quantity = X + Z)
 - **Z (Late month)**: Buy with price 0.0
 
 #### Sell Fly Pattern:
-- **X (Early month)**: Sell with fly price  
+
+- **X (Early month)**: Sell with fly price
 - **Y (Middle month)**: Buy with price 0.0 (quantity = X + Z)
 - **Z (Late month)**: Sell with price 0.0
 
@@ -813,7 +815,8 @@ A **fly match** (butterfly spread match) occurs when trader data shows three sep
 5. **Universal Fields**: All trades have brokergroupid=3, exchclearingacctid=2 ✓
 
 #### Match Result:
-- **Match Type**: FLY  
+
+- **Match Type**: FLY
 - **Confidence**: 74%
 - **Trader Trades**: 3 (T_0034, T_0035, T_0036)
 - **Exchange Trades**: 3 (E_0068, E_0069, E_0070)
@@ -1252,11 +1255,13 @@ A **multileg spread match** occurs when a trader's calendar spread corresponds t
 Rule 9 operates in two tiers to handle different complexity levels of multileg spread patterns:
 
 #### Tier 1: Perfect Internal Netting (4 trades, 3 months)
+
 - **Pattern**: A/B + B/C = A/C where B legs net out perfectly
 - **Exchange Trades**: Exactly 4 trades across 3 contract months
 - **Netting Requirement**: Intermediate month must have identical buy/sell prices (perfect netting)
 
-#### Tier 2: Flexible Internal Netting (6 trades, 4 months)  
+#### Tier 2: Flexible Internal Netting (6 trades, 4 months)
+
 - **Pattern**: A/B + B/C + C/D = A/D where B and C legs net through arithmetic
 - **Exchange Trades**: Exactly 6 trades across 4 contract months
 - **Netting Requirement**: Combined spread arithmetic must equal trader spread price
@@ -1268,14 +1273,14 @@ Rule 9 operates in two tiers to handle different complexity levels of multileg s
 **sourceTraders.csv (Single Sep/Nov Spread):**
 
 | productname | contractmonth | quantityunits | price | B/S | brokergroupid |
-|-------------|---------------|---------------|-------|-----|---------------|
+| ----------- | ------------- | ------------- | ----- | --- | ------------- |
 | 380cst      | Sep-25        | 10000         | 6.25  | S   | 3             |
 | 380cst      | Nov-25        | 10000         | 0.00  | B   | 3             |
 
 **sourceExchange.csv (Two Separate Spreads - 4 Trades, 3 Months):**
 
 | dealid         | tradeid        | productname | contractmonth | quantityunits | price  | b/s    | brokergroupid |
-|----------------|----------------|-------------|---------------|---------------|--------|--------|---------------|
+| -------------- | -------------- | ----------- | ------------- | ------------- | ------ | ------ | ------------- |
 | 19000002569561 | 19000002569563 | 380cst      | Sep-25        | 10000         | 408.25 | Sold   | 3             |
 | 19000002569561 | 19000002569562 | 380cst      | Oct-25        | 10000         | 406.00 | Bought | 3             |
 | 19000002577280 | 19000002577282 | 380cst      | Oct-25        | 10000         | 406.00 | Sold   | 3             |
@@ -1322,14 +1327,14 @@ Rule 9 operates in two tiers to handle different complexity levels of multileg s
 **sourceTraders.csv (Single Aug/Nov Spread):**
 
 | productname | contractmonth | quantityunits | price | B/S | brokergroupid |
-|-------------|---------------|---------------|-------|-----|---------------|
+| ----------- | ------------- | ------------- | ----- | --- | ------------- |
 | 380cst      | Aug-25        | 20000         | 3.50  | S   | 3             |
 | 380cst      | Nov-25        | 20000         | 0.00  | B   | 3             |
 
 **sourceExchange.csv (Three Consecutive Spreads - 6 Trades, 4 Months):**
 
 | dealid         | tradeid        | productname | contractmonth | quantityunits | price  | b/s    | brokergroupid |
-|----------------|----------------|-------------|---------------|---------------|--------|--------|---------------|
+| -------------- | -------------- | ----------- | ------------- | ------------- | ------ | ------ | ------------- |
 | 19000002283533 | 19000002283535 | 380cst      | Aug-25        | 20000         | 410.00 | Sold   | 3             |
 | 19000002283533 | 19000002283534 | 380cst      | Sep-25        | 20000         | 412.75 | Bought | 3             |
 | 19000002612028 | 19000002612030 | 380cst      | Sep-25        | 20000         | 413.25 | Sold   | 3             |

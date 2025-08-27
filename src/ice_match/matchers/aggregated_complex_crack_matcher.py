@@ -1,4 +1,4 @@
-"""Aggregated complex crack matcher for Rule 7 - Aggregated complex crack matching (2-leg with split base products)."""
+"""Aggregated complex crack matcher for Rule 8 - Aggregated complex crack matching (2-leg with split base products)."""
 
 import logging
 from decimal import Decimal
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
     """Matches aggregated complex crack trades (multiple base products + brent swap combinations).
 
-    Handles Rule 7: Aggregated Complex Crack Match Rules (2-Leg with Split Base Products)
+    Handles Rule 8: Aggregated Complex Crack Match Rules (2-Leg with Split Base Products)
     - Inherits from ComplexCrackMatcher to reuse core validation logic
     - Extends functionality to handle multiple base product aggregation
     - Uses enhanced tolerances for aggregation complexity
@@ -35,8 +35,8 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         # Initialize parent class with config_manager, normalizer parameter order
         super().__init__(config_manager, normalizer)
         
-        # Override rule-specific settings for Rule 7
-        self.rule_number = 7
+        # Override rule-specific settings for Rule 8
+        self.rule_number = 8
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
         # Universal tolerances for consistency across all crack-related rules
@@ -50,7 +50,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         
         Uses the parent class structure but with aggregated matching logic.
         """
-        logger.info("Starting aggregated complex crack matching (Rule 7)")
+        logger.info("Starting aggregated complex crack matching (Rule 8)")
         
         matches = []
         trader_trades = pool_manager.get_unmatched_trader_trades()

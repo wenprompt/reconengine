@@ -15,13 +15,14 @@ class MatchType(str, Enum):
     CRACK = "crack"  # Rule 3 - Crack spread matching with unit conversion
     COMPLEX_CRACK = "complex_crack"  # Rule 4 - Complex crack matching (base product + brent swap)
     PRODUCT_SPREAD = "product_spread"  # Rule 5 - Product spread matching (hyphenated products)
-    AGGREGATION = "aggregation"  # Rule 6 - Aggregation matching
-    AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 7 - Aggregated complex crack matching
-    AGGREGATED_SPREAD = "aggregated_spread"  # Rule 8 - Aggregated spread matching
-    MULTILEG_SPREAD = "multileg_spread"  # Rule 9 - Multileg spread matching
-    AGGREGATED_CRACK = "aggregated_crack"  # Rule 10 - Aggregated crack matching
-    COMPLEX_CRACK_ROLL = "complex_crack_roll"  # Rule 11 - Complex Crack Roll Matching
-    AGGREGATED_PRODUCT_SPREAD = "aggregated_product_spread"  # Rule 12 - Aggregated product spread matching
+    FLY = "fly"  # Rule 6 - Fly matching (butterfly spread)
+    AGGREGATION = "aggregation"  # Rule 7 - Aggregation matching
+    AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 8 - Aggregated complex crack matching
+    AGGREGATED_SPREAD = "aggregated_spread"  # Rule 9 - Aggregated spread matching
+    MULTILEG_SPREAD = "multileg_spread"  # Rule 10 - Multileg spread matching
+    AGGREGATED_CRACK = "aggregated_crack"  # Rule 11 - Aggregated crack matching
+    COMPLEX_CRACK_ROLL = "complex_crack_roll"  # Rule 12 - Complex Crack Roll Matching
+    AGGREGATED_PRODUCT_SPREAD = "aggregated_product_spread"  # Rule 13 - Aggregated product spread matching
 
 
 class MatchResult(BaseModel):
@@ -62,7 +63,7 @@ class MatchResult(BaseModel):
     
     # Metadata
     matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
-    rule_order: int = Field(..., ge=1, le=12, description="Order of rule that created this match (1-12)")
+    rule_order: int = Field(..., ge=1, le=13, description="Order of rule that created this match (1-13)")
     
     def __str__(self) -> str:
         """Human-readable string representation."""
