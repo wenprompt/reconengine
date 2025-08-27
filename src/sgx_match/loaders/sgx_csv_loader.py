@@ -157,6 +157,13 @@ class SGXCSVLoader:
                 logger.warning(f"Skipping trader trade {index}: quantity or price is None")
                 return None
             
+            # Log PS trades specifically during loading
+            spread = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "spread", field_mappings)
+            )
+            if spread and 'PS' in str(spread).upper():
+                logger.debug(f"Loading PS trade: {product_name}/{buy_sell}, price={price}, spread={spread}, index={index}")
+            
             # Extract other fields
             quantity_lots = self.normalizer.normalize_quantity(
                 self._get_field_value(row, "quantitylots", field_mappings)

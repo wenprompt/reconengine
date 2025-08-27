@@ -22,13 +22,15 @@ class SGXMatchingConfig(BaseModel):
     rule_confidence_levels: Dict[int, Decimal] = Field(
         default={
             1: Decimal("100"),  # Exact match
+            2: Decimal("95"),   # Spread match
+            3: Decimal("95"),   # Product spread match
         },
         description="Confidence levels for each rule (0-100%)"
     )
 
     # Processing order for rules
     processing_order: List[int] = Field(
-        default=[1],  # Start with just Rule 1 (exact match)
+        default=[1, 2, 3],  # Rule 1 (exact), then Rule 2 (spread), then Rule 3 (product spread)
         description="Order in which rules should be processed"
     )
 

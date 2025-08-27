@@ -9,9 +9,12 @@ import sys
 from .config import SGXConfigManager
 from .loaders import SGXCSVLoader
 from .core import SGXUnmatchedPool
-from .matchers import SGXExactMatcher
+from .matchers.exact_matcher import ExactMatcher
+from .matchers.spread_matcher import SpreadMatcher
+from .matchers.product_spread_matcher import ProductSpreadMatcher
 from .models import SGXMatchResult
 from .cli import SGXDisplay
+from .normalizers import SGXTradeNormalizer
 
 # Default file paths
 DEFAULT_DATA_DIR = Path(__file__).parent / "data"
@@ -33,14 +36,22 @@ class SGXMatchingEngine:
         """
         self.config_manager = config_manager or SGXConfigManager()
         self.csv_loader = SGXCSVLoader(self.config_manager)
+        self.normalizer = SGXTradeNormalizer(self.config_manager)
         self.display = SGXDisplay()
         
         # Initialize matchers based on config
-        self.matchers = [
-            SGXExactMatcher(self.config_manager)
-        ]
+        self.exact_matcher = ExactMatcher(self.config_manager)
+        self.spread_matcher = SpreadMatcher(self.config_manager, self.normalizer)
+        self.product_spread_matcher = ProductSpreadMatcher(self.config_manager, self.normalizer)
         
-        logger.info("Initialized SGX matching engine")
+        # Build matcher registry for scalable rule lookup
+        self.matchers = {
+            1: self.exact_matcher,
+            2: self.spread_matcher,
+            3: self.product_spread_matcher
+        }
+        
+        logger.info("Initialized SGX matching engine with multiple matchers")
     
     def run_matching(self, trader_csv_path: Path, exchange_csv_path: Path,
                      show_unmatched: bool = False) -> List[SGXMatchResult]:
@@ -174,10 +185,7 @@ class SGXMatchingEngine:
         Returns:
             Matcher instance or None if not found
         """
-        # For now, we only have Rule 1 (exact matching)
-        if rule_number == 1:
-            return self.matchers[0]  # SGXExactMatcher
-        return None
+        return self.matchers.get(rule_number)
 
 
 def setup_logging(log_level: str = "NONE") -> None:
@@ -236,7 +244,38 @@ def main() -> None:
         help="Set logging level"
     )
     
+    parser.add_argument(
+        "--show-rules",
+        action="store_true",
+        help="Display detailed information about all matching rules and exit"
+    )
+    
     args = parser.parse_args()
+    
+    # Handle --show-rules option
+    if args.show_rules:
+        try:
+            config_manager = SGXConfigManager()
+            normalizer = SGXTradeNormalizer(config_manager)
+            display = SGXDisplay()
+            
+            # Get rule information from matchers
+            exact_matcher = ExactMatcher(config_manager)
+            spread_matcher = SpreadMatcher(config_manager, normalizer)
+            product_spread_matcher = ProductSpreadMatcher(config_manager, normalizer)
+            
+            rules_info = [
+                exact_matcher.get_rule_info(),
+                spread_matcher.get_rule_info(),
+                product_spread_matcher.get_rule_info()
+            ]
+            
+            display.show_rules_information(rules_info)
+            sys.exit(0)
+            
+        except Exception as e:
+            print(f"Error displaying rules: {e}")
+            sys.exit(1)
     
     # Set up logging
     setup_logging(args.log_level)

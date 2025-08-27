@@ -1,5 +1,6 @@
 """SGX Match Matchers Module"""
 
-from .sgx_exact_matcher import SGXExactMatcher
+from .exact_matcher import ExactMatcher
+from .spread_matcher import SpreadMatcher
 
-__all__ = ["SGXExactMatcher"]
+__all__ = ["ExactMatcher", "SpreadMatcher"]

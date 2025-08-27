@@ -11,6 +11,8 @@ from .trade import SGXTrade
 class SGXMatchType(str, Enum):
     """Type of matching rule that produced this SGX match."""
     EXACT = "exact"  # Rule 1 - Exact field matching for SGX trades
+    SPREAD = "spread"  # Rule 2 - Spread matching for SGX trades
+    PRODUCT_SPREAD = "product_spread"  # Rule 3 - Product spread matching with identical spread prices
 
 
 class SGXMatchResult(BaseModel):
