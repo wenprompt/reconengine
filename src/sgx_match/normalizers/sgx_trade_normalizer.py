@@ -74,7 +74,7 @@ class SGXTradeNormalizer:
         return cleaned
     
     def normalize_buy_sell(self, buy_sell: str) -> str:
-        """Normalize buy/sell indicator to standard format.
+        """Normalize buy/sell indicator to standard format using case-insensitive mapping.
         
         Args:
             buy_sell: Raw buy/sell value from CSV
@@ -85,23 +85,23 @@ class SGXTradeNormalizer:
         if not buy_sell:
             return ""
         
-        cleaned = buy_sell.strip()
+        value_clean = buy_sell.strip().lower()
         
-        # Apply mappings from config  
-        normalized = self._buy_sell_mappings.get(cleaned, cleaned.upper())
+        # Check against JSON mappings (case-insensitive)
+        if value_clean in self._buy_sell_mappings:
+            normalized = self._buy_sell_mappings[value_clean]
+            logger.debug(f"Normalized buy/sell: '{buy_sell}' -> '{normalized}'")
+            return normalized
         
-        # Ensure only B or S
-        if normalized not in ["B", "S"]:
-            # Try first character if mapping didn't work
-            first_char = cleaned.upper()[0] if cleaned else ""
-            if first_char in ["B", "S"]:
-                normalized = first_char
-            else:
-                logger.error(f"Unable to normalize buy/sell value: '{buy_sell}' - invalid value")
-                return ""  # Return empty string instead of defaulting to "B"
+        # Fallback: try first character for B/S detection
+        first_char = value_clean[0].upper() if value_clean else ""
+        if first_char in ["B", "S"]:
+            logger.debug(f"Normalized buy/sell via first character: '{buy_sell}' -> '{first_char}'")
+            return first_char
         
-        logger.debug(f"Normalized buy/sell: '{buy_sell}' -> '{normalized}'")
-        return normalized
+        # Final fallback for invalid values
+        logger.error(f"Unable to normalize buy/sell value: '{buy_sell}' - invalid value")
+        return ""  # Return empty string for invalid values
     
     def normalize_quantity(self, quantity: Any) -> Optional[Decimal]:
         """Normalize quantity to Decimal.

@@ -1,9 +1,10 @@
 """Product spread matching implementation for Rule 3."""
 
 from typing import List, Optional, Dict, Tuple
-from decimal import Decimal
 import logging
+import uuid
 from collections import defaultdict
+from decimal import Decimal
 
 from ..models import SGXTrade, SGXMatchResult, SGXMatchType, SGXTradeSource
 from ..core import SGXUnmatchedPool
@@ -33,27 +34,31 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         trader_trades = pool_manager.get_unmatched_trader_trades()
         exchange_trades = pool_manager.get_unmatched_exchange_trades()
 
-        # Find trader product spread pairs (marked with PS)
+        # Tier 1 & 2: Find trader product spread pairs (with and without PS)
         trader_product_spread_pairs = self._find_trader_product_spread_pairs(trader_trades, pool_manager)
         
-        # Find exchange product spread pairs using dealid grouping
+        # Tier 1 & 2: Find exchange product spread pairs using dealid grouping
         exchange_product_spread_pairs = self._find_exchange_product_spread_pairs(exchange_trades, pool_manager)
         
         logger.debug(f"Found {len(trader_product_spread_pairs)} trader product spread pairs")
         logger.debug(f"Found {len(exchange_product_spread_pairs)} exchange product spread pairs")
 
-        # Match trader product spread pairs with exchange product spread pairs
-        for trader_pair in trader_product_spread_pairs:
+        # Process Tier 1 & 2: Trader spread pairs vs Exchange spread pairs (2-to-2)
+        for trader_pair_with_tier in trader_product_spread_pairs:
+            # Extract trades and confidence tier
+            trader_trade1, trader_trade2, confidence_tier = trader_pair_with_tier
+            trader_trades_list = [trader_trade1, trader_trade2]  # Convert to list
+            
             # Skip if any trader trade is already matched
-            if any(not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER) for trade in trader_pair):
+            if any(not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER) for trade in trader_trades_list):
                 continue
 
-            match_result = self._match_product_spread_pair(trader_pair, exchange_product_spread_pairs, pool_manager)
+            match_result = self._match_product_spread_pair(trader_trades_list, exchange_product_spread_pairs, pool_manager, confidence_tier)
             if match_result:
                 matches.append(match_result)
                 
                 # Mark all trades as matched
-                for trade in trader_pair:
+                for trade in trader_trades_list:
                     pool_manager.mark_as_matched(trade.trade_id, SGXTradeSource.TRADER, "product_spread")
                 
                 for trade in [match_result.exchange_trade] + match_result.additional_exchange_trades:
@@ -68,10 +73,14 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 
                 logger.debug(f"Created product spread match: {match_result.match_id}")
 
-        logger.info(f"Found {len(matches)} product spread matches")
+        # Tier 3: Process hyphenated exchange spreads vs trader pairs (1-to-2)
+        hyphenated_matches = self._find_hyphenated_exchange_matches(trader_trades, exchange_trades, pool_manager)
+        matches.extend(hyphenated_matches)
+
+        logger.info(f"Found {len(matches)} total product spread matches")
         return matches
 
-    def _find_trader_product_spread_pairs(self, trader_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool) -> List[List[SGXTrade]]:
+    def _find_trader_product_spread_pairs(self, trader_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool) -> List[Tuple[SGXTrade, SGXTrade, int]]:
         """Find trader product spread pairs with PS spread indicators or identical non-zero spread prices."""
         product_spread_pairs = []
         
@@ -102,42 +111,51 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 for i in range(len(trades)):
                     for j in range(i + 1, len(trades)):
                         logger.debug(f"Checking trader pair: {trades[i].product_name}/{trades[i].buy_sell} + {trades[j].product_name}/{trades[j].buy_sell}")
-                        if self._is_trader_product_spread_pair(trades[i], trades[j]):
-                            logger.debug(f"Found trader product spread pair: {trades[i].trade_id} + {trades[j].trade_id}")
-                            product_spread_pairs.append([trades[i], trades[j]])
+                        is_match, confidence_tier = self._is_trader_product_spread_pair(trades[i], trades[j])
+                        if is_match:
+                            tier_desc = "PS required" if confidence_tier == 1 else "no PS required"
+                            logger.debug(f"Found trader product spread pair (Tier {confidence_tier} - {tier_desc}): {trades[i].trade_id} + {trades[j].trade_id}")
+                            # Store trades with confidence tier information
+                            product_spread_pairs.append((trades[i], trades[j], confidence_tier))
         
         return product_spread_pairs
 
-    def _is_trader_product_spread_pair(self, trade1: SGXTrade, trade2: SGXTrade) -> bool:
+    def _is_trader_product_spread_pair(self, trade1: SGXTrade, trade2: SGXTrade) -> Tuple[bool, int]:
         """Check if two trader trades form a product spread pair.
         
-        Supports two patterns:
-        1. PS indicator pattern (spread column contains 'PS')
-        2. Identical spread price pattern (both trades have same non-zero price, different products)
+        Returns tuple of (is_match, confidence_tier):
+        - Tier 1 (95%): PS indicator pattern (spread column contains 'PS') 
+        - Tier 2 (92%): No PS required, just identical spread price + different products
         """
         # Basic requirements: opposite B/S directions and different products
         if (trade1.buy_sell == trade2.buy_sell or 
             trade1.product_name == trade2.product_name):
-            return False
+            return False, 0
         
         # Must have same contract month
         if trade1.contract_month != trade2.contract_month:
-            return False
+            return False, 0
         
-        # Pattern 1: Look for PS spread indicators in trader data
+        # Tier 1: PS indicator pattern (highest confidence)
         has_ps_indicator = (
             (trade1.spread and 'PS' in str(trade1.spread).upper()) and
             (trade2.spread and 'PS' in str(trade2.spread).upper())
         )
         
-        # Pattern 2: Both trades have identical non-zero spread price (product spread pattern)
+        if has_ps_indicator:
+            return True, 1  # Tier 1 - 95% confidence
+        
+        # Tier 2: Identical spread price pattern (lower confidence, no PS required)
         has_identical_spread_price = (
             trade1.price != 0 and 
             trade2.price != 0 and 
             trade1.price == trade2.price
         )
         
-        return has_ps_indicator or (has_identical_spread_price and trade1.product_name != trade2.product_name)
+        if has_identical_spread_price and trade1.product_name != trade2.product_name:
+            return True, 2  # Tier 2 - 92% confidence
+        
+        return False, 0
 
     def _find_exchange_product_spread_pairs(self, exchange_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool) -> List[List[SGXTrade]]:
         """Find exchange product spread pairs using dealid grouping."""
@@ -216,7 +234,8 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         self, 
         trader_pair: List[SGXTrade], 
         exchange_product_spread_pairs: List[List[SGXTrade]], 
-        pool_manager: SGXUnmatchedPool
+        pool_manager: SGXUnmatchedPool,
+        confidence_tier: int = 1
     ) -> Optional[SGXMatchResult]:
         """Match a trader product spread pair with exchange product spread pairs."""
         if len(trader_pair) != 2:
@@ -234,7 +253,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             
             # Validate this is a valid product spread match
             if self._validate_product_spread_match(trader_pair, exchange_pair):
-                return self._create_product_spread_match_result(trader_pair, exchange_pair)
+                return self._create_product_spread_match_result(trader_pair, exchange_pair, confidence_tier)
         
         return None
 
@@ -348,6 +367,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         self,
         trader_trades: List[SGXTrade],
         exchange_trades: List[SGXTrade],
+        confidence_tier: int = 1
     ) -> SGXMatchResult:
         """Create SGXMatchResult for product spread match."""
         # Rule-specific matched fields
@@ -361,10 +381,13 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         # Get complete matched fields with universal fields
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
+        # Calculate confidence using tier-based adjustments
+        tier_confidence = self._calculate_tier_confidence(confidence_tier)
+
         return SGXMatchResult(
             match_id=self._generate_match_id(),
             match_type=SGXMatchType.PRODUCT_SPREAD,
-            confidence=self.confidence,
+            confidence=tier_confidence,
             trader_trade=trader_trades[0],
             exchange_trade=exchange_trades[0],
             matched_fields=matched_fields,
@@ -373,9 +396,42 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             additional_exchange_trades=exchange_trades[1:],
         )
 
+    def _calculate_tier_confidence(self, confidence_tier: int) -> Decimal:
+        """Calculate confidence level based on tier using configuration-driven approach.
+        
+        Args:
+            confidence_tier: The confidence tier (1, 2, 3)
+            
+        Returns:
+            Calculated confidence as Decimal
+        """
+        # Tier configuration: (description, confidence_adjustment)
+        # Updated adjustments for 100% base confidence to achieve target confidences
+        tier_config = {
+            1: ("PS required", Decimal("5.0")),          # 100% - 5% = 95%
+            2: ("no PS required", Decimal("8.0")),       # 100% - 8% = 92%
+            3: ("hyphenated exchange", Decimal("10.0")), # 100% - 10% = 90%
+        }
+        
+        base_confidence = self.confidence  # From config manager (100%)
+        
+        if confidence_tier in tier_config:
+            description, adjustment = tier_config[confidence_tier]
+            tier_confidence = base_confidence - adjustment
+            
+            # Ensure confidence doesn't go below 0
+            tier_confidence = max(tier_confidence, Decimal("0"))
+            
+            logger.debug(f"Tier {confidence_tier} ({description}): {base_confidence} - {adjustment} = {tier_confidence}%")
+        else:
+            # Default to base confidence for unknown tiers
+            tier_confidence = base_confidence
+            logger.warning(f"Unknown confidence tier {confidence_tier}, using base confidence {base_confidence}%")
+        
+        return tier_confidence
+
     def _generate_match_id(self) -> str:
         """Generate unique match ID for product spread matches."""
-        import uuid
         prefix = self.config_manager.get_match_id_prefix()
         uuid_suffix = uuid.uuid4().hex[:6]
         return f"{prefix}_PRODUCT_SPREAD_{self.rule_number}_{uuid_suffix}"
@@ -394,7 +450,262 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 "Different products for each leg (e.g., M65 and FE)",
                 "Opposite B/S directions for each leg",
                 "Price calculation must match (M65 - FE = spread price)",
-                "Trader trades must have PS (Product Spread) indicator",
+                "TIER 1 (95%): Trader trades must have PS (Product Spread) indicator",
+                "TIER 2 (92%): No PS required, just identical spread price + different products",
+                "TIER 3 (90%): Hyphenated exchange spread vs trader pair (1-to-2 match)",
                 "Universal fields must match (brokergroupid, exchclearingacctid)",
             ],
         }
+
+    def _find_hyphenated_exchange_matches(
+        self, 
+        trader_trades: List[SGXTrade], 
+        exchange_trades: List[SGXTrade], 
+        pool_manager: SGXUnmatchedPool
+    ) -> List[SGXMatchResult]:
+        """Find Tier 3 matches: hyphenated exchange spreads vs trader pairs (1-to-2)."""
+        matches: List[SGXMatchResult] = []
+        
+        # Filter exchange trades to only hyphenated products
+        hyphenated_trades = [
+            t for t in exchange_trades 
+            if pool_manager.is_unmatched(t.trade_id, SGXTradeSource.EXCHANGE) and 
+               "-" in t.product_name and self._parse_hyphenated_product(t.product_name) is not None
+        ]
+        
+        if not hyphenated_trades:
+            logger.debug("No hyphenated exchange products found for Tier 3")
+            return matches
+        
+        logger.debug(f"Processing {len(hyphenated_trades)} hyphenated exchange products for Tier 3")
+        
+        # Create index of trader trades by signature for efficient lookup
+        trader_index = self._create_trader_index_for_hyphenated(trader_trades, pool_manager)
+        
+        for exchange_trade in hyphenated_trades:
+            match = self._find_hyphenated_product_spread_match(exchange_trade, trader_index, pool_manager)
+            if match:
+                matches.append(match)
+                
+                # Mark all trades as matched
+                pool_manager.mark_as_matched(exchange_trade.trade_id, SGXTradeSource.EXCHANGE, "product_spread")
+                for trader_trade in [match.trader_trade] + match.additional_trader_trades:
+                    pool_manager.mark_as_matched(trader_trade.trade_id, SGXTradeSource.TRADER, "product_spread")
+                
+                # Record in audit trail
+                pool_manager.record_match(
+                    match.trader_trade.trade_id,
+                    match.exchange_trade.trade_id,
+                    match.match_type.value
+                )
+                
+                logger.debug(f"Found Tier 3 hyphenated product spread match: {match.match_id}")
+        
+        logger.debug(f"Found {len(matches)} Tier 3 hyphenated matches")
+        return matches
+
+    def _parse_hyphenated_product(self, product_name: str) -> Optional[Tuple[str, str]]:
+        """Parse hyphenated product name into component products.
+        
+        Args:
+            product_name: Product name that may contain hyphen (e.g., "bz-naphtha japan")
+            
+        Returns:
+            Tuple of (first_product, second_product) or None if not parseable
+        """
+        if "-" not in product_name:
+            return None
+            
+        parts = product_name.split("-", 1)  # Split on first hyphen only
+        if len(parts) != 2:
+            return None
+            
+        first_product = parts[0].strip()
+        second_product = parts[1].strip()
+        
+        if not first_product or not second_product:
+            return None
+            
+        return (first_product, second_product)
+
+    def _create_trader_index_for_hyphenated(
+        self, 
+        trader_trades: List[SGXTrade], 
+        pool_manager: SGXUnmatchedPool
+    ) -> Dict[Tuple, List[SGXTrade]]:
+        """Create index of trader trades for hyphenated exchange matching."""
+        index: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
+        
+        for trade in trader_trades:
+            if pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER):
+                # Index by contract month, quantity, and universal fields (same as regular matching)
+                signature = self.create_universal_signature(trade, [trade.contract_month, trade.quantity_units])
+                index[signature].append(trade)
+        
+        logger.debug(f"Created trader index for hyphenated matching with {len(index)} signatures")
+        return index
+
+    def _find_hyphenated_product_spread_match(
+        self,
+        exchange_trade: SGXTrade,
+        trader_index: Dict[Tuple, List[SGXTrade]],
+        pool_manager: SGXUnmatchedPool
+    ) -> Optional[SGXMatchResult]:
+        """Find hyphenated product spread match for an exchange trade.
+        
+        Args:
+            exchange_trade: Exchange trade with hyphenated product
+            trader_index: Index of trader trades by signature  
+            pool_manager: Pool manager for validation
+            
+        Returns:
+            SGXMatchResult if match found, None otherwise
+        """
+        # Parse the hyphenated product
+        components = self._parse_hyphenated_product(exchange_trade.product_name)
+        if not components:
+            return None
+            
+        first_product, second_product = components
+        logger.debug(f"Parsed '{exchange_trade.product_name}' into: '{first_product}' + '{second_product}'")
+        
+        # Create signature for finding matching trader trades
+        signature = self.create_universal_signature(exchange_trade, [exchange_trade.contract_month, exchange_trade.quantity_units])
+        
+        if signature not in trader_index:
+            logger.debug(f"No trader trades found for signature: {signature}")
+            return None
+        
+        # Find matching component trades in trader data
+        matching_trades = trader_index[signature]
+        logger.debug(f"Found {len(matching_trades)} potential trader trades for signature")
+        
+        # Look for two trades: one for each component product
+        first_trade = None
+        second_trade = None
+        
+        for trade in matching_trades:
+            if pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER):
+                logger.debug(f"Checking trader trade: {trade.trade_id} - {trade.product_name} {trade.price} {trade.buy_sell}")
+                
+                if trade.product_name == first_product:
+                    first_trade = trade
+                    logger.debug(f"Found first product match: {trade.trade_id}")
+                elif trade.product_name == second_product:
+                    second_trade = trade
+                    logger.debug(f"Found second product match: {trade.trade_id}")
+        
+        # Must have both component trades
+        if not first_trade or not second_trade:
+            logger.debug(f"Missing component trades - first: {first_trade is not None}, second: {second_trade is not None}")
+            return None
+        
+        # Validate the hyphenated spread match
+        if not self._validate_hyphenated_spread_match(exchange_trade, first_trade, second_trade):
+            logger.debug("❌ Hyphenated spread validation failed")
+            return None
+        
+        logger.debug("✅ Hyphenated spread validation passed")
+        
+        # Create match result with Tier 3 confidence
+        return self._create_product_spread_match_result([first_trade, second_trade], [exchange_trade], confidence_tier=3)
+
+    def _validate_hyphenated_spread_match(
+        self,
+        exchange_trade: SGXTrade,
+        first_trader_trade: SGXTrade,
+        second_trader_trade: SGXTrade
+    ) -> bool:
+        """Validate that trades can form a hyphenated product spread match.
+        
+        Args:
+            exchange_trade: Exchange trade with hyphenated product
+            first_trader_trade: First component trader trade
+            second_trader_trade: Second component trader trade
+            
+        Returns:
+            True if valid hyphenated spread match, False otherwise
+        """
+        try:
+            # Check that trader trades have opposite B/S directions
+            if first_trader_trade.buy_sell == second_trader_trade.buy_sell:
+                logger.debug(f"❌ Trader trades must have opposite B/S directions: {first_trader_trade.buy_sell}/{second_trader_trade.buy_sell}")
+                return False
+            
+            # Validate B/S direction logic for hyphenated products
+            if not self._validate_hyphenated_direction_logic(exchange_trade, first_trader_trade, second_trader_trade):
+                logger.debug("❌ Hyphenated direction logic validation failed")
+                return False
+            
+            # Validate price matching (exchange price should match both trader prices)
+            if (exchange_trade.price != first_trader_trade.price or 
+                exchange_trade.price != second_trader_trade.price):
+                logger.debug(f"❌ Price mismatch: exchange={exchange_trade.price}, trader1={first_trader_trade.price}, trader2={second_trader_trade.price}")
+                return False
+            
+            logger.debug("✅ All hyphenated spread validations passed")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error validating hyphenated spread match: {e}")
+            return False
+
+    def _validate_hyphenated_direction_logic(
+        self,
+        exchange_trade: SGXTrade,
+        first_trader_trade: SGXTrade,
+        second_trader_trade: SGXTrade
+    ) -> bool:
+        """Validate B/S direction logic for hyphenated products.
+        
+        For hyphenated products, the exchange B/S determines the leg directions:
+        - Exchange "B" on "X-Y" means Buy X, Sell Y
+        - Exchange "S" on "X-Y" means Sell X, Buy Y
+        
+        Args:
+            exchange_trade: Exchange trade with hyphenated product
+            first_trader_trade: First component trader trade  
+            second_trader_trade: Second component trader trade
+            
+        Returns:
+            True if direction logic is valid, False otherwise
+        """
+        components = self._parse_hyphenated_product(exchange_trade.product_name)
+        if not components:
+            return False
+            
+        first_product, second_product = components
+        
+        # Determine which trader trade corresponds to which product
+        if first_trader_trade.product_name == first_product and second_trader_trade.product_name == second_product:
+            first_leg_trade = first_trader_trade
+            second_leg_trade = second_trader_trade
+        elif first_trader_trade.product_name == second_product and second_trader_trade.product_name == first_product:
+            first_leg_trade = second_trader_trade
+            second_leg_trade = first_trader_trade
+        else:
+            logger.debug(f"❌ Product name mismatch in trader trades")
+            return False
+        
+        # Apply hyphenated direction logic
+        if exchange_trade.buy_sell == "B":
+            # Buy "X-Y" = Buy X, Sell Y
+            expected_first_direction = "B"
+            expected_second_direction = "S"
+        else:  # exchange_trade.buy_sell == "S"
+            # Sell "X-Y" = Sell X, Buy Y
+            expected_first_direction = "S"  
+            expected_second_direction = "B"
+        
+        actual_first_direction = first_leg_trade.buy_sell
+        actual_second_direction = second_leg_trade.buy_sell
+        
+        is_valid = (actual_first_direction == expected_first_direction and 
+                   actual_second_direction == expected_second_direction)
+        
+        if not is_valid:
+            logger.debug(f"❌ Direction logic failed: exchange {exchange_trade.buy_sell} on '{exchange_trade.product_name}' "
+                        f"expects ({expected_first_direction}/{expected_second_direction}) "
+                        f"but got ({actual_first_direction}/{actual_second_direction})")
+        
+        return is_valid

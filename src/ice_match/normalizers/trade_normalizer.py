@@ -61,19 +61,25 @@ class TradeNormalizer:
         return contract_month.strip()
     
     def normalize_buy_sell(self, buy_sell: str) -> str:
-        """Normalize buy/sell indicator to B or S using JSON configuration."""
+        """Normalize buy/sell indicator to B or S using case-insensitive JSON configuration."""
         if not buy_sell:
             return ""
         
         value_clean = buy_sell.strip().lower()
         
-        # Check against JSON mappings
+        # Check against JSON mappings (case-insensitive)
         if value_clean in self.buy_sell_mappings:
             result = self.buy_sell_mappings[value_clean]
             logger.debug(f"Normalized buy/sell '{buy_sell}' -> '{result}'")
             return result
         
-        # Fallback for unmapped values - return uppercase original
+        # Fallback: try first character for B/S detection
+        first_char = value_clean[0].upper() if value_clean else ""
+        if first_char in ["B", "S"]:
+            logger.debug(f"Normalized buy/sell via first character: '{buy_sell}' -> '{first_char}'")
+            return first_char
+        
+        # Final fallback for unmapped values
         logger.warning(f"Unknown buy/sell indicator: '{buy_sell}', no mapping found")
         return buy_sell.strip().upper()
     

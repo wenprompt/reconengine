@@ -132,11 +132,22 @@ def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, te
         total_trader_trades = statistics['original_trader_count']
         total_exchange_trades = statistics['original_exchange_count']
         
-        # Calculate match rate using SGX convention (total matches / total trades)
-        total_trades = total_trader_trades + total_exchange_trades
-        sgx_total_match_rate = (total_matches / total_trades * 100) if total_trades > 0 else 0.0
+        # Calculate total trades matched (not just number of match records)
+        # Each match involves multiple trades (trader + exchange + additional trades)
+        total_trades_matched = 0
+        for match in matches:
+            # Count all trades involved in this match
+            trades_in_match = (
+                1 +  # trader_trade
+                1 +  # exchange_trade
+                len(getattr(match, 'additional_trader_trades', [])) +
+                len(getattr(match, 'additional_exchange_trades', []))
+            )
+            total_trades_matched += trades_in_match
         
-        match_rate = sgx_total_match_rate
+        # Calculate match rate as: total trades matched / total trades in group
+        total_trades = total_trader_trades + total_exchange_trades
+        match_rate = (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
         
         return {
             'matches_found': total_matches,
