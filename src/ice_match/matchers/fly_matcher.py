@@ -304,7 +304,6 @@ class FlyMatcher(BaseMatcher):
 
         # Calculate exchange fly price: (X_price - Y_price) + (Z_price - Y_price)
         # where X is earliest, Y is middle, Z is latest
-        trade_x, trade_y, trade_z = trader_trades  # Already sorted by contract month
         exchange_x, exchange_y, exchange_z = exchange_trades  # Already sorted by contract month
         
         # Fly price calculation: (X - Y) + (Z - Y) = X + Z - 2*Y
