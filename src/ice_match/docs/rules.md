@@ -123,15 +123,17 @@ The matching engine processes trades in order of confidence level to ensure the 
 3. **Crack Matches** (Confidence: 90%) - Crack spread trades with unit conversion
 4. **Complex Crack Matches** (Confidence: 80%) - 2-leg crack trades (base product + brent swap)
 5. **Product Spread Matches** (Confidence: 75%) - Product combination spreads (e.g., "marine 0.5%-380cst")
-6. **Aggregation Matches** (Confidence: 72%) - Split/combined trade scenarios
-7. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
-8. **Aggregated Spread Matches** (Confidence: 70%) - Spread matching with exchange trade aggregation
-9. **Multileg Spread Matches** (Confidence: 68%) - **NEW** - 2 trader spreads match 4+ exchange trades with internal netting
-10. **Aggregated Crack Matches** (Confidence: 68%) - Aggregation with unit conversion for crack products
-11. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
-12. **Aggregated Product Spread Matches** (Confidence: 62%) - **IMPLEMENTED** - Product spread matching with aggregation logic
-13. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
-14. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
+6. **Fly Matches** (Confidence: 74%) - **NEW** - Butterfly spread matching (3-leg buy-sell-buy pattern)
+7. **Aggregation Matches** (Confidence: 72%) - Split/combined trade scenarios
+8. **Aggregated Complex Crack Matches** (Confidence: 65%) - 2-leg crack trades with aggregated base products
+9. **Aggregated Spread Matches** (Confidence: 70%) - Spread matching with exchange trade aggregation
+10. **Multileg Spread Matches** (Confidence: 68%) - **NEW** - 2 trader spreads match 4+ exchange trades with internal netting
+11. **Aggregated Crack Matches** (Confidence: 68%) - Aggregation with unit conversion for crack products
+12. **Crack Roll Matches** (Confidence: 65%) - Calendar spreads of crack positions with enhanced tolerance
+13. **Aggregated Product Spread Matches** (Confidence: 62%) - **IMPLEMENTED** - Product spread matching with aggregation logic
+14. **Cross-Month Decomposition Matches** (Confidence: 60%) - Cross-month decomposed positions using crack-like calculations
+15. **Complex Product Spread Decomposition and Netting Matches** (Confidence: 60%) - Most complex scenario
+16. **Hybrid Product Spread with Mixed Format Aggregation Matches** (Confidence: 58%) - Most complex mixed-format scenario
 
 ### Complex Scenario Handling
 
@@ -739,7 +741,95 @@ A **product spread match** occurs when exchange data shows a hyphenated product 
 - Handles sophisticated product combination trading scenarios
 - Processed before low-confidence matches to catch clear product spread patterns
 
-## 6. Aggregation Match Rules
+## 6. Fly Match Rules
+
+### Definition
+
+A **fly match** (butterfly spread match) occurs when trader data shows three separate legs of a butterfly spread (buy-sell-buy or sell-buy-sell pattern) while exchange data shows corresponding three-leg trades. This medium-confidence match type (74%) handles butterfly spread patterns where the middle quantity equals the sum of outer quantities.
+
+**Key Pattern**: 3 trader trades (X+Z = Y quantity, fly price on earliest month) ↔ 3 exchange trades
+
+### Fly Trade Identification
+
+- **3-Leg Pattern**: Exactly 3 trades with same product and universal fields
+- **Quantity Relationship**: Middle quantity = sum of outer two quantities (X + Z = Y)  
+- **Direction Pattern**: Outer legs same direction, middle leg opposite (Buy-Sell-Buy or Sell-Buy-Sell)
+- **Contract Month Order**: Three different consecutive or related contract months
+- **Price Pattern**: Fly price shown on earliest contract month, other legs typically 0.0
+- **Spread Indicator**: Usually marked with "S" in spread column
+
+### Required Matching Fields for Fly Spreads
+
+1. **Product name**: All three legs must have identical product names
+2. **Contract months**: Three different contract months in chronological order  
+3. **Quantity relationship**: Outer legs (X + Z) = Middle leg (Y)
+4. **Direction logic**: X and Z same direction, Y opposite direction
+5. **Universal fields**: broker_group_id and exch_clearing_acct_id must match
+6. **Fly price**: Non-zero price on earliest month, zeros on other legs
+7. **Spread indicator**: "S" marker in spread column (trader data)
+
+### Fly Direction Logic
+
+#### Buy Fly Pattern:
+- **X (Early month)**: Buy with fly price
+- **Y (Middle month)**: Sell with price 0.0 (quantity = X + Z)
+- **Z (Late month)**: Buy with price 0.0
+
+#### Sell Fly Pattern:
+- **X (Early month)**: Sell with fly price  
+- **Y (Middle month)**: Buy with price 0.0 (quantity = X + Z)
+- **Z (Late month)**: Sell with price 0.0
+
+### Example: Fly Match
+
+#### Source Data from Current System:
+
+**sourceTraders.csv (3-Leg Fly):**
+
+```
+| Index | productname | quantityunits | unit | price | contractmonth | b/s | brokergroupid | exchclearingacctid | spread |
+|-------|-------------|---------------|------|-------|---------------|-----|---------------|-------------------|--------|
+| 34    | marine 0.5% | 5000          | MT   | 0.00  | Oct-25        | B   | 3             | 2                 | S      |
+| 35    | marine 0.5% | 10000         | MT   | 0.00  | Nov-25        | S   | 3             | 2                 | S      |
+| 36    | marine 0.5% | 5000          | MT   | 0.00  | Dec-25        | B   | 3             | 2                 | S      |
+```
+
+**sourceExchange.csv (3-Leg Matching Trades):**
+
+```
+| Index | productname | quantityunits | unit | price  | contractmonth | b/s | brokergroupid | exchclearingacctid |
+|-------|-------------|---------------|------|--------|---------------|-----|---------------|--------------------|
+| 68    | marine 0.5% | 5000          | MT   | 485.00 | Oct-25        | B   | 3             | 2                  |
+| 69    | marine 0.5% | 10000         | MT   | 482.25 | Nov-25        | S   | 3             | 2                  |
+| 70    | marine 0.5% | 5000          | MT   | 479.50 | Dec-25        | B   | 3             | 2                  |
+```
+
+#### Validation Logic:
+
+1. **Quantity Check**: 5000 + 5000 = 10000 ✓ (X + Z = Y)
+2. **Direction Check**: B + S + B (outer same, middle opposite) ✓
+3. **Contract Order**: Oct-25 < Nov-25 < Dec-25 ✓
+4. **Fly Price**: Calculated from exchange: (485.00 - 482.25) + (479.50 - 482.25) = 2.75 + (-2.75) = 0.00 ✓
+5. **Universal Fields**: All trades have brokergroupid=3, exchclearingacctid=2 ✓
+
+#### Match Result:
+- **Match Type**: FLY  
+- **Confidence**: 74%
+- **Trader Trades**: 3 (T_0034, T_0035, T_0036)
+- **Exchange Trades**: 3 (E_0068, E_0069, E_0070)
+- **Matched Fields**: product_name, quantity_relationship, direction_pattern, contract_months, universal_fields
+
+### Implementation Notes
+
+- Each fly match removes 3 trader trades and 3 exchange trades from unmatched pool
+- Fly price calculation: (X_price - Y_price) + (Z_price - Y_price) should match trader fly price
+- Processed after product spreads but before aggregation to catch butterfly patterns
+- Uses chronological contract month ordering for price calculation
+- Validates both quantity relationship and direction pattern before price calculation
+- Apply same universal normalization rules as other matching types
+- Handles sophisticated 3-leg butterfly spread trading scenarios
+
+## 7. Aggregation Match Rules
 
 ### Definition
 
@@ -838,7 +928,7 @@ An **aggregation match** occurs when the same trade appears split into multiple 
 - **No overlapping matches**: Aggregated trades cannot be part of other match types
 - Apply same universal normalization rules as other matching types
 
-## 7. Aggregated Complex Crack Match Rules (2-Leg with Split Base Products)
+## 8. Aggregated Complex Crack Match Rules (2-Leg with Split Base Products)
 
 ### Definition
 
@@ -964,7 +1054,7 @@ An **aggregated complex crack match** occurs when a trader crack trade correspon
 - Handles the most complex trading scenarios in the entire matching hierarchy
 - Processed with lowest priority to ensure it doesn't interfere with simpler matches
 
-## 8. Aggregated Spread Match Rules (Spread Matching with Exchange Trade Aggregation)
+## 9. Aggregated Spread Match Rules (Spread Matching with Exchange Trade Aggregation)
 
 ### Definition
 
@@ -1130,7 +1220,7 @@ An **aggregated spread match** occurs when a trader spread trade corresponds to 
 - **Spread Integration**: Uses same spread logic as Rule 2 for Phase 2
 - **Detailed Audit**: Maintains mapping of which exchange trades aggregate to form each spread leg
 
-## 9. Multileg Spread Match Rules
+## 10. Multileg Spread Match Rules
 
 ### Definition
 
@@ -1291,7 +1381,7 @@ Rule 9 operates in two tiers to handle different complexity levels of multileg s
 - **Price Tolerance**: ±0.01 tolerance for decimal precision in price calculations
 - **Quantity Precision**: Requires exact quantity matching across all involved trades
 
-## 10. Aggregated Crack Match Rules
+## 11. Aggregated Crack Match Rules
 
 ### Definition
 
@@ -1369,7 +1459,7 @@ _(Note: Trader unit is inferred as MT by default)_
 
 **Result:** ✅ **AGGREGATED CRACK MATCH**
 
-## 11. Complex Crack Roll Match Rules (Calendar Spread of Crack Positions)
+## 12. Complex Crack Roll Match Rules (Calendar Spread of Crack Positions)
 
 ### Definition
 
@@ -1523,7 +1613,7 @@ A **crack roll match** occurs when a trader executes a calendar spread of crack 
 - **Calculation Audit**: Maintains detailed record of crack price calculations and roll spread validation
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 
-## 12. Aggregated Product Spread Match Rules
+## 13. Aggregated Product Spread Match Rules
 
 ### Definition
 
@@ -1822,7 +1912,7 @@ An **aggregated product spread match** occurs when product spread trades require
 - **Reliability**: Comprehensive validation with detailed audit trails
 - **Extensibility**: Built on AggregationBaseMatcher for consistent patterns
 
-## 13. Cross-Month Decomposition Match Rules
+## 14. Cross-Month Decomposition Match Rules
 
 ### Definition
 
@@ -1981,7 +2071,7 @@ A **cross-month decomposition match** occurs when a trader executes a complex cr
 - **Enhanced Tolerance**: Uses increased unit conversion tolerance for realistic matching
 - **Pattern Driven**: Relies on consecutive index patterns with 0.0 price indicators
 
-## 14. Complex Product Spread Decomposition and Netting Match Rules
+## 15. Complex Product Spread Decomposition and Netting Match Rules
 
 ### Definition
 
@@ -2158,7 +2248,7 @@ A **complex product spread decomposition and netting match** occurs when exchang
 - **Fallback Nature**: Only processes trades that no other matching rule can handle
 - **Mathematical Validation**: All price relationships must validate exactly
 
-## 15. Hybrid Product Spread with Mixed Format Aggregation Match Rules
+## 16. Hybrid Product Spread with Mixed Format Aggregation Match Rules
 
 ### Definition
 

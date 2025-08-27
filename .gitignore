@@ -17,6 +17,7 @@ wheels/
 src/unified_recon/data/
 src/ice_match/data/
 src/sgx_match/data/
+src/cme_match/data/
 tradefiles/input/
 tradefiles/output/
 tradefiles/input_traders/

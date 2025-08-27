@@ -342,11 +342,13 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             product_ratio = get_product_conversion_ratio(trader_crack_trade.product_name, self.config_manager)
             
             # Formula: (base_product_price ÷ conversion_ratio) - brent_swap_price
-            base_price_per_bbl = base_trade.price / product_ratio
+            # Round the intermediate calculation to 2 decimal places for proper financial precision
+            base_price_per_bbl = round(base_trade.price / product_ratio, 2)
             crack_price = base_price_per_bbl - brent_trade.price
             
             logger.debug(
-                f"Calculated crack price: ({base_trade.price} ÷ {product_ratio}) - {brent_trade.price} = {crack_price}"
+                f"Calculated crack price (with rounding): ({base_trade.price} ÷ {product_ratio}) = {base_price_per_bbl}, "
+                f"{base_price_per_bbl} - {brent_trade.price} = {crack_price}"
             )
             return crack_price
             

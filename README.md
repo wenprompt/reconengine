@@ -72,3 +72,10 @@ for FFA recon is basis T trades and T+1 current day
 for petchem recon its the same
 
 make sure spread is earlier month - later month in tuple
+
+**TODOS**
+crack conversions to give price tolerance... or to do rounding whichever is easier
+
+add flys as a new rule for ICE
+review the spread to see if we still want to implement the fallback
+might comment out the fallback
