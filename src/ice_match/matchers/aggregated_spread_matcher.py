@@ -33,7 +33,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         """
         super().__init__(config_manager)
         self.normalizer = normalizer
-        self.rule_number = 8
+        self.rule_number = 9
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
         logger.info(f"Initialized AggregatedSpreadMatcher with {self.confidence}% confidence")

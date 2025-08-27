@@ -90,7 +90,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         """Initialize the multileg spread matcher."""
         super().__init__(config_manager)
         self.normalizer = normalizer
-        self.rule_number = 9
+        self.rule_number = 10
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         logger.info(f"Initialized MultilegSpreadMatcher with {self.confidence}% confidence")
 

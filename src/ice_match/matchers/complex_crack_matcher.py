@@ -273,21 +273,21 @@ class ComplexCrackMatcher(BaseMatcher):
             conversion_factor = get_product_conversion_ratio(crack_trade.product_name, self.config_manager)
             
             # Formula: (Base Product Price ÷ PRODUCT_RATIO) - Brent Swap Price = Crack Price
-            calculated_crack_price = (
-                base_trade.price / conversion_factor
-            ) - brent_trade.price
+            # Round the intermediate calculation to 2 decimal places for proper financial precision
+            base_price_per_bbl = round(base_trade.price / conversion_factor, 2)
+            calculated_crack_price = base_price_per_bbl - brent_trade.price
 
             # Allow tolerance for calculation precision from config
             if calculated_crack_price == crack_trade.price:
                 logger.debug(
-                    f"Price calculation valid (shared ratio): ({base_trade.price} ÷ {conversion_factor}) - {brent_trade.price} "
-                    f"= {calculated_crack_price} = {crack_trade.price}"
+                    f"Price calculation valid (with rounding): ({base_trade.price} ÷ {conversion_factor}) = {base_price_per_bbl}, "
+                    f"{base_price_per_bbl} - {brent_trade.price} = {calculated_crack_price} = {crack_trade.price}"
                 )
                 return True
             else:
                 logger.debug(
-                    f"Price calculation invalid: ({base_trade.price} ÷ {conversion_factor}) - {brent_trade.price} "
-                    f"= {calculated_crack_price} ≠ {crack_trade.price}"
+                    f"Price calculation invalid: ({base_trade.price} ÷ {conversion_factor}) = {base_price_per_bbl}, "
+                    f"{base_price_per_bbl} - {brent_trade.price} = {calculated_crack_price} ≠ {crack_trade.price}"
                 )
                 return False
 

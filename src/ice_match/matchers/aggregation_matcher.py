@@ -1,4 +1,4 @@
-"""Aggregation matcher for Rule 6 - Aggregation matching (split/combined trades)."""
+"""Aggregation matcher for Rule 7 - Aggregation matching (split/combined trades)."""
 
 import logging
 from typing import List, Optional
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class AggregationMatcher(AggregationBaseMatcher):
     """Matches aggregated trades where one source has multiple entries that sum to a single entry in the other.
 
-    Handles Rule 6: Aggregation Match Rules
+    Handles Rule 7: Aggregation Match Rules
     - Same fundamental trade details (product, contract, price, broker, B/S) must match
     - Only quantities differ - smaller trades sum to larger trade quantity
     - Handles both scenarios: many→one and one→many
@@ -28,7 +28,7 @@ class AggregationMatcher(AggregationBaseMatcher):
             config_manager: Configuration manager with rule settings
         """
         super().__init__(config_manager)
-        self.rule_number = 6
+        self.rule_number = 7
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
         logger.info(f"Initialized AggregationMatcher with {self.confidence}% confidence")
@@ -42,7 +42,7 @@ class AggregationMatcher(AggregationBaseMatcher):
         Returns:
             List of aggregation matches found
         """
-        logger.info("Starting aggregation matching (Rule 6)")
+        logger.info("Starting aggregation matching (Rule 7)")
         
         matches = []
         trader_trades = pool_manager.get_unmatched_trader_trades()

@@ -1,4 +1,4 @@
-"""Aggregated crack matcher for Rule 10 - Aggregated crack matching (crack to aggregated exchange trades)."""
+"""Aggregated crack matcher for Rule 11 - Aggregated crack matching (crack to aggregated exchange trades)."""
 
 import logging
 from decimal import Decimal
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class AggregatedCrackMatcher(AggregationBaseMatcher):
     """Matches crack trades against aggregated exchange trades with unit conversion.
 
-    Handles Rule 10: Aggregated Crack Match Rules
+    Handles Rule 11: Aggregated Crack Match Rules
     - Trader shows single crack trade (MT units)
     - Exchange shows multiple trades requiring aggregation (BBL units)  
     - Uses product-specific MT→BBL conversion ratios
@@ -33,7 +33,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         """
         super().__init__(config_manager)
         self.normalizer = normalizer
-        self.rule_number = 10
+        self.rule_number = 11
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         
         # Use universal tolerances for consistency across all rules
@@ -51,7 +51,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         Returns:
             List of aggregated crack matches found
         """
-        logger.info("Starting aggregated crack matching (Rule 10)")
+        logger.info("Starting aggregated crack matching (Rule 11)")
         
         matches = []
         trader_trades = pool_manager.get_unmatched_trader_trades()

@@ -1,4 +1,4 @@
-"""Aggregated product spread matcher for Rule 11 - Product spread matching with aggregation logic."""
+"""Aggregated product spread matcher for Rule 13 - Product spread matching with aggregation logic."""
 
 import logging
 from decimal import Decimal
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin):
     """Matches product spread trades with aggregation logic between trader and exchange data.
 
-    Handles Rule 11: Aggregated Product Spread Match Rules
+    Handles Rule 13: Aggregated Product Spread Match Rules
     Combines aggregation patterns (1-to-many, many-to-1) with product spread logic:
 
     ============ TIER SYSTEM OVERVIEW ============
@@ -55,7 +55,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         """
         super().__init__(config_manager)
         self.normalizer = normalizer
-        self.rule_number = 12
+        self.rule_number = 13
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
 
         logger.info(
@@ -71,7 +71,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         Returns:
             List of aggregated product spread matches found
         """
-        logger.info("Starting aggregated product spread matching (Rule 12)")
+        logger.info("Starting aggregated product spread matching (Rule 13)")
 
         matches: List[MatchResult] = []
         trader_trades = pool_manager.get_unmatched_trader_trades()

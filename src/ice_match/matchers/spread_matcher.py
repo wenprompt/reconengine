@@ -262,10 +262,10 @@ class SpreadMatcher(MultiLegBaseMatcher):
         self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
     ) -> Tuple[Dict[Tuple, List[Trade]], Dict[str, int], Dict[str, str]]:
         """
-        Group exchange trades using 3-tier sequential approach for comprehensive spread detection.
+        Group exchange trades using 2-tier sequential approach for precise spread detection.
 
         ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-        3-TIER SEQUENTIAL EXECUTION APPROACH (All tiers run in sequence, not fallback)
+        2-TIER SEQUENTIAL EXECUTION APPROACH (Tier 3 disabled to prevent false positives)
         ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
         🔹 TIER 1: DealID/TradeID-based grouping
@@ -278,12 +278,12 @@ class SpreadMatcher(MultiLegBaseMatcher):
             - Groups remaining trades by exact same tradedatetime
             - Calculates spread price from exchange pairs (earlier month - later month)
             - Matches with trader spreads having one leg = spread price, other = 0
-            - Matched trades are removed from pool before Tier 3
+            - Final tier processing
 
-        🔹 TIER 3: Product/quantity-based grouping (traditional fallback)
-            - Uses existing product/quantity matching logic on remaining trades
-            - Ensures all possible spreads are detected
-            - Maintains compatibility with existing functionality
+        🚫 TIER 3: Product/quantity-based grouping (DISABLED)
+            - Commented out to prevent false positive matches
+            - Original fallback method that could match unrelated trades
+            - Can be re-enabled if needed after evaluation
 
         ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
         SEQUENTIAL EXECUTION: Each tier processes remaining unmatched trades and accumulates results
@@ -298,11 +298,11 @@ class SpreadMatcher(MultiLegBaseMatcher):
         ]
 
         logger.info(
-            f"Starting 3-tier sequential spread grouping with {len(remaining_trades)} exchange trades"
+            f"Starting 2-tier sequential spread grouping with {len(remaining_trades)} exchange trades (Tier 3 disabled)"
         )
 
         # Track matches found by each tier
-        tier_match_counts = {"tier1": 0, "tier2": 0, "tier3": 0}
+        tier_match_counts = {"tier1": 0, "tier2": 0, "tier3": 0}  # Keep tier3 for compatibility
 
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
         # 🔹 TIER 1: DealID/TradeID-based grouping (Most Accurate)
@@ -373,7 +373,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     for trade in trades:
                         tier_trade_mapping[trade.trade_id] = "tier2"
 
-                # Remove Tier 2 matched trades from remaining trades for Tier 3
+                # Remove Tier 2 matched trades from remaining trades (for potential Tier 3 re-enablement)
                 tier2_matched_trades = []
                 for trades in tier2_groups.values():
                     tier2_matched_trades.extend(trades)
@@ -382,7 +382,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 ]
 
                 logger.debug(
-                    f"TIER 2 → TIER 3 Transition: {len(remaining_trades)} trades remaining after Tier 2"
+                    f"TIER 2 Complete: {len(remaining_trades)} trades remaining after Tier 2"
                 )
             else:
                 logger.debug(
@@ -392,48 +392,57 @@ class SpreadMatcher(MultiLegBaseMatcher):
             logger.debug("✗ TIER 2 Skipped: No remaining trades after Tier 1")
 
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-        # 🔹 TIER 3: Product/quantity-based grouping (Traditional Fallback)
+        # 🚫 TIER 3: Product/quantity-based grouping (DISABLED TO PREVENT FALSE POSITIVES)
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
         logger.info(
-            f"🔹 TIER 3: Executing product/quantity-based spread grouping with {len(remaining_trades)} remaining trades..."
-        )
-
-        if remaining_trades:
-            tier3_groups, tier3_spread_count = (
-                self._group_exchange_spreads_by_product_quantity(
-                    remaining_trades, pool_manager
-                )
-            )
-            tier_match_counts["tier3"] = tier3_spread_count
-
-            if tier3_groups:
-                logger.info(
-                    f"✓ TIER 3 Results: Found {tier3_spread_count} spread pairs using product/quantity method"
-                )
-
-                # Add Tier 3 results to cumulative results and track tier mapping
-                for key, trades in tier3_groups.items():
-                    all_trade_groups[key].extend(trades)
-                    # Mark these trades as coming from Tier 3
-                    for trade in trades:
-                        tier_trade_mapping[trade.trade_id] = "tier3"
-            else:
-                logger.debug(
-                    "✗ TIER 3 Results: No spread pairs found using product/quantity method"
-                )
-        else:
-            logger.debug("✗ TIER 3 Skipped: No remaining trades after Tier 1 + Tier 2")
-
-        # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-        # 🏁 SEQUENTIAL EXECUTION COMPLETE: Return cumulative results from all tiers
-        # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-        total_spread_pairs = sum(tier_match_counts.values())
-
-        logger.info(
-            f"🏁 3-TIER SEQUENTIAL COMPLETE: {total_spread_pairs} potential spread pairs identified"
+            f"🚫 TIER 3: DISABLED - Product/quantity-based grouping skipped to prevent false positives"
         )
         logger.info(
-            f"   📊 POTENTIAL PAIRS BY TIER: Tier 1: {tier_match_counts['tier1']}, Tier 2: {tier_match_counts['tier2']}, Tier 3: {tier_match_counts['tier3']}"
+            f"   📊 {len(remaining_trades)} trades remain unprocessed after Tier 1 + Tier 2"
+        )
+
+        # Uncomment below to re-enable Tier 3 if needed:
+        #
+        # logger.info(
+        #     f"🔹 TIER 3: Executing product/quantity-based spread grouping with {len(remaining_trades)} remaining trades..."
+        # )
+        #
+        # if remaining_trades:
+        #     tier3_groups, tier3_spread_count = (
+        #         self._group_exchange_spreads_by_product_quantity(
+        #             remaining_trades, pool_manager
+        #         )
+        #     )
+        #     tier_match_counts["tier3"] = tier3_spread_count
+        #
+        #     if tier3_groups:
+        #         logger.info(
+        #             f"✓ TIER 3 Results: Found {tier3_spread_count} spread pairs using product/quantity method"
+        #         )
+        #
+        #         # Add Tier 3 results to cumulative results and track tier mapping
+        #         for key, trades in tier3_groups.items():
+        #             all_trade_groups[key].extend(trades)
+        #             # Mark these trades as coming from Tier 3
+        #             for trade in trades:
+        #                 tier_trade_mapping[trade.trade_id] = "tier3"
+        #     else:
+        #         logger.debug(
+        #             "✗ TIER 3 Results: No spread pairs found using product/quantity method"
+        #         )
+        # else:
+        #     logger.debug("✗ TIER 3 Skipped: No remaining trades after Tier 1 + Tier 2")
+
+        # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+        # 🏁 SEQUENTIAL EXECUTION COMPLETE: Return cumulative results from active tiers
+        # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+        total_spread_pairs = tier_match_counts["tier1"] + tier_match_counts["tier2"]
+
+        logger.info(
+            f"🏁 2-TIER SEQUENTIAL COMPLETE: {total_spread_pairs} potential spread pairs identified"
+        )
+        logger.info(
+            f"   📊 POTENTIAL PAIRS BY TIER: Tier 1: {tier_match_counts['tier1']}, Tier 2: {tier_match_counts['tier2']}, Tier 3: DISABLED"
         )
 
         return dict(all_trade_groups), tier_match_counts, tier_trade_mapping
