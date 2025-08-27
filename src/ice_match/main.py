@@ -53,8 +53,9 @@ def setup_logging(log_level: str = "NONE") -> None:
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
     
-    # If level is NONE, do not configure the root logger
+    # If level is NONE, set root logger to CRITICAL to suppress all output
     if log_level.upper() == "NONE":
+        logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than CRITICAL
         return
 
     # Set up logging based on level, with uppercasing and fallback

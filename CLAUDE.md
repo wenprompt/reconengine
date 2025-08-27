@@ -9,6 +9,7 @@ This is a **Reconciliation Engine** that contains multiple specialized matching 
 - **Unified Reconciliation System** (`src/unified_recon/`) - Centralized data routing system that groups trades by exchange and routes to appropriate matching systems
 - **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 13 sequential rules
 - **SGX Trade Matching System** (`src/sgx_match/`) - Singapore Exchange iron ore futures matching with 3 sequential rules
+- **CME Trade Matching System** (`src/cme_match/`) - Chicago Mercantile Exchange futures matching with 1 exact matching rule
 - **Future Modules**: Plans for additional matching systems like `ffa_match` and others
 
 Each matching system has its own specialized rules and matching logic tailored to specific exchanges and products.
@@ -32,6 +33,17 @@ The SGX matching system processes Singapore Exchange iron ore futures trades usi
 - **Iron Ore Focus**: Specialized for FE (Iron Ore) futures and options with M65 product spread support
 - **Options Support**: Handles puts/calls with strike prices
 - **Case-Insensitive Architecture**: Consistent normalization with intelligent fallback logic
+
+### CME Match Module Summary
+
+The CME matching system processes Chicago Mercantile Exchange futures trades using a single-rule exact matching approach:
+
+- **Rule 1**: Exact matching on 7 fields (product, contract month, quantity lots, price, buy/sell, + universal fields)
+- **Quantity Lots Focus**: Designed specifically around `quantitylots` - the standard unit for CME futures contracts
+- **Futures Focus**: Specialized for commodity futures (corn, soybeans, wheat, LTH, etc.) and index futures (ES, NQ, YM)
+- **Single Rule Architecture**: Only exact matching implemented, focusing on high-confidence matches (100%)
+- **Universal Field Validation**: Inherits broker group and clearing account validation from base architecture
+- **Lot-Based Trading**: CME-specific design around lot-based contract specifications
 
 ### Unified Reconciliation System Summary
 
@@ -155,6 +167,33 @@ src/sgx_match/
 │   └── sourceExchange.csv   # SGX exchange data (367 records)
 └── docs/
     └── rules.md        # SGX rule specifications
+```
+
+**CME Match Module Structure:**
+
+```text
+src/cme_match/
+├── main.py                 # Main application entry point with CLI
+├── models/                 # Pydantic v2 data models
+│   ├── trade.py           # CMETrade model with futures support
+│   └── match_result.py    # CMEMatchResult model for output
+├── loaders/               # CSV data loading with normalization integration
+│   └── cme_csv_loader.py  # Handles CME trader and exchange CSV files
+├── normalizers/          # Data normalization and standardization
+│   └── cme_trade_normalizer.py # CME-specific product names, contract months
+├── matchers/            # Matching rule implementations (1 rule)
+│   ├── base_matcher.py   # Base matcher with universal field validation
+│   └── exact_matcher.py # Rule 1: Exact matching for CME
+├── core/               # Core system components
+│   └── cme_pool.py    # Non-duplication pool management for CME
+├── config/            # Configuration management
+│   ├── config_manager.py # CME-specific settings and configuration
+│   └── normalizer_config.json # CME product mappings and field configuration
+├── cli/              # Rich CLI interface
+│   └── cme_display.py # Beautiful terminal output for CME results
+├── data/            # CME sample data sets (uses unified_recon data folder)
+└── docs/
+    └── rules.md        # CME rule specifications
 ```
 
 ### Architecture Principles
@@ -287,6 +326,7 @@ uv python install 3.12
 # Type checking
 uv run python -m mypy src/ice_match
 uv run python -m mypy src/sgx_match
+uv run python -m mypy src/cme_match
 uv run python -m mypy src/unified_recon
 
 # Centralized data routing with master data processing
@@ -302,10 +342,16 @@ uv run python -m src.ice_match.main --log-level DEBUG  # Enable debug logging
 uv run python -m src.sgx_match.main  # Shows all matches+unmatches
 uv run python -m src.sgx_match.main --log-level DEBUG  # Enable debug logging
 
+# Run CME match system directly
+uv run python -m src.cme_match.main  # Shows all matches+unmatches
+uv run python -m src.cme_match.main --show-rules  # Display rule information
+uv run python -m src.cme_match.main --log-level DEBUG  # Enable debug logging
+
 # options
 --help
 --log-level DEBUG
---no-unmatched
+--no-unmatched (ICE)
+--show-unmatched (SGX, CME)
 ```
 
 ## 📋 Style & Conventions
@@ -577,6 +623,74 @@ The SGX system implements a 3-rule sequential matching approach:
 
 _End of SGX Match Module specific documentation_
 
+# 📊 CME Match Module Implementation
+
+_The following sections document the specific implementation for the `src/cme_match/` module._
+
+## ✅ CME Implementation Status
+
+**CME Match Module Completed**:
+
+- **1 Sequential Rule**: Exact matching (Rule 1) with 100% confidence for CME futures contracts
+- **Quantity Lots Focus**: Designed specifically around `quantitylots` - the standard unit for CME futures trading
+- **Universal Field Validation**: JSON-driven configuration system inherited from SGX/ICE architecture
+- **Futures Specialization**: Handles commodity futures (corn, soybeans, wheat, LTH, etc.) and index futures (ES, NQ, YM)
+- **Pydantic v2 Models**: Complete type safety and validation for CMETrade and CMEMatchResult
+- **Performance Optimized**: O(N+M) algorithms with signature-based indexing for efficient matching
+- **Rich CLI Interface**: Beautiful terminal output with SGX-style table formatting and detailed statistics
+- **Single Rule Architecture**: Only exact matching implemented, focusing on high-confidence CME futures matching
+- **Lot-Based Trading**: CME-specific design around lot-based contract specifications
+
+## 🔧 CME Match Core Components
+
+### CME Trade Model Architecture
+
+The CME module implements specialized models for Chicago Mercantile Exchange trading:
+
+- **CMETrade Model**: Immutable trade objects focused on futures contracts with quantity_lots field
+- **CMETradeSource Enum**: TRADER and EXCHANGE source identification  
+- **CMEMatchType Enum**: EXACT match type classification (single rule system)
+- **Futures Integration**: Native support for commodity and index futures with lot-based quantities
+- **Universal Fields**: Inherits broker_group_id and exch_clearing_acct_id validation from base architecture
+
+### CME Normalization System
+
+The CME normalizer focuses on Chicago Mercantile Exchange data standardization:
+
+- **Product Mappings**: LTH, CORN, WHEAT, SOYBEANS, ES, NQ, YM and other CME products
+- **Contract Month Patterns**: Oct25, Nov25, Dec25, Apr26, etc. standardization with regex pattern matching
+- **Buy/Sell Normalization**: Case-insensitive B/S indicator standardization following SGX/ICE patterns
+- **Quantity Lots Processing**: Numeric conversion and validation for lot-based trading
+- **JSON Configuration**: All mappings stored in `normalizer_config.json` following established architecture
+- **Consistent Architecture**: Matches SGX/ICE normalization patterns for unified system behavior
+
+### CME CSV Integration
+
+The CME CSV loader processes Chicago Mercantile Exchange data files:
+
+- **Uses Unified Data**: References `src/unified_recon/data/` folder for master CSV files
+- **Automatic Normalization**: All fields normalized during loading via CMETradeNormalizer
+- **Type Safety**: Proper pandas DataFrame type handling with quantity_lots focus
+- **Error Handling**: Graceful handling of malformed data and missing fields
+- **Field Mapping**: Supports both trader and exchange CSV schemas with unified field mapping
+
+### CME Single-Rule Matching System
+
+The CME system implements a 1-rule exact matching approach:
+
+#### Rule 1: Exact Matcher
+
+- **7-Field Matching**: product_name, contract_month, quantity_lots, price, buy_sell + universal fields
+- **Signature Indexing**: O(1) lookup performance using tuple signatures
+- **Universal Validation**: Inherits broker_group_id and exch_clearing_acct_id validation
+- **100% Confidence**: Maximum confidence matching for exact field alignment
+- **Futures Focused**: Handles CME commodity and index futures contracts exclusively
+- **Lot-Based Matching**: Uses quantity_lots instead of quantity_units for CME-specific trading
+
+---
+
+_End of CME Match Module specific documentation_
+
 ## 🏗️ Pydantic v2 Data Validation Architecture
 
 ### Core Data Models Pattern
@@ -736,7 +850,7 @@ class Trade(BaseModel):
 
 ### Modular Architecture Template
 
-Both ICE and SGX modules demonstrate the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure:
+ICE, SGX, and CME modules demonstrate the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure:
 
 **Required Folders:**
 

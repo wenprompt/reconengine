@@ -200,6 +200,7 @@ def setup_logging(log_level: str = "NONE") -> None:
         root_logger.removeHandler(handler)
     
     if log_level.upper() == "NONE":
+        logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than CRITICAL
         return
 
     # Set up logging based on level
