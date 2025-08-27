@@ -31,6 +31,43 @@ quantityunits,price,clearingstatus,exchclearingacctid,trader,brokergroupid,
 exchangegroupid,tradingsession,cleareddate,strike,unit,put/call,b/s
 ```
 
+## 🔧 Data Normalization
+
+**IMPORTANT**: The following normalization rules are applied to ALL data from BOTH sources before any matching operations. These ensure consistent data format across all matching types.
+
+### Universal Value Normalization
+
+**Apply to ALL records from BOTH data sources:**
+
+- **Buy/Sell Values** (Standardized to B/S):
+  - `"Buy"` → `"B"`
+  - `"Bought"` → `"B"`
+  - `"Sell"` → `"S"`
+  - `"Sold"` → `"S"`
+  - Case-insensitive input, standardized B/S output
+
+- **Product Name** (Case normalization):
+  - `"FE"` → `"FE"` (preserved as-is)
+  - `"PMX"` → `"PMX"` (preserved as-is)
+  - All product names normalized for consistent matching
+
+- **Contract Month Format** (Standardized patterns):
+  - `"Oct25"` → `"Oct25"` (preserved format)
+  - `"Aug25"` → `"Aug25"` (preserved format)
+  - Pattern matching for various input formats
+
+- **Quantity Values** (Numeric standardization):
+  - `"15,000"` → `15000` (remove commas, convert to numeric)
+  - `'"5000"'` → `5000` (remove quotes)
+  - All quantities converted to Decimal for precise arithmetic
+
+- **Price Values** (Decimal precision):
+  - Convert to Decimal type for exact arithmetic
+  - No rounding applied during conversion
+  - Maintains full precision for exact matching
+
+**Note**: These normalizations are applied during CSV loading via SGXTradeNormalizer, ensuring all subsequent matching operations work with consistently formatted data.
+
 ## 🔧 Universal Matching Fields
 
 **ALL** matching rules must validate these universal fields:
@@ -133,52 +170,56 @@ A **spread match** identifies a calendar spread, where a trader's spread positio
 
 ## 📋 Rule 3: Product Spread Match
 
-### Rule Description
+A **product spread match** identifies a spread between two different products. This rule has multiple tiers to handle different ways product spreads are represented in the data.
 
-A **product spread match** identifies a product spread, where a trader's spread position (represented as two trades with the same spread price but different products) corresponds to two separate trades with different products on the exchange. This is a 2-to-2 match between different product types.
+### Tier 1: PS Required - Trader Spread Pair vs. Exchange Pair (2-to-2)
 
-### Matching Criteria
+#### Rule Description
 
-1. **Universal Fields**: `brokergroupid` and `exchclearingacctid` must match across all four trades.
-2. **Different Products**: The two trader trades must have different `productname` values (e.g., M65 and FE).
-3. **Same Contract Month**: `contractmonth` must be the same for all four trades.
-4. **Same Quantity**: `quantityunits` must be the same for all four trades.
-5. **Opposite Directions**:
-   - The two trader trades must have opposite `b/s` values (one "B", one "S").
-   - The two exchange trades must have opposite `b/s` values.
-6. **Product Correspondence**: The `productname` and `b/s` direction of each trader leg must match a corresponding exchange leg.
-7. **Price Calculation**: The difference between the exchange prices must equal the trader's spread price. The formula is: `(M65 Price) - (FE Price) = Trader Spread Price`.
-8. **Spread Indicator**: Trader trades must have spread indicator "PS" (Product Spread).
+This tier matches two trader trades representing a product spread against two corresponding exchange trades. This is a 2-to-2 match with **PS indicator required** for highest confidence.
 
-### Real Data Example
+#### Matching Criteria
+
+1.  **Universal Fields**: `brokergroupid` and `exchclearingacctid` must match across all four trades.
+2.  **Different Products**: The two trader trades must have different `productname` values (e.g., M65 and FE).
+3.  **Same Contract Month**: `contractmonth` must be the same for all four trades.
+4.  **Same Quantity**: `quantityunits` must be the same for all four trades.
+5.  **Opposite Directions**:
+    -   The two trader trades must have opposite `b/s` values (one "B", one "S").
+    -   The two exchange trades must have opposite `b/s` values.
+6.  **Product Correspondence**: The `productname` and `b/s` direction of each trader leg must match a corresponding exchange leg.
+7.  **Price Calculation**: The difference between the exchange prices must equal the trader's spread price. The formula is: `(Price of Product 1) - (Price of Product 2) = Trader Spread Price`.
+8.  **Spread Indicator**: Trader trades **MUST** have spread indicator "PS" (Product Spread).
+
+#### Confidence Level: 95% (Base confidence from config)
+
+#### Real Data Example
 
 **Trader Data (sourceTraders.csv):**
 
-| tradetime | productname | brokergroupid | exchclearingacctid | quantitylots | quantityunits | price | contractmonth | spread | b/s |
-| --------- | ----------- | ------------- | ------------------ | ------------ | ------------- | ----- | ------------- | ------ | --- | --- |
-| 14:37:32  | M65         | 3             | 2                  | 100          | 10000         | 15.65 | Sept-25       | PS     | S   | gfi |
-| 14:37:32  | FE          | 3             | 2                  | 100          | 10000         | 15.65 | Sept-25       | PS     | B   | gfi |
+| tradetime | productname | brokergroupid | exchclearingacctid | quantityunits | price | contractmonth | spread | b/s |
+| --------- | ----------- | ------------- | ------------------ | ------------- | ----- | ------------- | ------ | --- |
+| 14:37:32  | M65         | 3             | 2                  | 10000         | 15.65 | Sept-25       | PS     | S   |
+| 14:37:32  | FE          | 3             | 2                  | 10000         | 15.65 | Sept-25       | PS     | B   |
 
 **Exchange Data (sourceExchange.csv):**
 
-| tradedate | tradedatetime   | dealid  | tradeid | productname | contractmonth | quantitylots | quantityunits | price  | brokergroupid | exchclearingacctid | b/s |
-| --------- | --------------- | ------- | ------- | ----------- | ------------- | ------------ | ------------- | ------ | ------------- | ------------------ | --- |
-| 25/8/2025 | 25/8/2025 15:11 | 1733632 | 3160166 | FE          | Sept-25       | 100          | 10000         | 103.10 | 3             | 2                  | B   |
-| 25/8/2025 | 25/8/2025 15:11 | 1733632 | 3160167 | M65         | Sept-25       | 100          | 10000         | 118.75 | 3             | 2                  | S   |
+| dealid  | productname | contractmonth | quantityunits | price  | brokergroupid | exchclearingacctid | b/s |
+| ------- | ----------- | ------------- | ------------- | ------ | ------------- | ------------------ | --- |
+| 1733632 | FE          | Sept-25       | 10000         | 103.10 | 3             | 2                  | B   |
+| 1733632 | M65         | Sept-25       | 10000         | 118.75 | 3             | 2                  | S   |
 
-### Match Validation
+#### Match Validation
 
 ✅ **Universal Fields**: `brokergroupid` (3) and `exchclearingacctid` (2) match across all trades.  
 ✅ **Different Products**: Trader trades have M65 and FE products.  
 ✅ **Same Contract Month**: All trades are for "Sept-25".  
 ✅ **Same Quantity**: All trades have `quantityunits` of 10000.  
 ✅ **Product Correspondence**:
-
-- Trader (Buy M65) ↔ Exchange (Sell M65)
-- Trader (Sell FE) ↔ Exchange (Buy FE)
+- Trader (Sell M65) ↔ Exchange (Sell M65)
+- Trader (Buy FE) ↔ Exchange (Buy FE)
 
 ✅ **Price Calculation**:
-
 - M65 Price: 118.75
 - FE Price: 103.10
 - Exchange Product Spread: `118.75 - 103.10 = 15.65`
@@ -186,5 +227,115 @@ A **product spread match** identifies a product spread, where a trader's spread 
 - The prices match.
 
 ✅ **Spread Indicator**: Trader trades marked with "PS" (Product Spread).
+
+**Result**: ✅ MATCH - All criteria satisfied
+
+### Tier 2: No PS Required - Trader Spread Pair vs. Exchange Pair (2-to-2)
+
+#### Rule Description
+
+This tier matches two trader trades representing a product spread against two corresponding exchange trades. This is a 2-to-2 match with **no PS indicator required** for moderate confidence.
+
+#### Matching Criteria
+
+1.  **Universal Fields**: `brokergroupid` and `exchclearingacctid` must match across all four trades.
+2.  **Different Products**: The two trader trades must have different `productname` values (e.g., M65 and FE).
+3.  **Same Contract Month**: `contractmonth` must be the same for all four trades.
+4.  **Same Quantity**: `quantityunits` must be the same for all four trades.
+5.  **Opposite Directions**:
+    -   The two trader trades must have opposite `b/s` values (one "B", one "S").
+    -   The two exchange trades must have opposite `b/s` values.
+6.  **Product Correspondence**: The `productname` and `b/s` direction of each trader leg must match a corresponding exchange leg.
+7.  **Price Calculation**: Both trader trades must have identical spread prices, and the difference between the exchange prices must equal this spread price.
+8.  **No PS Required**: Trader trades do **NOT** need PS indicator - relies on identical spread price pattern.
+
+#### Confidence Level: 92% (Base confidence - 3%)
+
+#### Real Data Example
+
+**Trader Data (sourceTraders.csv):**
+
+| tradetime | productname | brokergroupid | exchclearingacctid | quantityunits | price | contractmonth | spread | b/s |
+| --------- | ----------- | ------------- | ------------------ | ------------- | ----- | ------------- | ------ | --- |
+| 14:37:32  | M65         | 3             | 2                  | 10000         | 15.65 | Sept-25       | (empty) | S   |
+| 14:37:32  | FE          | 3             | 2                  | 10000         | 15.65 | Sept-25       | (empty) | B   |
+
+**Exchange Data (sourceExchange.csv):**
+
+| dealid  | productname | contractmonth | quantityunits | price  | brokergroupid | exchclearingacctid | b/s |
+| ------- | ----------- | ------------- | ------------- | ------ | ------------- | ------------------ | --- |
+| 1733632 | FE          | Sept-25       | 10000         | 103.10 | 3             | 2                  | B   |
+| 1733632 | M65         | Sept-25       | 10000         | 118.75 | 3             | 2                  | S   |
+
+#### Match Validation
+
+✅ **Universal Fields**: `brokergroupid` (3) and `exchclearingacctid` (2) match across all trades.  
+✅ **Different Products**: Trader trades have M65 and FE products.  
+✅ **Same Contract Month**: All trades are for "Sept-25".  
+✅ **Same Quantity**: All trades have `quantityunits` of 10000.  
+✅ **Product Correspondence**:
+- Trader (Sell M65) ↔ Exchange (Sell M65)
+- Trader (Buy FE) ↔ Exchange (Buy FE)
+
+✅ **Price Calculation**:
+- M65 Price: 118.75
+- FE Price: 103.10
+- Exchange Product Spread: `118.75 - 103.10 = 15.65`
+- Both trader spread prices: `15.65` (identical)
+- The prices match.
+
+✅ **No PS Required**: Trader trades do not need PS indicator.
+
+**Result**: ✅ MATCH - All criteria satisfied
+
+### Tier 3: Hyphenated Exchange Spread vs. Trader Pair (1-to-2)
+
+#### Rule Description
+
+This tier matches a single exchange trade with a hyphenated product name (e.g., "BZ-Naphtha Japan") against two separate trader trades that represent the individual legs of the spread. This is a 1-to-2 match with reduced confidence due to different data representation.
+
+#### Matching Criteria
+
+1.  **Universal Fields**: `brokergroupid` and `exchclearingacctid` must match across all three trades.
+2.  **Hyphenated Product**: The exchange trade's `productname` must contain a hyphen.
+3.  **Product Legs**: The two trader trades' `productname` values must correspond to the two parts of the hyphenated exchange product.
+4.  **Contract Month**: `contractmonth` must be the same for all three trades.
+5.  **Quantity**: `quantityunits` must be the same for all three trades.
+6.  **Price**: The exchange trade's `price` must match the `price` on both trader trades.
+7.  **Opposite Directions**:
+    -   The two trader trades must have opposite `b/s` values (one "B", one "S").
+    -   The `b/s` of the exchange trade determines the direction of the legs. A "B" on "X-Y" means Buy X, Sell Y. The trader legs must match this direction.
+
+#### Confidence Level: 90% (Base confidence - 5%)
+
+#### Real Data Example
+
+**Trader Data (sourceTraders.csv):**
+
+| tradetime   | productname   | brokergroupid | exchclearingacctid | quantityunits | price | contractmonth | b/s |
+| ----------- | ------------- | ------------- | ------------------ | ------------- | ----- | ------------- | --- |
+| 10:59:02 pm | bz            | 3             | 2                  | 1000          | 178   | Jul-25        | B   |
+| 10:59:02 pm | naphtha japan | 3             | 2                  | 1000          | 178   | Jul-25        | S   |
+
+**Exchange Data (sourceExchange.csv):**
+
+| dealid  | tradeid | productname        | contractmonth | quantityunits | price | brokergroupid | exchclearingacctid | b/s |
+| ------- | ------- | ------------------ | ------------- | ------------- | ----- | ------------- | ------------------ | --- |
+| 1733631 | 3160165 | bz-naphtha japan   | Jul-25        | 1000          | 178   | 3             | 2                  | B   |
+
+#### Match Validation
+
+✅ **Universal Fields**: `brokergroupid` (3) and `exchclearingacctid` (2) match across all trades.  
+✅ **Hyphenated Product**: Exchange product is "bz-naphtha japan".  
+✅ **Product Legs**:
+-   Exchange "bz" leg ↔ Trader "bz" trade.
+-   Exchange "naphtha japan" leg ↔ Trader "naphtha japan" trade.  
+✅ **Contract Month**: All trades are for "Jul-25".  
+✅ **Quantity**: All trades have `quantityunits` of 1000.  
+✅ **Price**: Exchange price (178) matches both trader prices (178).  
+✅ **Directions**:
+-   Exchange is "B" on "bz-naphtha japan", which implies Buy "bz" and Sell "naphtha japan".
+-   Trader has one Buy "bz" trade and one Sell "naphtha japan" trade.
+-   The directions correspond correctly.
 
 **Result**: ✅ MATCH - All criteria satisfied

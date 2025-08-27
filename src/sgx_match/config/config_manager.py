@@ -18,14 +18,14 @@ class SGXMatchingConfig(BaseModel):
         frozen=True, validate_assignment=True  # Immutable configuration
     )
 
-    # Confidence levels for SGX matching rules
+    # Confidence levels for SGX matching rules - ALL 100% for exact matching
     rule_confidence_levels: Dict[int, Decimal] = Field(
         default={
             1: Decimal("100"),  # Exact match
-            2: Decimal("95"),   # Spread match
-            3: Decimal("95"),   # Product spread match
+            2: Decimal("100"),  # Spread match (changed from 95% to 100%)
+            3: Decimal("100"),  # Product spread match (changed from 95% to 100%)
         },
-        description="Confidence levels for each rule (0-100%)"
+        description="Confidence levels for each rule (0-100%) - SGX uses exact matching only"
     )
 
     # Processing order for rules

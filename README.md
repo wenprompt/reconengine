@@ -71,6 +71,4 @@ for iron ore recon is basis T+1 from T-1 + T trades
 for FFA recon is basis T trades and T+1 current day
 for petchem recon its the same
 
-check if after exact matches did sgx trades remove trades from the poolmanager
-
-\*\*something wrong with product spread and spread matches after latest edit
+make sure spread is earlier month - later month in tuple

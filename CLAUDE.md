@@ -8,7 +8,7 @@ This is a **Reconciliation Engine** that contains multiple specialized matching 
 
 - **Unified Reconciliation System** (`src/unified_recon/`) - Centralized data routing system that groups trades by exchange and routes to appropriate matching systems
 - **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 12 sequential rules
-- **SGX Trade Matching System** (`src/sgx_match/`) - Singapore Exchange iron ore futures matching with exact rule
+- **SGX Trade Matching System** (`src/sgx_match/`) - Singapore Exchange iron ore futures matching with 3 sequential rules
 - **Future Modules**: Plans for additional matching systems like `ffa_match` and others
 
 Each matching system has its own specialized rules and matching logic tailored to specific exchanges and products.
@@ -24,12 +24,14 @@ The ice matching system processes trades between trader and exchange data source
 
 ### SGX Match Module Summary
 
-The SGX matching system processes Singapore Exchange iron ore futures trades using a simple exact matching approach:
+The SGX matching system processes Singapore Exchange iron ore futures trades using a 3-rule sequential matching approach:
 
 - **Rule 1**: Exact matching on 7 fields (product, contract month, quantity, price, buy/sell, + universal fields)
-- **Iron Ore Focus**: Specialized for FE (Iron Ore) futures and options
+- **Rule 2**: Spread matching for calendar spreads with price validation
+- **Rule 3**: Product spread matching with 3-tier confidence system (PS required 95%, no PS required 92%, hyphenated exchange 90%)
+- **Iron Ore Focus**: Specialized for FE (Iron Ore) futures and options with M65 product spread support
 - **Options Support**: Handles puts/calls with strike prices
-- **Simple Architecture**: Streamlined design for straightforward exact matching
+- **Case-Insensitive Architecture**: Consistent normalization with intelligent fallback logic
 
 ### Unified Reconciliation System Summary
 
@@ -135,9 +137,11 @@ src/sgx_match/
 │   └── sgx_csv_loader.py  # Handles SGX trader and exchange CSV files
 ├── normalizers/          # Data normalization and standardization
 │   └── sgx_trade_normalizer.py # SGX-specific product names, contract months
-├── matchers/            # Matching rule implementations
+├── matchers/            # Matching rule implementations (3 rules)
 │   ├── base_matcher.py   # Base matcher with universal field validation
-│   └── sgx_exact_matcher.py # Rule 1: Exact matching for SGX
+│   ├── exact_matcher.py # Rule 1: Exact matching for SGX
+│   ├── spread_matcher.py # Rule 2: Spread matching for SGX
+│   └── product_spread_matcher.py # Rule 3: Product spread matching (3-tier system)
 ├── core/               # Core system components
 │   └── sgx_pool.py    # Non-duplication pool management for SGX
 ├── config/            # Configuration management
@@ -470,13 +474,15 @@ _The following sections document the specific implementation for the `src/sgx_ma
 
 **SGX Match Module Completed**:
 
-- **1 Exact Rule**: Simple exact matching with 91.3% match rate on sample data (42/46 trader trades matched)
-- **Universal Field Validation**: JSON-driven configuration system inherited from ICE architecture
+- **3 Sequential Rules**: Exact matching (Rule 1), Spread matching (Rule 2), and Product Spread matching (Rule 3) with 100% match rate on sample data
+- **3-Tier Product Spread System**: Enhanced product spread matching with PS required (95%), no PS required (92%), and hyphenated exchange spread (90%) confidence tiers
+- **Universal Field Validation**: JSON-driven configuration system inherited from ICE architecture with consistent case-insensitive normalization
 - **Options Support**: Handles iron ore futures and options with puts/calls and strike prices
 - **Pydantic v2 Models**: Complete type safety and validation for SGXTrade and SGXMatchResult
 - **Performance Optimized**: O(N+M) algorithms with signature-based indexing for efficient matching
-- **Rich CLI Interface**: Beautiful terminal output with detailed statistics and match tables
+- **Rich CLI Interface**: Beautiful terminal output with detailed statistics, match tables, and tier-specific breakdowns
 - **Iron Ore Focus**: Specialized for Singapore Exchange FE (Iron Ore) futures and options
+- **Case-Insensitive Normalization**: Standardized buy/sell mapping with intelligent fallback logic matching ICE system architecture
 
 ## 🔧 SGX Match Core Components
 
@@ -492,13 +498,14 @@ The SGX module implements specialized models for Singapore Exchange trading:
 
 ### SGX Normalization System
 
-The SGX normalizer focuses on Singapore Exchange data standardization:
+The SGX normalizer focuses on Singapore Exchange data standardization with case-insensitive architecture:
 
 - **Product Mappings**: FE (Iron Ore), PMX (Palm Oil), CAPE (Capesize), SMX (Steel Making), M65 (Iron Ore 65%)
-- **Contract Month Patterns**: Aug25, Sep25, Oct25, etc. standardization
-- **Buy/Sell Normalization**: B/S indicator standardization
+- **Contract Month Patterns**: Aug25, Sep25, Oct25, etc. standardization with regex pattern matching
+- **Buy/Sell Normalization**: Case-insensitive B/S indicator standardization with intelligent fallback logic
 - **Direct Column Mapping**: Works directly with CSV column names (no field mapping layer)
-- **JSON Configuration**: All mappings stored in `normalizer_config.json` for maintainability
+- **JSON Configuration**: All mappings stored in `normalizer_config.json` with cleaned, meaningful variations only
+- **Consistent Architecture**: Matches ICE normalization patterns for unified system behavior
 
 ### SGX CSV Integration
 
@@ -510,15 +517,29 @@ The SGX CSV loader processes Singapore Exchange data files:
 - **Error Handling**: Graceful handling of malformed data and missing fields
 - **Direct CSV Access**: Works with actual CSV column names without field mapping complexity
 
-### SGX Exact Matcher (Rule 1)
+### SGX Multi-Rule Matching System
 
-The SGX exact matcher implements simple but effective matching:
+The SGX system implements a 3-rule sequential matching approach:
 
+#### Rule 1: Exact Matcher
 - **7-Field Matching**: product_name, contract_month, quantity_units, price, buy_sell + universal fields
 - **Signature Indexing**: O(1) lookup performance using tuple signatures
 - **Universal Validation**: Inherits broker_group_id and exch_clearing_acct_id validation
 - **100% Confidence**: High confidence matching for exact field alignment
 - **Options Aware**: Handles both futures and options contracts seamlessly
+
+#### Rule 2: Spread Matcher  
+- **Calendar Spread Detection**: Matches trader spread pairs against exchange spread pairs
+- **Price Validation**: Validates spread price calculations between contract months
+- **2-to-2 Matching**: Two trader trades match against two exchange trades
+- **95% Confidence**: High confidence for spread position matching
+
+#### Rule 3: Product Spread Matcher (3-Tier System)
+- **Tier 1 (95%)**: PS required - Trader spread pairs with "PS" indicator vs exchange pairs
+- **Tier 2 (92%)**: No PS required - Identical spread price pattern without PS indicator  
+- **Tier 3 (90%)**: Hyphenated exchange spread - Single hyphenated exchange trade vs trader pair
+- **Configuration-Driven**: Uses tier-based confidence adjustment system
+- **Product Cross-Matching**: Handles different products (M65, FE) in spread relationships
 
 ---
 

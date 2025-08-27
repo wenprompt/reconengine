@@ -22,11 +22,9 @@
     "(?i)^dec[\\s\\-]?(\\d{2})$": "Dec\\1"
   },
   "buy_sell_mappings": {
-    "b": "B",
-    "s": "S",
     "buy": "B",
-    "sell": "S",
     "bought": "B",
+    "sell": "S",
     "sold": "S"
   },
   "field_mappings": {

@@ -18,13 +18,13 @@
 
 **Apply to ALL records from BOTH data sources:**
 
-- **Buy/Sell Values** (Standardized to full words):
+- **Buy/Sell Values** (Standardized to B/S):
 
-  - `"S"` → `"Sold"`
-  - `"B"` → `"Bought"`
-  - `"Sell"` → `"Sold"`
-  - `"Buy"` → `"Bought"`
-  - Case-insensitive input, standardized output
+  - `"Buy"` → `"B"`
+  - `"Bought"` → `"B"`
+  - `"Sell"` → `"S"`
+  - `"Sold"` → `"S"`
+  - Case-insensitive input, standardized B/S output
 
 - **Contract Month Format** (Standardized to "MMM-YY"):
 
