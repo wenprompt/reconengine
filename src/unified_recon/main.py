@@ -208,7 +208,7 @@ def main() -> int:
         group_distribution = {}
         for group_id, group_info in grouped_trades.items():
             system_config = group_info.get("system_config", {})
-            group_distribution[group_id] = {
+            group_distribution[str(group_id)] = {
                 'trader': group_info['trader_count'],
                 'exchange': group_info['exchange_count'],
                 'system_name': system_config.get('description', group_info['system'])
