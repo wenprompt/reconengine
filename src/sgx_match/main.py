@@ -11,6 +11,7 @@ from .loaders import SGXCSVLoader
 from .core import SGXUnmatchedPool
 from .matchers.exact_matcher import ExactMatcher
 from .matchers.spread_matcher import SpreadMatcher
+from .matchers.product_spread_matcher import ProductSpreadMatcher
 from .models import SGXMatchResult
 from .cli import SGXDisplay
 from .normalizers import SGXTradeNormalizer
@@ -41,6 +42,14 @@ class SGXMatchingEngine:
         # Initialize matchers based on config
         self.exact_matcher = ExactMatcher(self.config_manager)
         self.spread_matcher = SpreadMatcher(self.config_manager, self.normalizer)
+        self.product_spread_matcher = ProductSpreadMatcher(self.config_manager, self.normalizer)
+        
+        # Build matcher registry for scalable rule lookup
+        self.matchers = {
+            1: self.exact_matcher,
+            2: self.spread_matcher,
+            3: self.product_spread_matcher
+        }
         
         logger.info("Initialized SGX matching engine with multiple matchers")
     
@@ -176,11 +185,7 @@ class SGXMatchingEngine:
         Returns:
             Matcher instance or None if not found
         """
-        if rule_number == 1:
-            return self.exact_matcher  # ExactMatcher
-        elif rule_number == 2:
-            return self.spread_matcher  # SpreadMatcher
-        return None
+        return self.matchers.get(rule_number)
 
 
 def setup_logging(log_level: str = "NONE") -> None:
@@ -257,10 +262,12 @@ def main() -> None:
             # Get rule information from matchers
             exact_matcher = ExactMatcher(config_manager)
             spread_matcher = SpreadMatcher(config_manager, normalizer)
+            product_spread_matcher = ProductSpreadMatcher(config_manager, normalizer)
             
             rules_info = [
                 exact_matcher.get_rule_info(),
-                spread_matcher.get_rule_info()
+                spread_matcher.get_rule_info(),
+                product_spread_matcher.get_rule_info()
             ]
             
             display.show_rules_information(rules_info)

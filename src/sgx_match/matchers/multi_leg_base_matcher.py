@@ -2,11 +2,9 @@
 
 from abc import ABC
 from decimal import Decimal
-from typing import List
 import logging
 
 from ..models import SGXTrade
-from ..normalizers import SGXTradeNormalizer
 from .base_matcher import BaseMatcher
 from ..config import SGXConfigManager
 
@@ -81,37 +79,3 @@ class MultiLegBaseMatcher(BaseMatcher, ABC):
             
         return True
 
-    def validate_spread_group_characteristics(self, trades: List[SGXTrade]) -> bool:
-        """Validate that a group of trades can form a valid spread.
-        
-        Args:
-            trades: List of SGXTrade objects to validate as spread group
-            
-        Returns:
-            bool: True if trades form valid spread group
-        """
-        if len(trades) < 2:
-            return False
-            
-        # All trades must have same product and quantity
-        first_trade = trades[0]
-        for trade in trades[1:]:
-            if not self.validate_spread_pair_characteristics(first_trade, trade):
-                # For spread groups, we only check product, quantity, and universal fields
-                # Contract months and B/S can vary within the group
-                if (trade.product_name != first_trade.product_name or
-                    trade.quantity_units != first_trade.quantity_units or
-                    not self.validate_universal_fields(first_trade, trade)):
-                    return False
-        
-        # Check that we have different contract months
-        contract_months = {trade.contract_month for trade in trades}
-        if len(contract_months) < 2:
-            return False
-            
-        # Check that we have opposite B/S directions
-        buy_sell_values = {trade.buy_sell for trade in trades}
-        if len(buy_sell_values) < 2 or buy_sell_values != {'B', 'S'}:
-            return False
-            
-        return True

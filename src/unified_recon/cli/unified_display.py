@@ -354,7 +354,31 @@ class UnifiedDisplay:
     
     def display_sgx_matches(self, matches: List[Any]) -> None:
         """Display SGX matches in a table format similar to SGX system."""
-        
+        if not matches:
+            return
+
+        # Separate single-leg and multi-leg matches like SGX system does
+        single_leg_matches = [
+            m
+            for m in matches
+            if not m.additional_trader_trades and not m.additional_exchange_trades
+        ]
+        multi_leg_matches = [
+            m
+            for m in matches
+            if m.additional_trader_trades or m.additional_exchange_trades
+        ]
+
+        # Show single-leg matches
+        if single_leg_matches:
+            self._display_sgx_single_leg_matches(single_leg_matches)
+
+        # Show multi-leg matches (spreads)
+        if multi_leg_matches:
+            self._display_sgx_spread_matches(multi_leg_matches)
+
+    def _display_sgx_single_leg_matches(self, matches: List[Any]) -> None:
+        """Display SGX single-leg matches."""
         table = Table(title=f"Detailed Matches ({len(matches)} found)", box=box.ROUNDED)
         table.add_column("Match ID", style="cyan")
         table.add_column("Rule", justify="center")
@@ -381,6 +405,67 @@ class UnifiedDisplay:
                 f"{match.confidence}%"
             )
         
+        self.console.print()
+        self.console.print(table)
+
+    def _display_sgx_spread_matches(self, matches: List[Any]) -> None:
+        """Display SGX multi-leg match results (spreads)."""
+        table = Table(title=f"Spread Matches ({len(matches)} found)", box=box.ROUNDED)
+        table.add_column("Match ID", style="cyan")
+        table.add_column("Rule", justify="center")
+        table.add_column("Product", style="green")
+        table.add_column("Contracts", style="yellow")
+        table.add_column("Quantity", justify="right", style="blue")
+        table.add_column("Spread Price", justify="right", style="magenta")
+        table.add_column("Directions", justify="center")
+        table.add_column("Trader IDs", style="dim")
+        table.add_column("Exchange IDs", style="dim")
+        table.add_column("Confidence", justify="right", style="bold green")
+
+        for match in matches:
+            # Get all trades
+            all_trader_trades = [match.trader_trade] + match.additional_trader_trades
+            all_exchange_trades = [
+                match.exchange_trade
+            ] + match.additional_exchange_trades
+
+            # Format trader IDs
+            trader_ids = " + ".join([trade.display_id for trade in all_trader_trades])
+
+            # Format exchange IDs
+            exchange_ids = " + ".join(
+                [trade.display_id for trade in all_exchange_trades]
+            )
+
+            # Format contract months (sorted for consistency)
+            trader_months = sorted(
+                set(trade.contract_month for trade in all_trader_trades)
+            )
+            contract_display = "/".join(trader_months)
+
+            # Format directions (B/S for each leg)
+            trader_directions = [trade.buy_sell for trade in all_trader_trades]
+            exchange_directions = [trade.buy_sell for trade in all_exchange_trades]
+            directions = (
+                f"{'/'.join(trader_directions)}↔{'/'.join(exchange_directions)}"
+            )
+
+            # Use spread price from trader (should be same for both legs in new pattern)
+            spread_price = match.trader_trade.price
+
+            table.add_row(
+                match.match_id,
+                str(match.rule_order),
+                match.matched_product,
+                contract_display,
+                str(match.matched_quantity),
+                str(spread_price),
+                directions,
+                trader_ids,
+                exchange_ids,
+                f"{match.confidence}%",
+            )
+
         self.console.print()
         self.console.print(table)
 

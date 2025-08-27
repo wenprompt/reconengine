@@ -10,7 +10,7 @@ from ..core import SGXUnmatchedPool
 from ..config import SGXConfigManager
 from ..normalizers import SGXTradeNormalizer
 from .multi_leg_base_matcher import MultiLegBaseMatcher
-from ..utils.trade_helpers import get_month_order_tuple, calculate_spread_price
+from ..utils.trade_helpers import calculate_spread_price
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +27,14 @@ class SpreadMatcher(MultiLegBaseMatcher):
         logger.info(f"Initialized SpreadMatcher with {self.confidence}% confidence")
 
     def find_matches(self, pool_manager: SGXUnmatchedPool) -> List[SGXMatchResult]:
-        """Find all spread matches using Tier 1 approach."""
-        logger.info("Starting spread matching (Rule 2) - Tier 1")
+        """Find all spread matches using ONLY dealid-based grouping (no fallback)."""
+        logger.info("Starting spread matching (Rule 2) - Dealid only")
         matches = []
         
         trader_trades = pool_manager.get_unmatched_trader_trades()
         exchange_trades = pool_manager.get_unmatched_exchange_trades()
 
-        # Tier 1: Simple spread pair matching
+        # Find spread pairs: trader by 'S' indicator, exchange by dealid only
         trader_spread_pairs = self._find_trader_spread_pairs(trader_trades, pool_manager)
         exchange_spread_pairs = self._find_exchange_spread_pairs(exchange_trades, pool_manager)
         
@@ -104,9 +104,10 @@ class SpreadMatcher(MultiLegBaseMatcher):
             return False
         
         # Pattern 1: Look for spread indicators in trader data (original pattern)
+        # Only match 'S' spread indicator, NOT 'PS' (product spread)
         has_spread_indicator = (
-            (trade1.spread and 'S' in str(trade1.spread).upper()) or
-            (trade2.spread and 'S' in str(trade2.spread).upper())
+            (trade1.spread and str(trade1.spread).upper().strip() == 'S') or
+            (trade2.spread and str(trade2.spread).upper().strip() == 'S')
         )
         
         # Pattern 2: Both trades have identical non-zero spread price (new pattern)
@@ -119,25 +120,67 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return has_spread_indicator or has_identical_spread_price
 
     def _find_exchange_spread_pairs(self, exchange_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool) -> List[List[SGXTrade]]:
-        """Find exchange spread pairs."""
+        """Find exchange spread pairs using ONLY dealid-based grouping approach."""
+        # ONLY use dealid-based grouping - no fallback logic
+        # Spreads in SGX must share the same dealid
+        dealid_spread_pairs = self._find_exchange_spread_pairs_by_dealid(exchange_trades, pool_manager)
+        
+        logger.debug(f"Found {len(dealid_spread_pairs)} dealid-based pairs (no fallback)")
+        
+        return dealid_spread_pairs
+
+    def _find_exchange_spread_pairs_by_dealid(self, exchange_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool) -> List[List[SGXTrade]]:
+        """Find exchange spread pairs using dealid/tradeid grouping (Tier 1 approach)."""
         spread_pairs = []
         
-        # Group trades by product and quantity
-        trade_groups: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
+        # Group trades by dealid
+        dealid_groups: Dict[str, List[SGXTrade]] = defaultdict(list)
         for trade in exchange_trades:
-            if pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.EXCHANGE):
-                key = self.create_universal_signature(trade, [trade.product_name, trade.quantity_units])
-                trade_groups[key].append(trade)
+            if not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.EXCHANGE):
+                continue
+                
+            # SGX trades have deal_id field directly (no raw_data access needed)
+            dealid = trade.deal_id
+            tradeid = trade.trade_id
+            
+            # Only include trades that have both dealid and tradeid
+            if dealid is not None and tradeid and str(dealid).strip() and str(tradeid).strip():
+                dealid_str = str(dealid).strip()
+                if dealid_str.lower() not in ['nan', 'none', '']:
+                    dealid_groups[dealid_str].append(trade)
         
-        # Find pairs within each group
-        for trades in trade_groups.values():
-            if len(trades) >= 2:
-                for i in range(len(trades)):
-                    for j in range(i + 1, len(trades)):
-                        if self.validate_spread_pair_characteristics(trades[i], trades[j]):
-                            spread_pairs.append([trades[i], trades[j]])
+        # Find valid spread pairs within each dealid group
+        for dealid_str, trades_in_group in dealid_groups.items():
+            # A spread group must have exactly 2 legs for SGX
+            if len(trades_in_group) == 2:
+                trade1, trade2 = trades_in_group
+                
+                # Extract tradeids for comparison - must be different
+                tradeid1 = str(trade1.trade_id).strip()
+                tradeid2 = str(trade2.trade_id).strip()
+                
+                if tradeid1 != tradeid2 and tradeid1 and tradeid2:
+                    # Validate spread characteristics using existing validation
+                    if self.validate_spread_pair_characteristics(trade1, trade2):
+                        spread_pairs.append([trade1, trade2])
+                        logger.debug(f"Found dealid spread pair: {tradeid1}/{tradeid2} (dealid: {dealid_str})")
+            elif len(trades_in_group) > 2:
+                # Multiple legs - try to find all valid pairs
+                for i in range(len(trades_in_group)):
+                    for j in range(i + 1, len(trades_in_group)):
+                        trade1, trade2 = trades_in_group[i], trades_in_group[j]
+                        
+                        # Must have different tradeids
+                        tradeid1 = str(trade1.trade_id).strip()
+                        tradeid2 = str(trade2.trade_id).strip()
+                        
+                        if tradeid1 != tradeid2 and tradeid1 and tradeid2:
+                            if self.validate_spread_pair_characteristics(trade1, trade2):
+                                spread_pairs.append([trade1, trade2])
+                                logger.debug(f"Found dealid spread pair: {tradeid1}/{tradeid2} (dealid: {dealid_str})")
         
         return spread_pairs
+
 
     def _match_spread_pair(
         self, 
@@ -177,6 +220,18 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
         # Validate exchange trades form a valid spread pair
         if not self.validate_spread_pair_characteristics(exchange_trade1, exchange_trade2):
+            return False
+
+        # Validate all trades have the same product (calendar spread requirement)
+        trader_products = {trader_trade1.product_name, trader_trade2.product_name}
+        exchange_products = {exchange_trade1.product_name, exchange_trade2.product_name}
+        
+        # For calendar spreads, all trades must have the same product
+        if len(trader_products) != 1 or len(exchange_products) != 1:
+            return False
+            
+        # The single product must match between trader and exchange
+        if trader_products != exchange_products:
             return False
 
         # Validate contract months match between trader and exchange
@@ -250,8 +305,6 @@ class SpreadMatcher(MultiLegBaseMatcher):
             trader_trade=trader_trades[0],
             exchange_trade=exchange_trades[0],
             matched_fields=matched_fields,
-            differing_fields=[],
-            tolerances_applied={},
             rule_order=self.rule_number,
             additional_trader_trades=trader_trades[1:],
             additional_exchange_trades=exchange_trades[1:],
