@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Any, Optional, Dict
+from typing import List, Any, Optional, Dict, cast
 from decimal import Decimal
 import logging
 
@@ -39,15 +39,15 @@ class CSVTradeLoader:
             logger.info(f"Loaded {len(df)} rows from trader CSV")
             
             trades = []
-            for index, row in df.iterrows():
+            # Ensure deterministic 0-based integer indices for IDs
+            df = df.reset_index(drop=True)
+            for i, row in df.iterrows():
                 try:
-                    # Safely get row index for ID generation
-                    row_index = int(index) if isinstance(index, (int, str)) else 0
-                    trade = self._create_trader_trade(row, row_index)
+                    trade = self._create_trader_trade(row, cast(int, i))
                     if trade:
                         trades.append(trade)
                 except Exception as e:
-                    logger.warning(f"Skipping trader row {index}: {e}")
+                    logger.warning(f"Skipping trader row {i}: {e}")
                     continue
             
             logger.info(f"Successfully created {len(trades)} trader trades")
@@ -71,15 +71,15 @@ class CSVTradeLoader:
             logger.info(f"Loaded {len(df)} rows from exchange CSV")
             
             trades = []
-            for index, row in df.iterrows():
+            # Ensure deterministic 0-based integer indices for IDs
+            df = df.reset_index(drop=True)
+            for i, row in df.iterrows():
                 try:
-                    # Safely get row index for ID generation
-                    row_index = int(index) if isinstance(index, (int, str)) else 0
-                    trade = self._create_exchange_trade(row, row_index)
+                    trade = self._create_exchange_trade(row, cast(int, i))
                     if trade:
                         trades.append(trade)
                 except Exception as e:
-                    logger.warning(f"Skipping exchange row {index}: {e}")
+                    logger.warning(f"Skipping exchange row {i}: {e}")
                     continue
             
             logger.info(f"Successfully created {len(trades)} exchange trades")

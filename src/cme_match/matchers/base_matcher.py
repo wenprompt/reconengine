@@ -1,9 +1,14 @@
 """Base matcher with universal field handling for CME trades."""
 
+from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, TYPE_CHECKING
 from ..models import CMETrade
 from ..config import CMEConfigManager
+
+if TYPE_CHECKING:
+    from ..core.cme_pool import CMEUnmatchedPool
+    from ..models.match_result import CMEMatchResult
 
 
 class BaseMatcher(ABC):
@@ -103,7 +108,7 @@ class BaseMatcher(ABC):
         return field_mappings.get(config_field_name, config_field_name)
     
     @abstractmethod
-    def find_matches(self, pool_manager) -> List:
+    def find_matches(self, pool_manager: "CMEUnmatchedPool") -> List["CMEMatchResult"]:
         """Find matches using this matcher's rule. Must be implemented by subclasses.
         
         Args:

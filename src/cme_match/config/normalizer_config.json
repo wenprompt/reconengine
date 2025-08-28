@@ -1,18 +1,6 @@
 {
   "product_mappings": {
-    "corn": "CORN",
-    "soybeans": "SOYBEANS", 
-    "wheat": "WHEAT",
-    "oats": "OATS",
-    "rice": "RICE",
-    "crude oil": "CRUDE_OIL",
-    "natural gas": "NATURAL_GAS",
-    "gold": "GOLD",
-    "silver": "SILVER",
-    "copper": "COPPER",
-    "es": "ES",
-    "nq": "NQ",
-    "ym": "YM"
+    "lth": "lth"
   },
   "month_patterns": {
     "(?i)^jan[\\s\\-]?(\\d{2})$": "Jan\\1",
@@ -38,7 +26,7 @@
   "field_mappings": {
     "trader_mappings": {
       "traderid": "traderid",
-      "tradedate": "tradedate", 
+      "tradedate": "tradedate",
       "tradetime": "tradetime",
       "productid": "productid",
       "productname": "productname",

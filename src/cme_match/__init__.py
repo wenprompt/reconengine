@@ -8,7 +8,7 @@ from .loaders import CMECSVLoader
 from .normalizers import CMETradeNormalizer
 from .cli import CMEDisplay
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 __all__ = [
     "CMETrade",
     "CMETradeSource", 

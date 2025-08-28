@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable, cast, cast
+from typing import List, Dict, Any, Optional, Callable
 import logging
 import uuid
 
@@ -87,13 +87,15 @@ class SGXCSVLoader:
             field_mappings = self.config_manager.get_field_mappings()[f"{trade_type}_mappings"]
             
             trades = []
-            for idx, row in df.iterrows():
+            # Ensure deterministic 0-based integer indices for IDs
+            df = df.reset_index(drop=True)
+            for i, row in df.iterrows():
                 try:
-                    trade = create_trade_func(row, field_mappings, cast(int, idx))
+                    trade = create_trade_func(row, field_mappings, i)
                     if trade:
                         trades.append(trade)
                 except Exception as e:
-                    logger.error(f"Failed to create {trade_type} trade from row {idx}: {e}")
+                    logger.error(f"Failed to create {trade_type} trade from row {i}: {e}")
                     continue
             
             logger.info(f"Successfully created {len(trades)} SGX {trade_type} trades")
