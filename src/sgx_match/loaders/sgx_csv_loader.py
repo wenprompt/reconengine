@@ -335,7 +335,7 @@ class SGXCSVLoader:
                 special_comms=None,  # Exchange data doesn't have special_comms
                 remarks=None,  # Exchange data doesn't have remarks
                 broker=None,  # Exchange data doesn't have broker
-                deal_id=self.normalizer.normalize_integer_field(
+                deal_id=self.normalizer.normalize_id_field(
                     self._get_field_value(row, "dealid", field_mappings)
                 ),
                 clearing_status=self.normalizer.normalize_string_field(

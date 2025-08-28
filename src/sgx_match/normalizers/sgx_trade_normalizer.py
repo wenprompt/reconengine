@@ -185,6 +185,35 @@ class SGXTradeNormalizer:
             logger.error(f"Failed to normalize integer '{value}': {e}")
             return None
     
+    def normalize_id_field(self, value: Any) -> Optional[int]:
+        """Normalize ID fields (deal_id, trade_id) with strict integer validation.
+        
+        Avoids float coercion to prevent precision loss on large IDs.
+        Only accepts truly integer-like values.
+        
+        Args:
+            value: Raw ID value to normalize
+            
+        Returns:
+            Normalized integer ID, or None if invalid
+        """
+        if value is None or value == "":
+            return None
+        
+        try:
+            value_str = str(value).strip()
+            # Accept only integer-like values; avoid float precision issues
+            d = Decimal(value_str)
+            if d == d.to_integral_value():
+                normalized = int(d)
+                logger.debug(f"Normalized ID: '{value}' -> '{normalized}'")
+                return normalized
+            logger.error(f"Non-integer value for ID field: '{value}'")
+            return None
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.error(f"Failed to normalize ID '{value}': {e}")
+            return None
+    
     def normalize_string_field(self, value: Any) -> str:
         """Normalize string fields by cleaning whitespace.
         

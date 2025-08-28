@@ -93,11 +93,14 @@ class CMETrade(BaseModel):
         return f"{self.product_name}_{self.contract_month}"
     
     @property
-    def matching_signature(self) -> str:
+    def matching_signature(self) -> tuple[str, str, Decimal, Decimal, str]:
         """Get a signature for exact matching (excluding universal fields)."""
         return (
-            f"{self.product_name}|{self.contract_month}|{self.quantity_lots}|"
-            f"{self.price}|{self.buy_sell}"
+            self.product_name,
+            self.contract_month,
+            self.quantity_lots,
+            self.price,
+            self.buy_sell
         )
     
     def __str__(self) -> str:
