@@ -49,7 +49,7 @@ The CME matching system processes Chicago Mercantile Exchange futures trades usi
 
 The unified reconciliation system acts as a centralized data router and aggregator:
 
-- **Data Routing**: Groups trades by `exchangegroupid` and routes to appropriate systems (Group 1 → ICE, Group 2 → SGX)
+- **Data Routing**: Groups trades by `exchangegroupid` and routes to appropriate systems (Group 1 → ICE, Group 2 → SGX, Group 3 → CME)
 - **System Integration**: Calls individual matching systems with filtered data while maintaining system isolation
 - **Result Aggregation**: Combines results from multiple systems with unified reporting
 - **Phase 1 Architecture**: Pure data routing without centralizing normalizers/configs
@@ -350,8 +350,7 @@ uv run python -m src.cme_match.main --log-level DEBUG  # Enable debug logging
 # options
 --help
 --log-level DEBUG
---no-unmatched (ICE)
---show-unmatched (SGX, CME)
+--no-unmatched
 ```
 
 ## 📋 Style & Conventions
@@ -429,10 +428,10 @@ _The following sections document the specific implementation progress and update
 
 **ICE Match Module Completed**:
 
-- **13 Sequential Rules**: Implemented with enhanced match rate on sample data, including new Rule 6 (Fly Matcher)
-- **Fly Matching**: Rule 6 for butterfly spread trades (3-leg buy-sell-buy pattern) with dealid-based grouping ⭐ **NEW**
+- **13 Sequential Rules**: Complete implementation with comprehensive match coverage on sample data
+- **Fly Matching**: Rule 6 for butterfly spread trades (3-leg buy-sell-buy pattern) with dealid-based grouping
 - **Complex Crack Roll Matching**: Rule 12 for calendar spreads of crack positions
-- **Aggregated Product Spread Matching**: Rule 13 with comprehensive 4-tier architecture for product spread matching with aggregation logic ⭐ **ENHANCED**
+- **Aggregated Product Spread Matching**: Rule 13 with comprehensive 4-tier architecture for product spread matching with aggregation logic
 - **Refactored Utils Architecture**: Separated pure utilities from config-dependent functions
 - **3-Tier Spread Matching**: Enhanced spread detection with DealID/TradeID, time-based, and product/quantity tiers
 - **Universal Field Validation**: JSON-driven configuration system
@@ -467,75 +466,28 @@ The ice CSV loader uses the normalizer for consistent data processing:
 
 ---
 
-## 🚀 Recent Enhancement: Rule 13 Tier 4 Implementation
+### ICE Matching Rules Summary
 
-### New Tier 4: Hyphenated Exchange Aggregation → Trader Spread Pair ⭐
+**Rules 1-6: Basic & Complex Matching**
 
-**Problem Solved**: Previously, Rule 13 couldn't handle cases where multiple identical hyphenated exchange spreads needed to aggregate to match a single trader spread pair.
+- **Rule 1**: Exact matching on all fields (100% confidence)
+- **Rule 2**: Spread matching for calendar spreads (95% confidence)
+- **Rule 3**: Crack matching with MT↔BBL conversion (88% confidence)
+- **Rule 4**: Complex crack matching for multi-component cracks (85% confidence)
+- **Rule 5**: Product spread matching across different products (75% confidence)
+- **Rule 6**: Fly matching for butterfly spreads with 3-leg validation (74% confidence)
 
-**Example Case Fixed**:
+**Rules 7-13: Advanced & Aggregated Matching**
 
-- **Exchange**: E_0044 + E_0045 (both "naphtha japan-naphtha nwe", 5000 MT each, 22.25, S)
-- **Trader**: T_0078 (naphtha japan, 10000 MT, S) + T_0079 (naphtha nwe, 10000 MT, B)
-- **Before**: ❌ No match found
-- **After**: ✅ Successfully matched with Tier 4 logic
+- **Rule 7**: Aggregation matching for quantity aggregation (72% confidence)
+- **Rule 8**: Aggregated complex crack matching (68% confidence)
+- **Rule 9**: Aggregated spread matching (65% confidence)
+- **Rule 10**: Multileg spread matching for complex spread structures (65% confidence)
+- **Rule 11**: Aggregated crack matching with quantity aggregation (65% confidence)
+- **Rule 12**: Complex crack roll matching for calendar crack spreads (65% confidence)
+- **Rule 13**: Aggregated product spread matching with 4-tier architecture (62% confidence)
 
-### Complete Four-Tier Architecture
-
-**Rule 13** now implements a comprehensive four-tier system:
-
-1. **Tier 1 (Scenario A)**: Exchange Component Aggregation → Trader Spread Pair
-   - Multiple individual exchange component trades → Single trader spread pair
-2. **Tier 2 (Scenario B)**: Exchange Hyphenated Spread → Trader Component Aggregation
-   - Single exchange hyphenated spread → Multiple trader trades per component
-3. **Tier 3 (Scenario C)**: Cross-Spread Aggregation (Trader Spread Pairs → Exchange Components)
-   - Multiple trader spread pairs aggregate by component → Individual exchange component trades
-4. **Tier 4 (Scenario D)**: Hyphenated Exchange Aggregation → Trader Spread Pair ⭐ **NEW**
-   - Multiple identical hyphenated exchange spreads → Single trader spread pair
-
-### Implementation Quality
-
-**Architecture Excellence**:
-
-- **Clear Tier Organization**: Section headers and comprehensive documentation
-- **Zero Technical Debt**: No unused imports, hardcoded values, or magic numbers
-- **Type Safety**: 100% mypy compliant with comprehensive type annotations
-- **Performance**: O(N+M) algorithms with intelligent indexing
-- **Maintainability**: Well-structured code following established patterns
-
-**Test Results**:
-
-- **Successfully matches**: `AGG_PROD_SPREAD_13_ce811aca`
-- **Confidence Level**: 62%
-- **Aggregation Type**: Many-to-Many (N:N)
-- **DataFrame Integration**: Displays correctly in standardized output
-
----
-
-## 🆕 New Rule 6: Fly Matcher Implementation
-
-### Butterfly Spread (Fly) Matching ⭐ **NEWLY IMPLEMENTED**
-
-**Rule 6** implements sophisticated butterfly spread matching with dealid-based grouping inspired by SGX spread matcher Tier 1 approach:
-
-**Key Features:**
-- **3-Leg Pattern Validation**: X+Z=Y quantity relationship where outer legs sum equals middle leg
-- **Direction Pattern**: Outer legs (X,Z) same direction, middle leg (Y) opposite direction  
-- **Contract Month Sorting**: Chronological ordering (earliest → middle → latest)
-- **DealID-Based Grouping**: Exchange trades must share same dealid for fly identification
-- **Universal Field Validation**: Inherits broker group and clearing account validation
-- **Non-Duplication Protection**: Proper pool manager integration prevents trade reuse
-
-**Example Pattern:**
-- **Trader**: 3 trades with spread indicator 'S' (e.g., Buy 1000 Sep, Sell 2000 Oct, Buy 1000 Nov)
-- **Exchange**: 3 trades sharing same dealid (corresponding to the butterfly structure)
-- **Validation**: 1000 + 1000 = 2000 ✅, Buy/Sell/Buy pattern ✅
-
-**Technical Implementation:**
-- **74% Confidence Level**: Positioned between Product Spread (75%) and Aggregation (72%)
-- **Fly Price Calculation**: Validates (X_price - Y_price) + (Z_price - Y_price) = trader_fly_price
-- **Pool Integration**: `pool_manager.record_match()` ensures proper trade removal
-- **Type Safety**: 100% mypy compliant with comprehensive type annotations
+_See `src/ice_match/docs/rules.md` for detailed specifications and examples._
 
 ---
 
@@ -592,32 +544,18 @@ The SGX CSV loader processes Singapore Exchange data files:
 - **Error Handling**: Graceful handling of malformed data and missing fields
 - **Direct CSV Access**: Works with actual CSV column names without field mapping complexity
 
-### SGX Multi-Rule Matching System
+### SGX Matching Rules Summary
 
-The SGX system implements a 3-rule sequential matching approach:
+**3-Rule Sequential Matching System**
 
-#### Rule 1: Exact Matcher
+- **Rule 1**: Exact matching on 7 fields (product, contract month, quantity, price, buy/sell + universal fields) - 100% confidence
+- **Rule 2**: Spread matching for calendar spreads with price validation - 95% confidence
+- **Rule 3**: Product spread matching with 3-tier confidence system:
+  - Tier 1: PS required (95% confidence)
+  - Tier 2: No PS required (92% confidence)
+  - Tier 3: Hyphenated exchange spread (90% confidence)
 
-- **7-Field Matching**: product_name, contract_month, quantity_units, price, buy_sell + universal fields
-- **Signature Indexing**: O(1) lookup performance using tuple signatures
-- **Universal Validation**: Inherits broker_group_id and exch_clearing_acct_id validation
-- **100% Confidence**: High confidence matching for exact field alignment
-- **Options Aware**: Handles both futures and options contracts seamlessly
-
-#### Rule 2: Spread Matcher
-
-- **Calendar Spread Detection**: Matches trader spread pairs against exchange spread pairs
-- **Price Validation**: Validates spread price calculations between contract months
-- **2-to-2 Matching**: Two trader trades match against two exchange trades
-- **95% Confidence**: High confidence for spread position matching
-
-#### Rule 3: Product Spread Matcher (3-Tier System)
-
-- **Tier 1 (95%)**: PS required - Trader spread pairs with "PS" indicator vs exchange pairs
-- **Tier 2 (92%)**: No PS required - Identical spread price pattern without PS indicator
-- **Tier 3 (90%)**: Hyphenated exchange spread - Single hyphenated exchange trade vs trader pair
-- **Configuration-Driven**: Uses tier-based confidence adjustment system
-- **Product Cross-Matching**: Handles different products (M65, FE) in spread relationships
+_See `src/sgx_match/docs/rules.md` for detailed specifications and examples._
 
 ---
 
@@ -648,7 +586,7 @@ _The following sections document the specific implementation for the `src/cme_ma
 The CME module implements specialized models for Chicago Mercantile Exchange trading:
 
 - **CMETrade Model**: Immutable trade objects focused on futures contracts with quantity_lots field
-- **CMETradeSource Enum**: TRADER and EXCHANGE source identification  
+- **CMETradeSource Enum**: TRADER and EXCHANGE source identification
 - **CMEMatchType Enum**: EXACT match type classification (single rule system)
 - **Futures Integration**: Native support for commodity and index futures with lot-based quantities
 - **Universal Fields**: Inherits broker_group_id and exch_clearing_acct_id validation from base architecture
@@ -674,18 +612,13 @@ The CME CSV loader processes Chicago Mercantile Exchange data files:
 - **Error Handling**: Graceful handling of malformed data and missing fields
 - **Field Mapping**: Supports both trader and exchange CSV schemas with unified field mapping
 
-### CME Single-Rule Matching System
+### CME Matching Rules Summary
 
-The CME system implements a 1-rule exact matching approach:
+**Single-Rule Exact Matching System**
 
-#### Rule 1: Exact Matcher
+- **Rule 1**: Exact matching on 7 fields (product, contract month, quantity lots, price, buy/sell + universal fields) - 100% confidence
 
-- **7-Field Matching**: product_name, contract_month, quantity_lots, price, buy_sell + universal fields
-- **Signature Indexing**: O(1) lookup performance using tuple signatures
-- **Universal Validation**: Inherits broker_group_id and exch_clearing_acct_id validation
-- **100% Confidence**: Maximum confidence matching for exact field alignment
-- **Futures Focused**: Handles CME commodity and index futures contracts exclusively
-- **Lot-Based Matching**: Uses quantity_lots instead of quantity_units for CME-specific trading
+_See `src/cme_match/docs/rules.md` for detailed specifications and examples._
 
 ---
 
@@ -850,7 +783,7 @@ class Trade(BaseModel):
 
 ### Modular Architecture Template
 
-ICE, SGX, and CME modules demonstrate the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure:
+All matching modules (ICE, SGX, CME) demonstrate the established architectural patterns for building matching systems. Future matching modules should follow the same modular structure:
 
 **Required Folders:**
 
