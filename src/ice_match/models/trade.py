@@ -98,23 +98,19 @@ class Trade(BaseModel):
             return self.quantity * self._bbl_to_mt_ratio  # Use configured ratio
         return self.quantity
     
-    def matching_signature(self) -> tuple:
-        """DEPRECATED: Generate a tuple for exact matching comparison.
-        
-        Note: This method is deprecated in favor of the universal field system
-        implemented in BaseMatcher. Individual matchers should use 
-        BaseMatcher.create_universal_signature() instead.
+    @property 
+    def matching_signature(self) -> tuple[str, Decimal, Decimal, str, str]:
+        """Get a signature for exact matching (excluding universal fields).
         
         Returns:
-            Tuple containing basic fields for backward compatibility
+            Tuple containing core matching fields for consistency with SGX/CME
         """
         return (
             self.product_name,
-            self.quantity_mt,
+            self.quantity_mt, 
             self.price,
             self.contract_month,
-            self.buy_sell,
-            self.broker_group_id
+            self.buy_sell
         )
     
     def can_match_opposite_side(self, other: "Trade") -> bool:

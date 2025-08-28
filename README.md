@@ -63,10 +63,6 @@ all sgx traders file to match by product name first instead of ID for standardis
 
 change the b/s mapping to "B/S" standardised
 
-how to catch BZN and PXN hmm
-
-SGX and EEX is done
-
 for iron ore recon is basis T+1 from T-1 + T trades
 for FFA recon is basis T trades and T+1 current day
 for petchem recon its the same
