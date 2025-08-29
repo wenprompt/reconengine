@@ -68,3 +68,14 @@ for FFA recon is basis T trades and T+1 current day
 for petchem recon its the same
 
 make sure spread is earlier month - later month in tuple
+
+EEX code needs thorough review that wasnt done because it wasnt used yet
+
+**TODO**
+fix sgx spread tier 2 matches - match based on time if dealid fail to catch the tradesa. i think maybe make the time +-1min too
+
+check to group trader also with S one first too
+
+SGX also has multileg spread match just to keep in mind, can follow the implementation of ICE_MATCH
+
+\*\*maybe for spreads its better to be able to accept 0 for either leg price or same price for spreads

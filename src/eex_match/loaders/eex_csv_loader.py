@@ -107,22 +107,24 @@ class EEXCSVLoader:
         except Exception as e:
             logger.error(f"Failed to load {trade_type} trades: {e}")
             raise ValueError(f"Invalid {trade_type} CSV format: {e}") from e
-    
-    def _create_trader_trade(self, row: pd.Series, field_mappings: Dict[str, str], 
-                           index: int) -> Optional[EEXTrade]:
-        """Create EEX trader trade from CSV row.
+
+    def _extract_common_fields(self, row: pd.Series, field_mappings: Dict[str, str], 
+                              index: int, source: EEXTradeSource) -> Optional[Dict[str, Any]]:
+        """Extract and normalize common fields from CSV row.
         
         Args:
             row: Pandas series representing CSV row
             field_mappings: Field name mappings
             index: Row index for ID generation
+            source: Trade source (TRADER or EXCHANGE)
             
         Returns:
-            EEXTrade object or None if invalid
+            Dict of common normalized fields or None if essential fields missing
         """
         try:
-            # Generate unique trade ID
-            trade_id = f"T_{index}_{uuid.uuid4().hex[:6]}"
+            # Generate deterministic trade ID using row index
+            prefix = "T" if source == EEXTradeSource.TRADER else "E"
+            trade_id = f"{prefix}_{index}"
             
             # Extract and normalize core fields - using quantityunits for EEX
             product_name = self.normalizer.normalize_product_name(
@@ -148,15 +150,10 @@ class EEXCSVLoader:
             # Skip if essential fields are missing
             if not all([product_name, quantity_units is not None, price is not None, 
                        contract_month, buy_sell]):
-                logger.warning(f"Skipping trader trade {index}: missing essential fields")
+                logger.warning(f"Skipping {source.value} trade {index}: missing essential fields")
                 return None
             
-            # Ensure quantity_units and price are not None before passing to EEXTrade
-            if quantity_units is None or price is None:
-                logger.warning(f"Skipping trader trade {index}: quantity or price is None")
-                return None
-            
-            # Extract other fields
+            # Extract universal fields
             broker_group_id = self.normalizer.normalize_integer_field(
                 self._get_field_value(row, "brokergroupid", field_mappings)
             )
@@ -165,61 +162,125 @@ class EEXCSVLoader:
                 self._get_field_value(row, "exchclearingacctid", field_mappings)
             )
             
+            # Extract common optional fields
+            exchange_group_id = self.normalizer.normalize_integer_field(
+                self._get_field_value(row, "exchangegroupid", field_mappings)
+            )
+            
+            strike = self.normalizer.normalize_price(
+                self._get_field_value(row, "strike", field_mappings)
+            )
+            
+            put_call = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "put/call", field_mappings)
+            ) or None
+            
+            product_id = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "productid", field_mappings)
+            ) or None
+            
+            product_group_id = self.normalizer.normalize_integer_field(
+                self._get_field_value(row, "productgroupid", field_mappings)
+            )
+            
+            trade_date = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "tradedate", field_mappings)
+            ) or None
+            
+            unit = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "unit", field_mappings)
+            ) or None
+            
+            return {
+                # Core fields
+                "trade_id": trade_id,
+                "source": source,
+                "product_name": product_name,
+                "quantity_units": quantity_units,
+                "unit": unit,
+                "price": price,
+                "contract_month": contract_month,
+                "buy_sell": buy_sell,
+                
+                # Universal fields
+                "broker_group_id": broker_group_id,
+                "exch_clearing_acct_id": exch_clearing_acct_id,
+                
+                # Common optional fields
+                "exchange_group_id": exchange_group_id,
+                "strike": strike,
+                "put_call": put_call,
+                "product_id": product_id,
+                "product_group_id": product_group_id,
+                "trade_date": trade_date,
+            }
+            
+        except Exception as e:
+            logger.error(f"Error extracting common fields from row {index}: {e}")
+            return None
+    
+    def _create_trader_trade(self, row: pd.Series, field_mappings: Dict[str, str], 
+                           index: int) -> Optional[EEXTrade]:
+        """Create EEX trader trade from CSV row.
+        
+        Args:
+            row: Pandas series representing CSV row
+            field_mappings: Field name mappings
+            index: Row index for ID generation
+            
+        Returns:
+            EEXTrade object or None if invalid
+        """
+        try:
+            # Extract common fields
+            common_fields = self._extract_common_fields(row, field_mappings, index, EEXTradeSource.TRADER)
+            if not common_fields:
+                return None
+            
+            # Extract trader-specific fields
+            spread = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "spread", field_mappings)
+            ) or None
+            
+            trade_time = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "tradetime", field_mappings)
+            ) or None
+            
+            trader_id = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "traderid", field_mappings)
+            ) or None
+            
+            special_comms = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "specialComms", field_mappings)
+            ) or None
+            
+            remarks = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "RMKS", field_mappings)
+            ) or None
+            
+            broker = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "BKR", field_mappings)
+            ) or None
+            
             return EEXTrade(
-                trade_id=trade_id,
-                source=EEXTradeSource.TRADER,
-                product_name=product_name,
-                quantity_units=quantity_units,
-                unit=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "unit", field_mappings)
-                ) or None,
-                price=price,
-                contract_month=contract_month,
-                buy_sell=buy_sell,
-                broker_group_id=broker_group_id,
-                exch_clearing_acct_id=exch_clearing_acct_id,
-                exchange_group_id=self.normalizer.normalize_integer_field(
-                    self._get_field_value(row, "exchangegroupid", field_mappings)
-                ),
-                strike=self.normalizer.normalize_price(
-                    self._get_field_value(row, "strike", field_mappings)
-                ),
-                put_call=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "put/call", field_mappings)
-                ) or None,
-                spread=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "spread", field_mappings)
-                ) or None,
-                trade_date=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "tradedate", field_mappings)
-                ) or None,
-                trade_time=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "tradetime", field_mappings)
-                ) or None,
+                # Common fields
+                **common_fields,
+                
+                # Trader-specific fields
+                spread=spread,
+                trade_time=trade_time,
                 trade_datetime=None,  # Trader data doesn't have combined datetime
-                trader_id=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "traderid", field_mappings)
-                ) or None,
-                product_id=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "productid", field_mappings)
-                ) or None,
-                product_group_id=self.normalizer.normalize_integer_field(
-                    self._get_field_value(row, "productgroupid", field_mappings)
-                ),
-                special_comms=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "specialComms", field_mappings)
-                ) or None,
-                remarks=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "RMKS", field_mappings)
-                ) or None,
-                broker=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "BKR", field_mappings)
-                ) or None,
-                deal_id=None,  # Trader data doesn't have deal_id
-                clearing_status=None,  # Trader data doesn't have clearing_status
-                trader_name=None,  # Trader data doesn't have trader_name
-                trading_session=None,  # Trader data doesn't have trading_session
-                cleared_date=None  # Trader data doesn't have cleared_date
+                trader_id=trader_id,
+                special_comms=special_comms,
+                remarks=remarks,
+                broker=broker,
+                
+                # Fields not present in trader data
+                deal_id=None,
+                clearing_status=None,
+                trader_name=None,
+                trading_session=None,
+                cleared_date=None
             )
             
         except Exception as e:
@@ -239,105 +300,53 @@ class EEXCSVLoader:
             EEXTrade object or None if invalid
         """
         try:
-            # Always generate consistent trade ID with row index for easy identification
-            trade_id = f"E_{index}_{uuid.uuid4().hex[:6]}"
-            
-            # Extract and normalize core fields - using quantityunits for EEX
-            product_name = self.normalizer.normalize_product_name(
-                self._get_field_value(row, "productname", field_mappings, "")
-            )
-            
-            quantity_units = self.normalizer.normalize_quantity(
-                self._get_field_value(row, "quantityunits", field_mappings)
-            )
-            
-            price = self.normalizer.normalize_price(
-                self._get_field_value(row, "price", field_mappings)
-            )
-            
-            contract_month = self.normalizer.normalize_contract_month(
-                self._get_field_value(row, "contractmonth", field_mappings, "")
-            )
-            
-            buy_sell = self.normalizer.normalize_buy_sell(
-                self._get_field_value(row, "b/s", field_mappings, "")
-            )
-            
-            # Skip if essential fields are missing
-            if not all([product_name, quantity_units is not None, price is not None, 
-                       contract_month, buy_sell]):
-                logger.warning(f"Skipping exchange trade {index}: missing essential fields")
+            # Extract common fields
+            common_fields = self._extract_common_fields(row, field_mappings, index, EEXTradeSource.EXCHANGE)
+            if not common_fields:
                 return None
             
-            # Ensure quantity_units and price are not None before passing to EEXTrade
-            if quantity_units is None or price is None:
-                logger.warning(f"Skipping exchange trade {index}: quantity or price is None")
-                return None
+            # Extract exchange-specific fields
+            trade_datetime = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "tradedatetime", field_mappings)
+            ) or None
             
-            # Extract other fields
-            broker_group_id = self.normalizer.normalize_integer_field(
-                self._get_field_value(row, "brokergroupid", field_mappings)
+            deal_id = self.normalizer.normalize_integer_field(
+                self._get_field_value(row, "dealid", field_mappings)
             )
             
-            exch_clearing_acct_id = self.normalizer.normalize_integer_field(
-                self._get_field_value(row, "exchclearingacctid", field_mappings)
-            )
+            clearing_status = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "clearingstatus", field_mappings)
+            ) or None
+            
+            trader_name = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "traderid", field_mappings)
+            ) or None
+            
+            trading_session = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "tradingsession", field_mappings)
+            ) or None
+            
+            cleared_date = self.normalizer.normalize_string_field(
+                self._get_field_value(row, "cleareddate", field_mappings)
+            ) or None
             
             return EEXTrade(
-                trade_id=trade_id,
-                source=EEXTradeSource.EXCHANGE,
-                product_name=product_name,
-                quantity_units=quantity_units,
-                unit=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "unit", field_mappings)
-                ) or None,
-                price=price,
-                contract_month=contract_month,
-                buy_sell=buy_sell,
-                broker_group_id=broker_group_id,
-                exch_clearing_acct_id=exch_clearing_acct_id,
-                exchange_group_id=self.normalizer.normalize_integer_field(
-                    self._get_field_value(row, "exchangegroupid", field_mappings)
-                ),
-                strike=self.normalizer.normalize_price(
-                    self._get_field_value(row, "strike", field_mappings)
-                ),
-                put_call=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "put/call", field_mappings)
-                ) or None,
+                # Common fields
+                **common_fields,
+                
+                # Exchange-specific fields
                 spread=None,  # Exchange data doesn't have spread field
-                trade_date=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "tradedate", field_mappings)
-                ) or None,
                 trade_time=None,  # Exchange data doesn't have separate trade_time
-                trade_datetime=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "tradedatetime", field_mappings)
-                ) or None,
+                trade_datetime=trade_datetime,
                 trader_id=None,  # Exchange data doesn't have trader_id
-                product_id=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "productid", field_mappings)
-                ) or None,
-                product_group_id=self.normalizer.normalize_integer_field(
-                    self._get_field_value(row, "productgroupid", field_mappings)
-                ),
                 special_comms=None,  # Exchange data doesn't have special_comms
                 remarks=None,  # Exchange data doesn't have remarks
                 broker=None,  # Exchange data doesn't have broker
-                deal_id=self.normalizer.normalize_integer_field(
-                    self._get_field_value(row, "dealid", field_mappings)
-                ),
-                clearing_status=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "clearingstatus", field_mappings)
-                ) or None,
-                trader_name=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "traderid", field_mappings)
-                ) or None,
-                trading_session=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "tradingsession", field_mappings)
-                ) or None,
-                cleared_date=self.normalizer.normalize_string_field(
-                    self._get_field_value(row, "cleareddate", field_mappings)
-                ) or None
+                deal_id=deal_id,
+                clearing_status=clearing_status,
+                trader_name=trader_name,
+                trading_session=trading_session,
+                cleared_date=cleared_date
             )
             
         except Exception as e:
