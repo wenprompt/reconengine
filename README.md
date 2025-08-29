@@ -76,6 +76,6 @@ fix sgx spread tier 2 matches - match based on time if dealid fail to catch the 
 
 check to group trader also with S one first too
 
-SGX also has multileg spread match just to keep in mind, can follow the implementation of ICE_MATCH
+\*\*SGX also has multileg spread match just to keep in mind, can follow the implementation of ICE_MATCH
 
 \*\*maybe for spreads its better to be able to accept 0 for either leg price or same price for spreads
