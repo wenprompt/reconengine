@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import sys
 from rich.console import Console
 from rich.prompt import Prompt
 
@@ -54,13 +55,15 @@ def remap_row(row, old_headers, target_headers):
     # Create a dictionary for easy lookup of old column indices
     old_header_map = {header.strip(): idx for idx, header in enumerate(old_headers)}
 
-    # Load product mapping
+    # Load product mapping using relative path
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    mapping_path = os.path.join(script_dir, "mapping.json")
     try:
-        with open("/home/wenhaowang/projects/reconengine/tradefiles/mapping.json", 'r') as f:
+        with open(mapping_path, 'r') as f:
             product_mapping = json.load(f)
     except FileNotFoundError:
         product_mapping = {}
-        console.print("[bold yellow]Warning:[/bold yellow] mapping.json not found. Product names will not be remapped.")
+        console.print(f"[bold yellow]Warning:[/bold yellow] {mapping_path} not found. Product names will not be remapped.")
 
     # Define mapping from target header to old header/value
     mapping = {
@@ -108,8 +111,10 @@ def remap_row(row, old_headers, target_headers):
 
 
 if __name__ == "__main__":
-    input_dir = "/home/wenhaowang/projects/reconengine/tradefiles/input/"
-    output_dir = "/home/wenhaowang/projects/reconengine/tradefiles/output/"
+    # Use relative paths based on script location
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    input_dir = os.path.join(script_dir, "input")
+    output_dir = os.path.join(script_dir, "output")
     output_csv_path = os.path.join(output_dir, "sourceExchange.csv")
 
     # Get list of available CSV files
@@ -117,22 +122,28 @@ if __name__ == "__main__":
     if not available_files:
         console.print("[bold red]Error:[/bold red] No CSV files found in the input directory.")
     else:
-        # Present numbered list to user
         console.print("\nSelect a DealReport CSV file to process:")
         for i, fname in enumerate(available_files):
             console.print(f"{i+1}. {fname}")
         
-        while True:
+        # Check for command line argument or use default
+        if len(sys.argv) > 1:
             try:
-                choice = Prompt.ask("Enter the number of your choice")
-                choice_idx = int(choice) - 1
+                choice_idx = int(sys.argv[1]) - 1
                 if 0 <= choice_idx < len(available_files):
                     selected_file = available_files[choice_idx]
-                    break
+                    console.print(f"Using file: {selected_file}")
                 else:
-                    console.print("[bold red]Invalid choice. Please enter a number from the list.[/bold red]")
+                    console.print(f"[bold red]Invalid choice {sys.argv[1]}. Using first file.[/bold red]")
+                    selected_file = available_files[0]
             except ValueError:
-                console.print("[bold red]Invalid input. Please enter a number.[/bold red]")
+                console.print(f"[bold red]Invalid choice '{sys.argv[1]}'. Using first file.[/bold red]")
+                selected_file = available_files[0]
+        else:
+            # Default to first file if no argument provided
+            selected_file = available_files[0]
+            console.print(f"No file specified, using: {selected_file}")
+            console.print(f"Hint: You can specify a file by running: python ice_dealreportparser.py [1-{len(available_files)}]")
 
         csv_file_path = os.path.join(input_dir, selected_file)
 
