@@ -2,7 +2,6 @@
 
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
-import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)

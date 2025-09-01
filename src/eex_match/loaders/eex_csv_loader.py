@@ -4,7 +4,6 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 import logging
-import uuid
 
 from ..models import EEXTrade, EEXTradeSource
 from ..normalizers import EEXTradeNormalizer

@@ -3,7 +3,7 @@
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 from ..core.result_aggregator import UnifiedResult, SystemResult
 

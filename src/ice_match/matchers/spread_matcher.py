@@ -395,7 +395,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # 🚫 TIER 3: Product/quantity-based grouping (DISABLED TO PREVENT FALSE POSITIVES)
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
         logger.info(
-            f"🚫 TIER 3: DISABLED - Product/quantity-based grouping skipped to prevent false positives"
+            "🚫 TIER 3: DISABLED - Product/quantity-based grouping skipped to prevent false positives"
         )
         logger.info(
             f"   📊 {len(remaining_trades)} trades remain unprocessed after Tier 1 + Tier 2"

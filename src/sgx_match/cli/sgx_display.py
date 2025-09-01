@@ -236,7 +236,6 @@ class SGXDisplay:
     def _show_product_spread_matches(self, matches: List[SGXMatchResult]) -> None:
         """Show product spread match results."""
         # Import here to avoid circular imports
-        from ..utils.trade_helpers import get_month_order_tuple
         
         table = Table(title=f"Product Spread Matches ({len(matches)} found)", box=box.ROUNDED)
         table.add_column("Match ID", style="cyan")
@@ -319,7 +318,7 @@ class SGXDisplay:
 
     def _show_unmatched_trader_table(self, trades: List[SGXTrade]) -> None:
         """Show unmatched trader trades table."""
-        display_count = min(len(trades), MAX_UNMATCHED_DISPLAY)
+        min(len(trades), MAX_UNMATCHED_DISPLAY)
         title = f"Unmatched Trader Trades ({len(trades)})"
         if len(trades) > MAX_UNMATCHED_DISPLAY:
             title += f" - Showing first {MAX_UNMATCHED_DISPLAY}"
@@ -352,7 +351,7 @@ class SGXDisplay:
 
     def _show_unmatched_exchange_table(self, trades: List[SGXTrade]) -> None:
         """Show unmatched exchange trades table."""
-        display_count = min(len(trades), MAX_UNMATCHED_DISPLAY)
+        min(len(trades), MAX_UNMATCHED_DISPLAY)
         title = f"Unmatched Exchange Trades ({len(trades)})"
         if len(trades) > MAX_UNMATCHED_DISPLAY:
             title += f" - Showing first {MAX_UNMATCHED_DISPLAY}"

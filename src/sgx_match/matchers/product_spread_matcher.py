@@ -684,7 +684,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             first_leg_trade = second_trader_trade
             second_leg_trade = first_trader_trade
         else:
-            logger.debug(f"❌ Product name mismatch in trader trades")
+            logger.debug("❌ Product name mismatch in trader trades")
             return False
         
         # Apply hyphenated direction logic
