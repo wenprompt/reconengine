@@ -145,7 +145,13 @@ class ComplexCrackMatcher(BaseMatcher):
                         additional_exchange_trades=[
                             brent_trade
                         ],  # Additional trade (brent swap)
-                        matched_fields=self._get_matched_fields(),
+                        matched_fields=self.get_universal_matched_fields([
+                            "product_name",
+                            "contract_month", 
+                            "quantity",
+                            "buy_sell",
+                            "price"
+                        ]),
                         rule_order=self.rule_number,  # Get rule number from config
                     )
 
@@ -175,19 +181,6 @@ class ComplexCrackMatcher(BaseMatcher):
         # Use BaseMatcher method to add universal fields
         return self.create_universal_signature(trade, rule_specific_fields)
 
-    def _get_matched_fields(self) -> List[str]:
-        """Get list of fields that matched for complex crack matches."""
-        # Rule-specific matched fields
-        rule_specific_fields = [
-            "product_name",
-            "contract_month",
-            "quantity",
-            "buy_sell",
-            "price"
-        ]
-        
-        # Get complete matched fields with universal fields using BaseMatcher method
-        return self.get_universal_matched_fields(rule_specific_fields)
 
     def _validate_complex_crack_combination(
         self, crack_trade: Trade, base_trade: Trade, brent_trade: Trade

@@ -245,23 +245,16 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             trader_trade=crack_trade,
             exchange_trade=primary_base_trade,
             additional_exchange_trades=additional_trades,
-            matched_fields=self._get_matched_fields(),
+            matched_fields=self.get_universal_matched_fields([
+                "product_name",
+                "contract_month",
+                "quantity_with_aggregation", 
+                "buy_sell",
+                "price_with_formula"
+            ]),
             rule_order=self.rule_number
         )
 
-    def _get_matched_fields(self) -> List[str]:
-        """Get list of fields that matched for aggregated complex crack matches."""
-        # Rule-specific matched fields
-        rule_specific_fields = [
-            "product_name",
-            "contract_month", 
-            "quantity_with_aggregation",
-            "buy_sell",
-            "price_with_formula"
-        ]
-        
-        # Get complete matched fields with universal fields using BaseMatcher method
-        return self.get_universal_matched_fields(rule_specific_fields)
 
     def get_rule_info(self) -> dict[str, str | int | float | list[str] | dict[str, float]]:
         """Get information about this matching rule.
