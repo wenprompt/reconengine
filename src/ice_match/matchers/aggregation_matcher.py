@@ -125,7 +125,7 @@ class AggregationMatcher(AggregationBaseMatcher):
                 rule_order=self.rule_number
             )
                 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.error(f"Error creating aggregation match: {e}")
             return None
 

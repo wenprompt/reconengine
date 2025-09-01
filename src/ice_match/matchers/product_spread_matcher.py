@@ -468,7 +468,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             logger.debug(f"✅ 2-leg spread validation passed: spread_price={trader_spread_price}")
             return True
             
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, ArithmeticError) as e:
             logger.error(f"Error validating 2-leg spread match: {e}")
             return False
 
@@ -566,7 +566,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             
             return True
             
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, ArithmeticError) as e:
             logger.error(f"Error validating product spread match: {e}")
             return False
 

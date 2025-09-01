@@ -139,7 +139,7 @@ class BaseMatcher(ABC):
         # Generate UUID suffix with validated length
         try:
             uuid_suffix = uuid.uuid4().hex[:UUID_LENGTH]
-        except Exception as e:
+        except (OSError, SystemError, ValueError) as e:
             logger.error(f"Failed to generate UUID: {e}")
             raise ValueError(f"UUID generation failed: {e}") from e
         

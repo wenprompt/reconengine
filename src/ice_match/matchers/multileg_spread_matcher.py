@@ -316,7 +316,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
                 dealid=dealid
             )
             
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, ArithmeticError) as e:
             logger.debug(f"Failed to create ExchangeSpread from {trade1.trade_id}/{trade2.trade_id}: {e}")
             return None
 

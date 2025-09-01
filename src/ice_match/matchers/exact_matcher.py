@@ -222,7 +222,7 @@ class ExactMatcher(BaseMatcher):
             # Universal field validation (using base class method)
             return rule_specific_match and self.validate_universal_fields(trader_trade, exchange_trade)
             
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.error(f"Error validating exact match: {e}")
             return False
     

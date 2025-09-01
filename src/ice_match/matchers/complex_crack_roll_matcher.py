@@ -352,7 +352,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             )
             return crack_price
             
-        except Exception as e:
+        except (ArithmeticError, ValueError, TypeError, ZeroDivisionError) as e:
             logger.debug(f"Failed to calculate crack price: {e}")
             return None
 

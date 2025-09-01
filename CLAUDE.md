@@ -292,42 +292,12 @@ src/cme_match/
 
 ## 🛠️ Development Environment
 
-### UV Package Management
-
-This project uses UV for blazing-fast Python package and environment management.
-
-```bash
-# Install UV (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Create virtual environment
-uv venv
-
-# Sync dependencies
-uv sync
-
-# Add a package ***NEVER UPDATE A DEPENDENCY DIRECTLY IN PYPROJECT.toml***
-# ALWAYS USE UV ADD
-uv add requests
-
-# Add development dependency
-uv add --dev pytest ruff mypy
-
-# Remove a package
-uv remove requests
-
-# Install specific Python version
-uv python install 3.12
-```
-
 ### Development Commands
 
 ```bash
 # Type checking
-uv run python -m mypy src/ice_match
-uv run python -m mypy src/sgx_match
-uv run python -m mypy src/cme_match
-uv run python -m mypy src/unified_recon
+uv run ruff check src/
+uv run python -m mypy src/
 
 # Centralized data routing with master data processing
 uv run python -m src.unified_recon.main                    # Shows all matches+unmatches

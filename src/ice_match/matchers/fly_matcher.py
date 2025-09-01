@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Tuple
 from decimal import Decimal
 import logging
 from collections import defaultdict
+from functools import lru_cache
 
 from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
@@ -61,7 +62,7 @@ class FlyMatcher(BaseMatcher):
         return matches
 
     def _find_trader_fly_groups(self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[List[Trade]]:
-        """Find trader fly groups with spread indicators."""
+        """Find trader fly groups with spread indicators using optimized contract month-based grouping."""
         fly_groups = []
         
         # Group trades by product and universal fields
@@ -73,21 +74,59 @@ class FlyMatcher(BaseMatcher):
                     key = self.create_universal_signature(trade, [trade.product_name])
                     trade_groups[key].append(trade)
         
-        # Find 3-trade groups within each product group
+        # Find fly patterns using optimized month-based grouping
         for trades in trade_groups.values():
             if len(trades) >= 3:
-                # Try all combinations of 3 trades
-                for i in range(len(trades)):
-                    for j in range(i + 1, len(trades)):
-                        for k in range(j + 1, len(trades)):
-                            potential_group = [trades[i], trades[j], trades[k]]
-                            if self._is_trader_fly_group(potential_group):
-                                fly_groups.append(potential_group)
+                fly_groups.extend(self._find_fly_patterns_by_month_grouping(trades))
         
         return fly_groups
 
-    def _is_trader_fly_group(self, trades: List[Trade]) -> bool:
-        """Check if three trader trades form a fly group.
+    def _find_fly_patterns_by_month_grouping(self, trades: List[Trade]) -> List[List[Trade]]:
+        """Find fly patterns using contract month relationships - O(n × m²) complexity."""
+        fly_patterns: List[List[Trade]] = []
+        
+        # Group trades by contract month - O(n)
+        month_groups: Dict[str, List[Trade]] = defaultdict(list)
+        for trade in trades:
+            month_groups[trade.contract_month].append(trade)
+        
+        # Get sorted months - O(m log m) where m = unique months
+        months = list(month_groups.keys())
+        if len(months) < 3:
+            return fly_patterns
+            
+        sorted_months = self._sort_months_chronologically(months)
+        
+        # Smart enumeration: For each potential middle month - O(m²)
+        for i in range(1, len(sorted_months) - 1):  # Middle must have earlier and later months
+            middle_month = sorted_months[i]
+            
+            for middle_trade in month_groups[middle_month]:
+                # Look for outer leg combinations that sum to middle quantity
+                for j in range(i):  # Earlier months (outer leg 1)
+                    for k in range(i + 1, len(sorted_months)):  # Later months (outer leg 2)
+                        
+                        outer1_month = sorted_months[j]
+                        outer2_month = sorted_months[k]
+                        
+                        # Find matching outer leg trades - O(n) per month pair
+                        for outer1_trade in month_groups[outer1_month]:
+                            for outer2_trade in month_groups[outer2_month]:
+                                
+                                # QUICK CHECK FIRST: Quantity relationship
+                                if (outer1_trade.quantity_mt + outer2_trade.quantity_mt == 
+                                    middle_trade.quantity_mt):
+                                    
+                                    candidate = [outer1_trade, middle_trade, outer2_trade]
+                                    
+                                    # Only do expensive validation if quantity matches
+                                    if self._is_valid_fly_group(candidate):
+                                        fly_patterns.append(candidate)
+        
+        return fly_patterns
+
+    def _is_valid_fly_group(self, trades: List[Trade]) -> bool:
+        """Unified fly group validation for both trader and exchange trades.
         
         Requirements:
         - Exactly 3 trades with same product
@@ -106,29 +145,35 @@ class FlyMatcher(BaseMatcher):
             
         trade_x, trade_y, trade_z = sorted_trades
         
-        # All must have same product
-        if not (trade_x.product_name == trade_y.product_name == trade_z.product_name):
+        # FAST VALIDATIONS FIRST (fail fast principle)
+        
+        # 1. Quantity relationship: X + Z = Y (fastest check)
+        if trade_x.quantity_mt + trade_z.quantity_mt != trade_y.quantity_mt:
             return False
         
-        # All must have different contract months
+        # 2. Contract month uniqueness (fast set operation)
         months = {trade_x.contract_month, trade_y.contract_month, trade_z.contract_month}
         if len(months) != 3:
             return False
         
-        # Quantity relationship: X + Z = Y
-        if trade_x.quantity_mt + trade_z.quantity_mt != trade_y.quantity_mt:
+        # 3. Product matching (string comparison)
+        if not (trade_x.product_name == trade_y.product_name == trade_z.product_name):
             return False
         
-        # Direction pattern: X and Z same direction, Y opposite
+        # 4. Direction pattern (string comparison)
         if trade_x.buy_sell != trade_z.buy_sell or trade_x.buy_sell == trade_y.buy_sell:
             return False
         
-        # Universal fields must match across all trades
+        # 5. Universal fields (slowest - do last)
         if not (self.validate_universal_fields(trade_x, trade_y) and 
                 self.validate_universal_fields(trade_x, trade_z)):
             return False
         
         return True
+
+    def _is_trader_fly_group(self, trades: List[Trade]) -> bool:
+        """Check if three trader trades form a fly group."""
+        return self._is_valid_fly_group(trades)
 
     def _find_exchange_fly_groups(self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager) -> List[List[Trade]]:
         """Find exchange fly groups using dealid-based grouping."""
@@ -169,49 +214,31 @@ class FlyMatcher(BaseMatcher):
 
     def _is_exchange_fly_group(self, trades: List[Trade]) -> bool:
         """Check if three exchange trades form a valid fly group."""
-        if len(trades) != 3:
-            return False
-        
-        # Sort trades by contract month to get X (earliest), Y (middle), Z (latest)
-        sorted_trades = self._sort_trades_by_contract_month(trades)
-        if not sorted_trades:
-            return False
-            
-        trade_x, trade_y, trade_z = sorted_trades
-        
-        # All must have same product
-        if not (trade_x.product_name == trade_y.product_name == trade_z.product_name):
-            return False
-        
-        # All must have different contract months  
-        months = {trade_x.contract_month, trade_y.contract_month, trade_z.contract_month}
-        if len(months) != 3:
-            return False
-        
-        # Quantity relationship: X + Z = Y
-        if trade_x.quantity_mt + trade_z.quantity_mt != trade_y.quantity_mt:
-            return False
-        
-        # Direction pattern: X and Z same direction, Y opposite
-        if trade_x.buy_sell != trade_z.buy_sell or trade_x.buy_sell == trade_y.buy_sell:
-            return False
-        
-        # Universal fields must match across all trades
-        if not (self.validate_universal_fields(trade_x, trade_y) and 
-                self.validate_universal_fields(trade_x, trade_z)):
-            return False
-        
-        return True
+        return self._is_valid_fly_group(trades)
+
+    @lru_cache(maxsize=200)
+    def _get_month_order_tuple_cached(self, contract_month: str) -> Optional[Tuple]:
+        """Cache month parsing for better performance."""
+        normalized = self.normalizer.normalize_contract_month(contract_month)
+        return get_month_order_tuple(normalized)
+
+    def _sort_months_chronologically(self, months: List[str]) -> List[str]:
+        """Sort months using cached month tuple conversion."""
+        month_tuples = [(month, self._get_month_order_tuple_cached(month)) for month in months]
+        # Filter out invalid months and sort
+        valid_month_tuples = [(month, tuple_val) for month, tuple_val in month_tuples if tuple_val is not None]
+        valid_month_tuples.sort(key=lambda x: x[1])
+        return [month for month, _ in valid_month_tuples]
 
     def _sort_trades_by_contract_month(self, trades: List[Trade]) -> Optional[List[Trade]]:
         """Sort 3 trades by contract month (earliest to latest)."""
         if len(trades) != 3:
             return None
         
-        # Get month tuples for sorting
+        # Get month tuples for sorting using cached method
         trade_months = []
         for trade in trades:
-            month_tuple = get_month_order_tuple(self.normalizer.normalize_contract_month(trade.contract_month))
+            month_tuple = self._get_month_order_tuple_cached(trade.contract_month)
             if not month_tuple:
                 return None
             trade_months.append((trade, month_tuple))

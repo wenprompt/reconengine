@@ -174,7 +174,7 @@ class AggregationBaseMatcher(BaseMatcher):
             logger.debug(f"✅ Aggregation validation passed: {len(aggregated_trades)} trades sum to {total_quantity} MT")
             return True
             
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, ArithmeticError) as e:
             logger.error(f"Error validating aggregation consistency: {e}")
             return False
 

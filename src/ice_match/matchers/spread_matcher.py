@@ -584,7 +584,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             )
             return spread_price
 
-        except Exception as e:
+        except (ArithmeticError, AttributeError, ValueError, TypeError) as e:
             logger.debug(
                 f"Failed to calculate spread price for {trade1.trade_id}/{trade2.trade_id}: {e}"
             )
