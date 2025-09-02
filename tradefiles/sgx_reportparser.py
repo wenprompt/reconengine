@@ -2,10 +2,8 @@
 import csv
 import json
 import os
-import re
 import sys
 from rich.console import Console
-from rich.prompt import Prompt
 from datetime import datetime
 
 console = Console()

@@ -18,7 +18,7 @@ def parse_fo_xlsx(input_path, output_path, mapping_path):
     try:
         with open(mapping_path, 'r') as f:
             product_mapping = json.load(f)
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         console.print(f"[bold yellow]Warning:[/bold yellow] Mapping file not found at {mapping_path}. Product names will not be mapped.")
         product_mapping = {}
 

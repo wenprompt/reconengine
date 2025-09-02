@@ -136,10 +136,12 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                 exchange_trade, trader_index, pool_manager
             )
             if match:
-                matches.append(match)
                 # Record the match to remove trades from unmatched pools
-                pool_manager.record_match(match)
-                logger.debug(f"Found hyphenated product spread match: {match}")
+                if pool_manager.record_match(match):
+                    matches.append(match)
+                    logger.debug(f"Found hyphenated product spread match: {match}")
+                else:
+                    logger.error(f"Failed to record hyphenated product spread match: {match.match_id}")
 
         logger.info(f"Found {len(matches)} hyphenated product spread matches")
         return matches
@@ -195,10 +197,12 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                     trader_pair, exchange_pair, pool_manager
                 )
                 if match:
-                    matches.append(match)
-                    pool_manager.record_match(match)
-                    logger.debug(f"Found 2-leg product spread match: {match}")
-                    break  # Move to next trader pair
+                    if pool_manager.record_match(match):
+                        matches.append(match)
+                        logger.debug(f"Found 2-leg product spread match: {match}")
+                        break  # Move to next trader pair
+                    else:
+                        logger.error(f"Failed to record 2-leg product spread match: {match.match_id}")
 
         logger.info(f"Found {len(matches)} 2-leg product spread matches")
         return matches

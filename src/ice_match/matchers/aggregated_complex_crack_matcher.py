@@ -77,14 +77,15 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
                 crack_trade, exchange_trades, pool_manager
             )
             if match:
-                matches.append(match)
-                pool_manager.record_match(
-                    match
-                )  # Record match to remove trades from pool
-                logger.info(
-                    f"Found aggregated complex crack match: {crack_trade.product_name} "
-                    f"{crack_trade.contract_month} {crack_trade.quantity}"
-                )
+                # Record match to remove trades from pool
+                if pool_manager.record_match(match):
+                    matches.append(match)
+                    logger.info(
+                        f"Found aggregated complex crack match: {crack_trade.product_name} "
+                        f"{crack_trade.contract_month} {crack_trade.quantity}"
+                    )
+                else:
+                    logger.error(f"Failed to record aggregated complex crack match: {match.match_id}")
 
         logger.info(f"Found {len(matches)} aggregated complex crack matches")
         return matches

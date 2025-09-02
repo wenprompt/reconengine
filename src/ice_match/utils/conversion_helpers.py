@@ -51,11 +51,11 @@ def get_product_conversion_ratio(product_name: str, config_manager: 'ConfigManag
     """
     product_conversion_ratios = config_manager.get_product_conversion_ratios()
     product_lower = product_name.lower().strip()
-    
+
     # Direct exact match since product names are already normalized
     if product_lower in product_conversion_ratios:
         return Decimal(str(product_conversion_ratios[product_lower]))
-    
+
     # Fallback to default ratio
     default_ratio = product_conversion_ratios.get("default", 7.0)
     return Decimal(str(default_ratio))
@@ -85,7 +85,7 @@ def convert_mt_to_bbl_with_product_ratio(
     """
     product_ratio = get_product_conversion_ratio(product_name, config_manager)
     converted_bbl = quantity_mt * product_ratio
-    
+
     logger.debug(
         f"MT→BBL conversion: {quantity_mt} MT × {product_ratio} = {converted_bbl} BBL for {product_name}"
     )
@@ -93,9 +93,9 @@ def convert_mt_to_bbl_with_product_ratio(
 
 
 def validate_mt_to_bbl_quantity_match(
-    trader_quantity_mt: Decimal, 
-    exchange_quantity_bbl: Decimal, 
-    product_name: str, 
+    trader_quantity_mt: Decimal,
+    exchange_quantity_bbl: Decimal,
+    product_name: str,
     bbl_tolerance: Decimal,
     config_manager: 'ConfigManager'
 ) -> bool:
@@ -128,15 +128,15 @@ def validate_mt_to_bbl_quantity_match(
     trader_quantity_bbl = convert_mt_to_bbl_with_product_ratio(
         trader_quantity_mt, product_name, config_manager
     )
-    
+
     # Compare BBL vs BBL with tolerance
     qty_diff_bbl = abs(trader_quantity_bbl - exchange_quantity_bbl)
     is_match = qty_diff_bbl <= bbl_tolerance
-    
+
     logger.debug(
         f"MT→BBL quantity validation: {trader_quantity_mt} MT → {trader_quantity_bbl} BBL "
         f"vs {exchange_quantity_bbl} BBL = {qty_diff_bbl} BBL diff "
         f"(tolerance: ±{bbl_tolerance} BBL) → {'MATCH' if is_match else 'NO MATCH'}"
     )
-    
+
     return is_match

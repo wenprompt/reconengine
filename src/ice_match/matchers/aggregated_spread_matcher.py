@@ -291,8 +291,13 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             price,
             buy_sell,
         ), trades_group in aggregation_groups.items():
-            # Calculate total quantity for this aggregation
-            total_quantity = Decimal(sum(trade.quantity_mt for trade in trades_group))
+            # Calculate total quantity for this aggregation using configured unit
+            # NOTE: This matcher handles calendar spreads (same product, different months),
+            # so all trades use the same configured unit (MT or BBL) - no unit conversions needed
+            total_quantity = sum(
+                (self._get_quantity_for_grouping(trade, self.normalizer) for trade in trades_group),
+                start=Decimal("0"),
+            )
 
             # Store as (trades_list, total_quantity, price)
             aggregated_position = (trades_group, total_quantity, price)
@@ -320,11 +325,11 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         price_ex_trades, price_ex_qty, price_ex_price = price_aggregation
         zero_ex_trades, zero_ex_qty, zero_ex_price = zero_aggregation
 
-        # Validate quantities match
-        if (
-            price_ex_qty != price_trade.quantity_mt
-            or zero_ex_qty != zero_price_trade.quantity_mt
-        ):
+        # Validate quantities match in configured unit
+        # NOTE: Calendar spreads use same product, so both legs use the same unit (no conversions)
+        price_trader_qty = self._get_quantity_for_grouping(price_trade, self.normalizer)
+        zero_trader_qty = self._get_quantity_for_grouping(zero_price_trade, self.normalizer)
+        if (price_ex_qty != price_trader_qty) or (zero_ex_qty != zero_trader_qty):
             logger.debug("Quantity mismatch in aggregated spread validation")
             return False
 

@@ -115,11 +115,13 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
             for aggregated_trades, single_trade in aggregations:
                 match = self._create_crack_match_result(aggregated_trades, single_trade)
                 if match:
-                    matches.append(match)
-                    pool_manager.record_match(match)
-                    logger.info(
-                        f"Found aggregated crack match: {crack_trade.product_name} {crack_trade.contract_month} {crack_trade.quantity}"
-                    )
+                    if pool_manager.record_match(match):
+                        matches.append(match)
+                        logger.info(
+                            f"Found aggregated crack match: {crack_trade.product_name} {crack_trade.contract_month} {crack_trade.quantity}"
+                        )
+                    else:
+                        logger.error(f"Failed to record aggregated crack match: {match.match_id}")
 
         logger.info(f"Found {len(matches)} aggregated crack matches")
         return matches

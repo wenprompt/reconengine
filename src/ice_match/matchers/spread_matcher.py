@@ -49,17 +49,16 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 trader_group, exchange_spread_groups, pool_manager, tier_trade_mapping
             )
             if match_result:
-                matches.append(match_result)
-                if source_tier:
-                    tier_actual_matches[source_tier] += 1
-
-                if not pool_manager.record_match(match_result):
-                    logger.error(
-                        "Failed to record spread match and remove trades from pool"
-                    )
-                else:
+                if pool_manager.record_match(match_result):
+                    matches.append(match_result)
+                    if source_tier:
+                        tier_actual_matches[source_tier] += 1
                     logger.debug(
                         f"Created spread match: {match_result} (from {source_tier})"
+                    )
+                else:
+                    logger.error(
+                        "Failed to record spread match and remove trades from pool"
                     )
 
         # Log accurate tier breakdown based on actual matches created

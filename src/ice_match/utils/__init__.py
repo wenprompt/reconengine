@@ -46,10 +46,10 @@ __all__ = [
     "extract_month_year",
     "get_month_order_tuple",
     "get_product_conversion_ratio",
-    "convert_mt_to_bbl_with_product_ratio", 
+    "convert_mt_to_bbl_with_product_ratio",
     "validate_mt_to_bbl_quantity_match",
     "group_trades_by_month",
-    "build_month_quantity_lookups", 
+    "build_month_quantity_lookups",
     "generate_month_triplets",
     "find_fly_candidates_for_triplet",
 ]

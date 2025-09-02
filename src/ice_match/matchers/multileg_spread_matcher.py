@@ -35,10 +35,11 @@ class ExchangeSpread:
 
     @property
     def quantity(self) -> Decimal:
-        """Quantity (both legs should be same)."""
-        return (
-            self.leg1.quantity_mt if self.leg1.quantity_mt else self.leg1.quantity_bbl
-        )
+        """Quantity (both legs should be same).
+        
+        Note: Multileg spreads are always in MT units (never BBL - no brent swap spreads).
+        """
+        return self.leg1.quantity_mt
 
     @property
     def broker_group_id(self) -> Optional[int]:

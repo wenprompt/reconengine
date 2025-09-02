@@ -13,6 +13,7 @@ from ..utils.trade_helpers import extract_base_product, get_month_order_tuple
 from ..utils.conversion_helpers import (
     get_product_conversion_ratio,
     validate_mt_to_bbl_quantity_match,
+    convert_mt_to_bbl_with_product_ratio,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,15 +84,14 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
                 trader_pair, exchange_trades, pool_manager
             )
             if match_result:
-                matches.append(match_result)
-
                 # Record the match to remove trades from pool
-                if not pool_manager.record_match(match_result):
+                if pool_manager.record_match(match_result):
+                    matches.append(match_result)
+                    logger.debug(f"Created complex crack roll match: {match_result}")
+                else:
                     logger.error(
                         "Failed to record complex crack roll match and remove trades from pool"
                     )
-                else:
-                    logger.debug(f"Created complex crack roll match: {match_result}")
 
         logger.info(f"Found {len(matches)} complex crack roll matches")
         return matches
@@ -175,8 +175,9 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             return False
 
         # Must have same quantity (with tolerance)
-        qty1 = self._get_quantity_for_grouping(trade1, self.normalizer)
-        qty2 = self._get_quantity_for_grouping(trade2, self.normalizer)
+        # NOTE: Crack trades are always in MT units, so compare directly in MT
+        qty1 = trade1.quantity_mt
+        qty2 = trade2.quantity_mt
         if abs(qty1 - qty2) > self.MT_TOLERANCE:
             return False
 
@@ -287,23 +288,38 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
     ) -> bool:
         """Validate that crack position quantities align with reference trade.
 
+        Since crack spreads involve unit conversions, we validate everything in BBL
+        for consistency. Both base product and brent swap comparisons use BBL tolerance.
+
         Args:
             base_trade: Base product trade (in MT)
             brent_trade: Brent swap trade (in BBL)
             reference_trade: Reference trader crack trade for quantity comparison
 
         Returns:
-            True if quantities align within tolerance
+            True if quantities align within BBL tolerance
         """
-        # Get reference quantity in MT
-        ref_qty_mt = self._get_quantity_for_grouping(reference_trade, self.normalizer)
+        # Get reference quantity in MT (crack trades are always in MT)
+        ref_qty_mt = reference_trade.quantity_mt
 
-        # Base product should match reference quantity (both in MT)
-        base_qty_mt = base_trade.quantity_mt
-        if abs(base_qty_mt - ref_qty_mt) > self.MT_TOLERANCE:
+        # Convert reference MT to BBL for comparisons
+        ref_qty_bbl = convert_mt_to_bbl_with_product_ratio(
+            ref_qty_mt, reference_trade.product_name, self.config_manager
+        )
+
+        # For base product: validate MT to BBL conversion
+        # Convert base MT to BBL and compare with reference BBL
+        if not validate_mt_to_bbl_quantity_match(
+            base_trade.quantity_mt,
+            ref_qty_bbl,
+            reference_trade.product_name,
+            self.BBL_TOLERANCE,
+            self.config_manager,
+        ):
             return False
 
-        # Brent swap quantity (BBL) should align with reference MT via shared validator
+        # For brent swap: validate reference MT to exchange BBL
+        # Convert reference MT to BBL and compare with brent BBL
         if not validate_mt_to_bbl_quantity_match(
             ref_qty_mt,
             brent_trade.quantity_bbl,

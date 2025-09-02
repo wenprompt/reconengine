@@ -73,14 +73,15 @@ class ComplexCrackMatcher(BaseMatcher):
                 crack_trade, exchange_trades, pool_manager
             )
             if match:
-                self.matches_found.append(match)
-                pool_manager.record_match(
-                    match
-                )  # Record match to remove trades from pool
-                logger.info(
-                    f"Found complex crack match: {crack_trade.product_name} "
-                    f"{crack_trade.contract_month} {crack_trade.quantity}"
-                )
+                # Record match to remove trades from pool
+                if pool_manager.record_match(match):
+                    self.matches_found.append(match)
+                    logger.info(
+                        f"Found complex crack match: {crack_trade.product_name} "
+                        f"{crack_trade.contract_month} {crack_trade.quantity}"
+                    )
+                else:
+                    logger.error(f"Failed to record complex crack match: {match.match_id}")
 
         logger.info(f"Found {len(self.matches_found)} complex crack matches")
         return self.matches_found

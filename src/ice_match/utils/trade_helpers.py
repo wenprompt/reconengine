@@ -110,19 +110,19 @@ def get_month_order_tuple(contract_month: str) -> Optional[Tuple[int, int]]:
     # Handle Balance of Month (Balmo) as the earliest possible month
     if contract_month == "Balmo":
         return (0, 0)  # Earlier than any (year, month) combination like (2025, 1)
-    
+
     month_year_parts = extract_month_year(contract_month)
     if not month_year_parts:
         return None
-        
+
     month_abbr, year = month_year_parts
     month_order_map = {
         'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
         'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
     }
     month_num = month_order_map.get(month_abbr)
-    
+
     if year and month_num:
         return (year, month_num)
-    
+
     return None
