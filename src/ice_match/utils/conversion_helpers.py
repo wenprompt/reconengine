@@ -87,7 +87,7 @@ def convert_mt_to_bbl_with_product_ratio(
     converted_bbl = quantity_mt * product_ratio
 
     logger.debug(
-        f"MT→BBL conversion: {quantity_mt} MT × {product_ratio} = {converted_bbl} BBL for {product_name}"
+        f"MT->BBL conversion: {quantity_mt} MT x {product_ratio} = {converted_bbl} BBL for {product_name}"
     )
     return converted_bbl
 
@@ -134,9 +134,9 @@ def validate_mt_to_bbl_quantity_match(
     is_match = qty_diff_bbl <= bbl_tolerance
 
     logger.debug(
-        f"MT→BBL quantity validation: {trader_quantity_mt} MT → {trader_quantity_bbl} BBL "
+        f"MT->BBL quantity validation: {trader_quantity_mt} MT -> {trader_quantity_bbl} BBL "
         f"vs {exchange_quantity_bbl} BBL = {qty_diff_bbl} BBL diff "
-        f"(tolerance: ±{bbl_tolerance} BBL) → {'MATCH' if is_match else 'NO MATCH'}"
+        f"(tolerance: +/-{bbl_tolerance} BBL) -> {'MATCH' if is_match else 'NO MATCH'}"
     )
 
     return is_match
