@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional
 from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager  # Added import
-from ..core import UnmatchedPoolManager # Added import
+from ..core import UnmatchedPoolManager  # Added import
 from .base_matcher import BaseMatcher
 from ..utils.trade_helpers import extract_base_product
 from ..utils.conversion_helpers import (
@@ -38,14 +38,14 @@ class ComplexCrackMatcher(BaseMatcher):
             self.rule_number
         )  # Get confidence from config
         # Get universal tolerances (shared across all rules for consistency)
-        self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()   # ±145 MT
-        self.BBL_TOLERANCE = config_manager.get_universal_tolerance_bbl()  # Dynamic BBL tolerance from config
+        self.MT_TOLERANCE = config_manager.get_universal_tolerance_mt()  # ±145 MT
+        self.BBL_TOLERANCE = (
+            config_manager.get_universal_tolerance_bbl()
+        )  # Dynamic BBL tolerance from config
 
         self.matches_found: List[MatchResult] = []  # Added type annotation
 
-    def find_matches(
-        self, pool_manager: UnmatchedPoolManager
-    ) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
         """Find complex crack matches between trader and exchange data.
 
         Args:
@@ -69,10 +69,14 @@ class ComplexCrackMatcher(BaseMatcher):
         logger.info(f"Processing {len(crack_trades)} crack trades for complex matching")
 
         for crack_trade in crack_trades:
-            match = self._find_complex_crack_match(crack_trade, exchange_trades, pool_manager)
+            match = self._find_complex_crack_match(
+                crack_trade, exchange_trades, pool_manager
+            )
             if match:
                 self.matches_found.append(match)
-                pool_manager.record_match(match)  # Record match to remove trades from pool
+                pool_manager.record_match(
+                    match
+                )  # Record match to remove trades from pool
                 logger.info(
                     f"Found complex crack match: {crack_trade.product_name} "
                     f"{crack_trade.contract_month} {crack_trade.quantity}"
@@ -82,7 +86,10 @@ class ComplexCrackMatcher(BaseMatcher):
         return self.matches_found
 
     def _find_complex_crack_match(
-        self, crack_trade: Trade, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
+        self,
+        crack_trade: Trade,
+        exchange_trades: List[Trade],
+        pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find matching base product + brent swap pair for a crack trade."""
 
@@ -137,7 +144,9 @@ class ComplexCrackMatcher(BaseMatcher):
                     crack_trade, base_trade, brent_trade
                 ):
                     return MatchResult(
-                        match_id=self.generate_match_id(self.rule_number, "COMPLEX_CRACK"),
+                        match_id=self.generate_match_id(
+                            self.rule_number, "COMPLEX_CRACK"
+                        ),
                         match_type=MatchType.COMPLEX_CRACK,
                         confidence=self.confidence,  # Get confidence from config
                         trader_trade=crack_trade,
@@ -145,13 +154,15 @@ class ComplexCrackMatcher(BaseMatcher):
                         additional_exchange_trades=[
                             brent_trade
                         ],  # Additional trade (brent swap)
-                        matched_fields=self.get_universal_matched_fields([
-                            "product_name",
-                            "contract_month", 
-                            "quantity",
-                            "buy_sell",
-                            "price"
-                        ]),
+                        matched_fields=self.get_universal_matched_fields(
+                            [
+                                "product_name",
+                                "contract_month",
+                                "quantity",
+                                "buy_sell",
+                                "price",
+                            ]
+                        ),
                         rule_order=self.rule_number,  # Get rule number from config
                     )
 
@@ -163,9 +174,9 @@ class ComplexCrackMatcher(BaseMatcher):
         rule_specific_fields = [
             trade.product_name.lower(),
             trade.contract_month,
-            trade.buy_sell
+            trade.buy_sell,
         ]
-        
+
         # Use BaseMatcher method to add universal fields
         return self.create_universal_signature(trade, rule_specific_fields)
 
@@ -175,12 +186,11 @@ class ComplexCrackMatcher(BaseMatcher):
         rule_specific_fields = [
             trade.product_name.lower(),
             trade.contract_month,
-            trade.buy_sell
+            trade.buy_sell,
         ]
-        
+
         # Use BaseMatcher method to add universal fields
         return self.create_universal_signature(trade, rule_specific_fields)
-
 
     def _validate_complex_crack_combination(
         self, crack_trade: Trade, base_trade: Trade, brent_trade: Trade
@@ -244,11 +254,11 @@ class ComplexCrackMatcher(BaseMatcher):
         # 2. Crack vs Brent: Brent swap is always in BBL, use shared MT→BBL conversion validation
         # Use shared conversion method from utils (same as Rule 3)
         if not validate_mt_to_bbl_quantity_match(
-            crack_quantity_mt, 
-            brent_trade.quantity_bbl, 
-            crack_trade.product_name, 
+            crack_quantity_mt,
+            brent_trade.quantity_bbl,
+            crack_trade.product_name,
             self.BBL_TOLERANCE,
-            self.config_manager
+            self.config_manager,
         ):
             logger.debug("Crack-brent quantity mismatch using shared MT→BBL validation")
             return False
@@ -263,8 +273,10 @@ class ComplexCrackMatcher(BaseMatcher):
 
         try:
             # Get product-specific conversion ratio using shared method from utils
-            conversion_factor = get_product_conversion_ratio(crack_trade.product_name, self.config_manager)
-            
+            conversion_factor = get_product_conversion_ratio(
+                crack_trade.product_name, self.config_manager
+            )
+
             # Formula: (Base Product Price ÷ PRODUCT_RATIO) - Brent Swap Price = Crack Price
             # Round the intermediate calculation to 2 decimal places for proper financial precision
             base_price_per_bbl = round(base_trade.price / conversion_factor, 2)
@@ -312,6 +324,6 @@ class ComplexCrackMatcher(BaseMatcher):
             ],
             "tolerances": {
                 "quantity_mt": float(self.MT_TOLERANCE),
-                "quantity_bbl": float(self.BBL_TOLERANCE)
+                "quantity_bbl": float(self.BBL_TOLERANCE),
             },
         }

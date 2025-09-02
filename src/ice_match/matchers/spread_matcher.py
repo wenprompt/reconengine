@@ -302,7 +302,11 @@ class SpreadMatcher(MultiLegBaseMatcher):
         )
 
         # Track matches found by each tier
-        tier_match_counts = {"tier1": 0, "tier2": 0, "tier3": 0}  # Keep tier3 for compatibility
+        tier_match_counts = {
+            "tier1": 0,
+            "tier2": 0,
+            "tier3": 0,
+        }  # Keep tier3 for compatibility
 
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
         # 🔹 TIER 1: DealID/TradeID-based grouping (Most Accurate)

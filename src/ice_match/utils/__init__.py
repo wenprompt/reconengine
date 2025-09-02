@@ -12,6 +12,12 @@ This package provides two types of utility functions:
    - convert_mt_to_bbl_with_product_ratio: Convert MT to BBL with product ratios
    - validate_mt_to_bbl_quantity_match: Validate quantity matches with conversion
 
+3. **Fly Pattern Utilities (fly_helpers)**: Optimized helpers for butterfly spread matching
+   - group_trades_by_month: Group trades by contract month
+   - build_month_quantity_lookups: Build O(1) quantity lookup indexes
+   - generate_month_triplets: Generate chronological month triplets
+   - find_fly_candidates_for_triplet: Find fly candidates using optimized lookups
+
 These utilities are separated from TradeNormalizer to improve code organization,
 testability, and reusability across the energy matching system.
 """
@@ -28,6 +34,13 @@ from .conversion_helpers import (
     validate_mt_to_bbl_quantity_match,
 )
 
+from .fly_helpers import (
+    group_trades_by_month,
+    build_month_quantity_lookups,
+    generate_month_triplets,
+    find_fly_candidates_for_triplet,
+)
+
 __all__ = [
     "extract_base_product",
     "extract_month_year",
@@ -35,4 +48,8 @@ __all__ = [
     "get_product_conversion_ratio",
     "convert_mt_to_bbl_with_product_ratio", 
     "validate_mt_to_bbl_quantity_match",
+    "group_trades_by_month",
+    "build_month_quantity_lookups", 
+    "generate_month_triplets",
+    "find_fly_candidates_for_triplet",
 ]

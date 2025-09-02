@@ -11,6 +11,12 @@ from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
 from .base_matcher import BaseMatcher
 from ..utils.trade_helpers import get_month_order_tuple
+from ..utils.fly_helpers import (
+    group_trades_by_month,
+    build_month_quantity_lookups,
+    generate_month_triplets,
+    find_fly_candidates_for_triplet,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +64,14 @@ class FlyMatcher(BaseMatcher):
                 trader_group, exchange_fly_groups, pool_manager
             )
             if match_result:
-                matches.append(match_result)
-
                 # Record the match in the pool manager
-                if not pool_manager.record_match(match_result):
+                if pool_manager.record_match(match_result):
+                    matches.append(match_result)
+                    logger.debug(f"Created fly match: {match_result.match_id}")
+                else:
                     logger.error(
                         "Failed to record fly match and remove trades from pool"
                     )
-                else:
-                    logger.debug(f"Created fly match: {match_result.match_id}")
 
         logger.info(f"Found {len(matches)} fly matches")
         return matches
@@ -96,22 +101,18 @@ class FlyMatcher(BaseMatcher):
     def _find_fly_patterns_by_month_grouping(
         self, trades: List[Trade]
     ) -> List[List[Trade]]:
-        """Find fly patterns using 3-SUM variant approach - O(m³ + n²) complexity.
+        """Find fly patterns using a 3-sum-style month triplet approach.
 
-        This optimized implementation:
-        1. Pre-builds quantity indexes for O(1) middle leg lookups
-        2. Iterates through month triplets (O(m³), m is typically small)
-        3. Uses hash maps for efficient quantity-based trade lookups
-        4. Applies expensive validations last (fail-fast principle)
-
-        Much more efficient than the previous 6-nested-loop O(n × m³) approach.
+        Complexity:
+            - Grouping/lookups: O(n)
+            - Month triplets: O(m^3)
+            - For each triplet: iterate outer legs (approximately n1 * n3), middle via O(1) lookup
+            - Worst case: O(m^3 * n_outer1 * n_outer3); typical datasets keep m small.
         """
         fly_patterns: List[List[Trade]] = []
 
         # Group trades by contract month - O(n)
-        month_groups: Dict[str, List[Trade]] = defaultdict(list)
-        for trade in trades:
-            month_groups[trade.contract_month].append(trade)
+        month_groups = group_trades_by_month(trades)
 
         # Get sorted months - O(m log m) where m = unique months
         months = list(month_groups.keys())
@@ -120,45 +121,22 @@ class FlyMatcher(BaseMatcher):
 
         sorted_months = self._sort_months_chronologically(months)
 
-        # Pre-build quantity lookups for each month for O(1) access - O(n)
-        month_qty_lookups: Dict[str, Dict[Decimal, List[Trade]]] = {
-            month: defaultdict(list) for month in sorted_months
-        }
-        for month, month_trades in month_groups.items():
-            for trade in month_trades:
-                month_qty_lookups[month][trade.quantity_mt].append(trade)
+        # Pre-build quantity lookups for O(1) middle leg access - O(n)
+        month_qty_lookups = build_month_quantity_lookups(month_groups)
 
-        # Iterate through all combinations of three distinct months (i < j < k) - O(m³)
-        for i in range(len(sorted_months)):
-            for j in range(i + 1, len(sorted_months)):
-                for k in range(j + 1, len(sorted_months)):
-                    month1, month2, month3 = (
-                        sorted_months[i],
-                        sorted_months[j],
-                        sorted_months[k],
-                    )
+        # Generate all month triplets - O(m^3)
+        month_triplets = generate_month_triplets(sorted_months)
 
-                    # Iterate through trades of the outer legs to find middle leg match - O(n²/m²)
-                    for outer1_trade in month_groups[month1]:
-                        for outer2_trade in month_groups[month3]:
-                            required_middle_qty = (
-                                outer1_trade.quantity_mt + outer2_trade.quantity_mt
-                            )
+        # Process each triplet to find fly candidates
+        for month1, month2, month3 in month_triplets:
+            candidates = find_fly_candidates_for_triplet(
+                month1, month2, month3, month_groups, month_qty_lookups
+            )
 
-                            # Find middle leg trades with required quantity - O(1) lookup
-                            if required_middle_qty in month_qty_lookups[month2]:
-                                for middle_trade in month_qty_lookups[month2][
-                                    required_middle_qty
-                                ]:
-                                    candidate = [
-                                        outer1_trade,
-                                        middle_trade,
-                                        outer2_trade,
-                                    ]
-
-                                    # Apply expensive validation last (fail-fast principle)
-                                    if self._is_valid_fly_group(candidate):
-                                        fly_patterns.append(candidate)
+            # Apply expensive validation last (fail-fast principle)
+            for candidate in candidates:
+                if self._is_valid_fly_group(candidate):
+                    fly_patterns.append(candidate)
 
         return fly_patterns
 
@@ -214,9 +192,6 @@ class FlyMatcher(BaseMatcher):
 
         return True
 
-    def _is_trader_fly_group(self, trades: List[Trade]) -> bool:
-        """Check if three trader trades form a fly group."""
-        return self._is_valid_fly_group(trades)
 
     def _find_exchange_fly_groups(
         self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
@@ -242,7 +217,7 @@ class FlyMatcher(BaseMatcher):
         for dealid_str, trades_in_group in dealid_groups.items():
             # A fly group must have exactly 3 legs
             if len(trades_in_group) == 3:
-                if self._is_exchange_fly_group(trades_in_group):
+                if self._is_valid_fly_group(trades_in_group):
                     fly_groups.append(trades_in_group)
                     logger.debug(
                         f"Found dealid fly group: {[t.trade_id for t in trades_in_group]} (dealid: {dealid_str})"
@@ -257,7 +232,7 @@ class FlyMatcher(BaseMatcher):
                                 trades_in_group[j],
                                 trades_in_group[k],
                             ]
-                            if self._is_exchange_fly_group(potential_group):
+                            if self._is_valid_fly_group(potential_group):
                                 fly_groups.append(potential_group)
                                 logger.debug(
                                     f"Found dealid fly group: {[t.trade_id for t in potential_group]} (dealid: {dealid_str})"
@@ -265,9 +240,6 @@ class FlyMatcher(BaseMatcher):
 
         return fly_groups
 
-    def _is_exchange_fly_group(self, trades: List[Trade]) -> bool:
-        """Check if three exchange trades form a valid fly group."""
-        return self._is_valid_fly_group(trades)
 
     def _get_month_order_tuple_cached(self, contract_month: str) -> Optional[MonthKey]:
         """Cache month parsing for better performance (per-instance cache)."""
@@ -275,15 +247,15 @@ class FlyMatcher(BaseMatcher):
         cached = self._month_cache.get(contract_month)
         if cached is not None:
             return cached
-        
+
         # Not cached, compute it
         normalized = self.normalizer.normalize_contract_month(contract_month)
         month_key = get_month_order_tuple(normalized)
-        
+
         # Store in cache if valid
         if month_key is not None:
             self._month_cache[contract_month] = month_key
-        
+
         return month_key
 
     def _sort_months_chronologically(self, months: List[str]) -> List[str]:
