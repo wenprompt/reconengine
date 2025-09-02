@@ -18,7 +18,7 @@ class CSVTradeLoader:
     Handles both trader and exchange CSV formats with different column names
     and provides unified Trade objects for matching.
     """
-    
+
     def __init__(self, normalizer: TradeNormalizer):
         """Initialize the CSV loader.
         
@@ -26,20 +26,20 @@ class CSVTradeLoader:
             normalizer: The TradeNormalizer instance to use for cleaning data.
         """
         self.normalizer = normalizer
-    
+
     def load_trader_csv(self, file_path: Path) -> List[Trade]:
         """Load trades from trader CSV file."""
         logger.info(f"Loading trader data from {file_path}")
         if not file_path.exists():
             raise FileNotFoundError(f"Trader CSV file not found: {file_path}")
-        
+
         try:
             # Force ID columns to be read as strings to prevent scientific notation conversion
             dtype_spec: Dict[str, Any] = {'dealid': 'str', 'tradeid': 'str'}
             df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)  # type: ignore[arg-type]
             df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from trader CSV")
-            
+
             trades = []
             # Ensure deterministic 0-based integer indices for IDs
             df = df.reset_index(drop=True)
@@ -51,27 +51,27 @@ class CSVTradeLoader:
                 except Exception as e:
                     logger.warning(f"Skipping trader row {i}: {e}")
                     continue
-            
+
             logger.info(f"Successfully created {len(trades)} trader trades")
             return trades
-            
+
         except Exception as e:
             logger.error(f"Error loading trader CSV {file_path}: {e}")
             raise ValueError(f"Failed to load trader CSV: {e}") from e
-    
+
     def load_exchange_csv(self, file_path: Path) -> List[Trade]:
         """Load trades from exchange CSV file."""
         logger.info(f"Loading exchange data from {file_path}")
         if not file_path.exists():
             raise FileNotFoundError(f"Exchange CSV file not found: {file_path}")
-        
+
         try:
             # Force dealid and tradeid to be read as strings to prevent scientific notation conversion
             dtype_spec: Dict[str, Any] = {'dealid': 'str', 'tradeid': 'str'}
             df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)  # type: ignore[arg-type]
             df.columns = df.columns.str.strip()
             logger.info(f"Loaded {len(df)} rows from exchange CSV")
-            
+
             trades = []
             # Ensure deterministic 0-based integer indices for IDs
             df = df.reset_index(drop=True)
@@ -83,14 +83,14 @@ class CSVTradeLoader:
                 except Exception as e:
                     logger.warning(f"Skipping exchange row {i}: {e}")
                     continue
-            
+
             logger.info(f"Successfully created {len(trades)} exchange trades")
             return trades
-            
+
         except Exception as e:
             logger.error(f"Error loading exchange CSV {file_path}: {e}")
             raise ValueError(f"Failed to load exchange CSV: {e}") from e
-    
+
     def _create_trader_trade(self, row: pd.Series, index: int) -> Optional[Trade]:
         """Create a Trade object from a trader CSV row after normalization."""
         try:
@@ -105,7 +105,7 @@ class CSVTradeLoader:
             product_name = self.normalizer.normalize_product_name(raw_product)
             contract_month = self.normalizer.normalize_contract_month(raw_month)
             buy_sell = self.normalizer.normalize_buy_sell(raw_buy_sell)
-            
+
             if not all([product_name, quantity_str, price_str, contract_month, buy_sell]):
                 return None
 
@@ -187,7 +187,7 @@ class CSVTradeLoader:
         if pd.isna(value) or value is None:
             return ""
         return str(value).strip()
-    
+
     def _safe_int(self, value: Any) -> Optional[int]:
         """Safely convert value to int, returning None for invalid values."""
         if pd.isna(value) or value is None or value == "":
@@ -196,7 +196,7 @@ class CSVTradeLoader:
             return int(float(str(value)))
         except (ValueError, TypeError):
             return None
-    
+
     def load_both_files(self, trader_path: Path, exchange_path: Path) -> tuple[List[Trade], List[Trade]]:
         """Load both trader and exchange CSV files."""
         trader_trades = self.load_trader_csv(trader_path)

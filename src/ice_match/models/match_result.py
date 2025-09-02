@@ -31,53 +31,53 @@ class MatchResult(BaseModel):
     Contains information about which trades matched, the rule used,
     confidence level, and audit trail information.
     """
-    
+
     model_config = ConfigDict(
         frozen=True,  # Immutable for thread safety
         validate_assignment=True
     )
-    
+
     # Match identification
     match_id: str = Field(..., description="Unique identifier for this match")
     match_type: MatchType = Field(..., description="Type of matching rule used")
     confidence: Decimal = Field(..., ge=0, le=100, description="Match confidence percentage")
-    
+
     # Matched trades
     trader_trade: Trade = Field(..., description="Primary trade from trader source")
     exchange_trade: Trade = Field(..., description="Primary trade from exchange source")
-    
+
     # Additional trades for spread matches (Rule 2)
     additional_trader_trades: List[Trade] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="Additional trader trades for spread matches"
     )
     additional_exchange_trades: List[Trade] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="Additional exchange trades for spread matches"
     )
-    
+
     # Match details
     matched_fields: List[str] = Field(..., description="Fields that matched exactly")
     differing_fields: List[str] = Field(default_factory=list, description="Fields that differed")
     tolerances_applied: dict = Field(default_factory=dict, description="Tolerances applied during matching")
-    
+
     # Metadata
     matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
     rule_order: int = Field(..., ge=1, le=13, description="Order of rule that created this match (1-13)")
-    
+
     def __str__(self) -> str:
         """Human-readable string representation."""
         return (
                 f"Match({self.match_id}: {self.trader_trade.trade_id} <-> "
                 f"{self.exchange_trade.trade_id} via {self.match_type.value} "
                 f"@ {self.confidence}%")
-    
+
     def __repr__(self) -> str:
         """Developer string representation."""
         return (
                 f"MatchResult(id={self.match_id}, type={self.match_type.value}, "
                 f"confidence={self.confidence}, rule={self.rule_order})")
-    
+
     @property
     def match_quality(self) -> str:
         """Get human-readable match quality based on confidence."""
@@ -91,27 +91,27 @@ class MatchResult(BaseModel):
             return "Fair"
         else:
             return "Poor"
-    
+
     @property
     def quantity_difference(self) -> Decimal:
         """Get absolute difference in quantities (in MT)."""
         return abs(self.trader_trade.quantity_mt - self.exchange_trade.quantity_mt)
-    
+
     @property
     def price_difference(self) -> Decimal:
         """Get absolute difference in prices."""
         return abs(self.trader_trade.price - self.exchange_trade.price)
-    
+
     @property
     def is_opposite_sides(self) -> bool:
         """Check if trades are on opposite sides (required for valid match)."""
         return self.trader_trade.buy_sell != self.exchange_trade.buy_sell
-    
+
     @property
     def is_spread_match(self) -> bool:
         """Check if this is a spread match with multiple trades."""
         return self.match_type == MatchType.SPREAD and (
-            len(self.additional_trader_trades) > 0 or 
+            len(self.additional_trader_trades) > 0 or
             len(self.additional_exchange_trades) > 0
         )
 
@@ -120,17 +120,17 @@ class MatchResult(BaseModel):
         """Check if this match involves multiple legs (additional trades)."""
         return len(self.additional_trader_trades) > 0 or \
                len(self.additional_exchange_trades) > 0
-    
+
     @property
     def all_trader_trades(self) -> List[Trade]:
         """Get all trader trades (primary + additional)."""
         return [self.trader_trade] + self.additional_trader_trades
-    
+
     @property
     def all_exchange_trades(self) -> List[Trade]:
         """Get all exchange trades (primary + additional)."""
         return [self.exchange_trade] + self.additional_exchange_trades
-    
+
     def get_summary(self) -> dict:
         """Get a summary dictionary of match information.
         

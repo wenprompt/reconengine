@@ -52,7 +52,7 @@ def setup_logging(log_level: str = "NONE") -> None:
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
-    
+
     # If level is NONE, set root logger to CRITICAL to suppress all output
     if log_level.upper() == "NONE":
         logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than CRITICAL
@@ -61,7 +61,7 @@ def setup_logging(log_level: str = "NONE") -> None:
     # Set up logging based on level, with uppercasing and fallback
     log_level_upper = log_level.upper()
     level = getattr(logging, log_level_upper, logging.INFO)
-    
+
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -335,7 +335,7 @@ class ICEMatchingEngine:
         """
         from datetime import datetime
         from .utils.dataframe_output import create_reconciliation_dataframe
-        
+
         start_time = time.time()
         execution_datetime = datetime.now()
 
@@ -353,10 +353,10 @@ class ICEMatchingEngine:
 
             # Run all matching rules in sequence
             all_matches = []
-            
+
             # Get processing order from config
             processing_order = self.config_manager.get_processing_order()
-            
+
             # Create matcher instances based on config
             matchers: Dict[int, MatcherProtocol] = {
                 1: ExactMatcher(self.config_manager),
@@ -373,7 +373,7 @@ class ICEMatchingEngine:
                 12: ComplexCrackRollMatcher(self.config_manager, self.normalizer),
                 13: AggregatedProductSpreadMatcher(self.config_manager, self.normalizer)
             }
-            
+
             # Process through all rules in sequence
             for rule_num in processing_order:
                 if rule_num in matchers:
@@ -408,7 +408,7 @@ class ICEMatchingEngine:
             statistics = {
                 'matches_found': len(all_matches),
                 'match_rate': overall_match_rate,
-                'trader_match_rate': trader_match_rate, 
+                'trader_match_rate': trader_match_rate,
                 'exchange_match_rate': exchange_match_rate,
                 'processing_time': processing_time,
                 'rule_breakdown': rule_breakdown,

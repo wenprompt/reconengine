@@ -109,7 +109,8 @@ src/ice_match/
 ├── utils/               # Utility functions separated by dependency type
 │   ├── __init__.py     # Module exports and documentation
 │   ├── trade_helpers.py # Pure utility functions (no config dependencies)
-│   └── conversion_helpers.py # Config-dependent utility functions
+│   ├── conversion_helpers.py # Config-dependent utility functions
+│   └── fly_helpers.py  # Butterfly spread pattern matching utilities
 ├── matchers/            # Matching rule implementations (13 rules)
 │   ├── exact_matcher.py # Rule 1: Exact matching
 │   ├── spread_matcher.py # Rule 2: Spread matching
@@ -251,6 +252,11 @@ src/cme_match/
   - `get_product_conversion_ratio()` - Product-specific MT↔BBL ratios
   - `convert_mt_to_bbl_with_product_ratio()` - MT to BBL conversion
   - `validate_mt_to_bbl_quantity_match()` - Quantity validation with conversion
+- **fly_helpers.py**: Butterfly spread pattern matching utilities
+  - `group_trades_by_month()` - Group trades by contract month
+  - `build_month_quantity_lookups()` - Build quantity-based lookups for optimization
+  - `generate_month_triplets()` - Generate valid month combinations for fly patterns
+  - `find_fly_candidates_for_triplet()` - Find trades matching fly pattern requirements
 - **Architectural Benefits**: Separates helper functions from business logic, improves testability and reusability
 
 **`matchers/`** - **Business Logic Engine**
@@ -292,42 +298,17 @@ src/cme_match/
 
 ## 🛠️ Development Environment
 
-### UV Package Management
-
-This project uses UV for blazing-fast Python package and environment management.
-
-```bash
-# Install UV (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Create virtual environment
-uv venv
-
-# Sync dependencies
-uv sync
-
-# Add a package ***NEVER UPDATE A DEPENDENCY DIRECTLY IN PYPROJECT.toml***
-# ALWAYS USE UV ADD
-uv add requests
-
-# Add development dependency
-uv add --dev pytest ruff mypy
-
-# Remove a package
-uv remove requests
-
-# Install specific Python version
-uv python install 3.12
-```
-
 ### Development Commands
 
 ```bash
+# Check linting
+uv run ruff check .
+
+# Fix linting issues automatically
+uv run ruff check --fix .
+
 # Type checking
-uv run python -m mypy src/ice_match
-uv run python -m mypy src/sgx_match
-uv run python -m mypy src/cme_match
-uv run python -m mypy src/unified_recon
+uv run python -m mypy src/
 
 # Centralized data routing with master data processing
 uv run python -m src.unified_recon.main                    # Shows all matches+unmatches
@@ -439,6 +420,7 @@ _The following sections document the specific implementation progress and update
 - **Performance Optimized**: O(N+M) algorithms with intelligent indexing
 - **Rich CLI Interface**: Beautiful terminal output with detailed statistics and tier-specific breakdowns
 - **Zero-Price Spread Support**: Allows spreads where both legs have price = 0
+- **Atomic Match Recording**: All matchers use atomic record_match pattern - matches are only added to results after successful pool management recording
 
 ## 🔧 ICE Match Core Components
 
@@ -449,9 +431,10 @@ The ice module implements a shared, product-specific unit conversion architectur
 - **Product-Specific Ratios**: Marine 0.5%/380cst crack use 6.35, naphtha japan/nwe crack use 8.9, default 7.0
 - **One-Way Conversion**: Always MT→BBL (trader MT data converts to compare with exchange BBL)
 - **Unit Logic**: Trader data defaults to MT, exchange data uses unit column
+- **Tolerance Pattern**: When converting MT→BBL, always use BBL_TOLERANCE for comparisons (consistent across all crack-related matchers)
 - **Exact Matching**: Product names are pre-normalized, allowing exact ratio lookup instead of "contains" matching
 - **Shared Methods**: `convert_mt_to_bbl_with_product_ratio()` and `validate_mt_to_bbl_quantity_match()` in `utils/conversion_helpers.py`
-- **Rules 3, 4 & 12 Integration**: CrackMatcher, ComplexCrackMatcher, and ComplexCrackRollMatcher use identical conversion logic
+- **Rules 3, 4, 11 & 12 Integration**: CrackMatcher, ComplexCrackMatcher, AggregatedCrackMatcher, and ComplexCrackRollMatcher use identical conversion logic
 - **JSON Configuration**: Conversion ratios stored in `normalizer_config.json` for maintainability
 - **Modular Architecture**: Utility functions separated from TradeNormalizer for better code organization
 

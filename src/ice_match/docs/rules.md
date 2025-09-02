@@ -2355,3 +2355,38 @@ This scenario requires hybrid logic that combines:
 3. **Processing Priority**: This represents an edge case that may not justify the implementation complexity
 
 4. **Alternative Solutions**: Simpler rule combinations may achieve sufficient match coverage
+
+---
+
+## 🔬 Future Rule Considerations
+
+### Simple Crack Roll Matcher (Potential Rule 14)
+
+**Pattern Identified**: Calendar spreads of crack products with unit conversion
+
+**Current Gap**: 
+- **Trader**: 2 crack trades (MT) - different months, opposite B/S, price pattern
+- **Exchange**: 2 crack trades (BBL) - direct crack products requiring MT→BBL conversion
+
+**Example Scenario**:
+```
+Trader:  marine 0.5% crack Sep-25 (5.0 MT, B) + marine 0.5% crack Oct-25 (0.0 MT, S)
+Exchange: marine 0.5% crack Sep-25 (31,750 BBL, B) + marine 0.5% crack Oct-25 (13,970 BBL, S)
+
+Validation Logic:
+- Unit conversion: 5.0 MT × 6.35 = 31.75 BBL ≈ 31,750 BBL ✓
+- Roll spread: (Sep price - Oct price) = trader non-zero price ✓
+```
+
+**Why Not Currently Covered**:
+- **Complex Crack Roll** (Rule 12): Expects decomposed base + brent components, not direct crack products
+- **Crack Matchers** (Rules 3, 11): Handle same month only
+- **Spread Matchers** (Rules 2, 9): Handle same units, no conversion needed
+
+**Implementation Requirements**:
+- Hybrid of crack unit conversion + calendar spread logic
+- MT→BBL conversion with product-specific ratios (6.35, 8.9, etc.)
+- Calendar spread validation (different months, opposite B/S)
+- Roll spread price calculation
+
+**Priority**: Consider for future implementation to complete crack roll coverage

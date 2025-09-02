@@ -2,9 +2,7 @@
 """Debug script to compare ICE direct vs unified system match rate calculation."""
 
 import sys
-import tempfile
 from pathlib import Path
-import pandas as pd
 from decimal import Decimal
 
 # Add source directory to path
@@ -40,7 +38,7 @@ def debug_ice_calculation():
     trader_trades = loader.load_trader_csv(trader_csv)
     exchange_trades = loader.load_exchange_csv(exchange_csv)
     
-    print(f"📊 Data loaded:")
+    print("📊 Data loaded:")
     print(f"   Trader trades: {len(trader_trades)}")
     print(f"   Exchange trades: {len(exchange_trades)}")
     
@@ -49,7 +47,7 @@ def debug_ice_calculation():
     
     # Get initial statistics
     initial_stats = pool_manager.get_statistics()
-    print(f"\n📈 Initial pool statistics:")
+    print("\n📈 Initial pool statistics:")
     print(f"   Trader original: {initial_stats['original']['trader']}")
     print(f"   Exchange original: {initial_stats['original']['exchange']}")
     print(f"   Initial match rates: {initial_stats['match_rates']}")
@@ -84,7 +82,7 @@ def debug_ice_calculation():
     
     # Get final statistics
     final_stats = pool_manager.get_statistics()
-    print(f"\n🎯 Final pool statistics:")
+    print("\n🎯 Final pool statistics:")
     print(f"   Total matches: {len(all_matches)}")
     print(f"   Trader matched: {final_stats['matched']['trader']}")
     print(f"   Exchange matched: {final_stats['matched']['exchange']}")
@@ -98,7 +96,7 @@ def debug_ice_calculation():
     overall_calculated = (Decimal(str(trader_match_rate)) * Decimal('0.5') + 
                          Decimal(str(exchange_match_rate)) * Decimal('0.5'))
     
-    print(f"\n🧮 Manual verification:")
+    print("\n🧮 Manual verification:")
     print(f"   Trader match rate: {trader_match_rate}%")
     print(f"   Exchange match rate: {exchange_match_rate}%")  
     print(f"   Overall (50/50 avg): {overall_calculated}%")
