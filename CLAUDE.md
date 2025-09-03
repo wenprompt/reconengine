@@ -379,7 +379,6 @@ def calculate_discount(
 
 ### Naming Conventions
 
-- **Variables and functions**: `snake_case`
 - **Classes**: `PascalCase`
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Private attributes/methods**: `_leading_underscore`

@@ -77,20 +77,17 @@ class EEXCSVLoader:
             # Load CSV with proper encoding
             df = pd.read_csv(csv_path, encoding='utf-8-sig')
             
-            # Clean column names
-            df.columns = df.columns.str.strip()
+            # Normalize column names to lowercase and replace special chars
+            df.columns = df.columns.str.strip().str.lower().str.replace('/', '_')
             
             logger.info(f"Successfully loaded {len(df)} rows from {trade_type} CSV")
-            
-            # Get field mappings for the trade type
-            field_mappings = self.config_manager.get_field_mappings()[f"{trade_type}_mappings"]
             
             trades = []
             # Ensure deterministic 0-based integer indices for IDs
             df = df.reset_index(drop=True)
             for i, row in df.iterrows():
                 try:
-                    trade = create_trade_func(row, field_mappings, i)
+                    trade = create_trade_func(row, i)
                     if trade:
                         trades.append(trade)
                 except Exception as e:
@@ -107,13 +104,12 @@ class EEXCSVLoader:
             logger.error(f"Failed to load {trade_type} trades: {e}")
             raise ValueError(f"Invalid {trade_type} CSV format: {e}") from e
 
-    def _extract_common_fields(self, row: pd.Series, field_mappings: Dict[str, str], 
+    def _extract_common_fields(self, row: pd.Series, 
                               index: int, source: EEXTradeSource) -> Optional[Dict[str, Any]]:
         """Extract and normalize common fields from CSV row.
         
         Args:
             row: Pandas series representing CSV row
-            field_mappings: Field name mappings
             index: Row index for ID generation
             source: Trade source (TRADER or EXCHANGE)
             
@@ -127,23 +123,23 @@ class EEXCSVLoader:
             
             # Extract and normalize core fields - using quantityunits for EEX
             product_name = self.normalizer.normalize_product_name(
-                self._get_field_value(row, "productname", field_mappings, "")
+                self._safe_str(row.get("productname", ""))
             )
             
             quantity_units = self.normalizer.normalize_quantity(
-                self._get_field_value(row, "quantityunits", field_mappings)
+                row.get("quantityunits")
             )
             
             price = self.normalizer.normalize_price(
-                self._get_field_value(row, "price", field_mappings)
+                row.get("price")
             )
             
             contract_month = self.normalizer.normalize_contract_month(
-                self._get_field_value(row, "contractmonth", field_mappings, "")
+                self._safe_str(row.get("contractmonth", ""))
             )
             
             buy_sell = self.normalizer.normalize_buy_sell(
-                self._get_field_value(row, "b/s", field_mappings, "")
+                self._safe_str(row.get("b_s", ""))
             )
             
             # Skip if essential fields are missing
@@ -154,40 +150,40 @@ class EEXCSVLoader:
             
             # Extract universal fields
             broker_group_id = self.normalizer.normalize_integer_field(
-                self._get_field_value(row, "brokergroupid", field_mappings)
+                row.get("brokergroupid")
             )
             
             exch_clearing_acct_id = self.normalizer.normalize_integer_field(
-                self._get_field_value(row, "exchclearingacctid", field_mappings)
+                row.get("exchclearingacctid")
             )
             
             # Extract common optional fields
             exchange_group_id = self.normalizer.normalize_integer_field(
-                self._get_field_value(row, "exchangegroupid", field_mappings)
+                row.get("exchangegroupid")
             )
             
             strike = self.normalizer.normalize_price(
-                self._get_field_value(row, "strike", field_mappings)
+                row.get("strike")
             )
             
             put_call = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "put/call", field_mappings)
+                row.get("put_call")
             ) or None
             
             product_id = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "productid", field_mappings)
+                row.get("productid")
             ) or None
             
             product_group_id = self.normalizer.normalize_integer_field(
-                self._get_field_value(row, "productgroupid", field_mappings)
+                row.get("productgroupid")
             )
             
             trade_date = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "tradedate", field_mappings)
+                row.get("tradedate")
             ) or None
             
             unit = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "unit", field_mappings)
+                row.get("unit")
             ) or None
             
             return {
@@ -218,13 +214,11 @@ class EEXCSVLoader:
             logger.error(f"Error extracting common fields from row {index}: {e}")
             return None
     
-    def _create_trader_trade(self, row: pd.Series, field_mappings: Dict[str, str], 
-                           index: int) -> Optional[EEXTrade]:
+    def _create_trader_trade(self, row: pd.Series, index: int) -> Optional[EEXTrade]:
         """Create EEX trader trade from CSV row.
         
         Args:
             row: Pandas series representing CSV row
-            field_mappings: Field name mappings
             index: Row index for ID generation
             
         Returns:
@@ -232,33 +226,25 @@ class EEXCSVLoader:
         """
         try:
             # Extract common fields
-            common_fields = self._extract_common_fields(row, field_mappings, index, EEXTradeSource.TRADER)
+            common_fields = self._extract_common_fields(row, index, EEXTradeSource.TRADER)
             if not common_fields:
                 return None
             
             # Extract trader-specific fields
             spread = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "spread", field_mappings)
+                row.get("spread")
             ) or None
             
             trade_time = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "tradetime", field_mappings)
+                row.get("tradetime")
             ) or None
             
             trader_id = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "traderid", field_mappings)
+                row.get("traderid")
             ) or None
             
             special_comms = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "specialComms", field_mappings)
-            ) or None
-            
-            remarks = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "RMKS", field_mappings)
-            ) or None
-            
-            broker = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "BKR", field_mappings)
+                row.get("specialcomms")
             ) or None
             
             return EEXTrade(
@@ -271,8 +257,6 @@ class EEXCSVLoader:
                 trade_datetime=None,  # Trader data doesn't have combined datetime
                 trader_id=trader_id,
                 special_comms=special_comms,
-                remarks=remarks,
-                broker=broker,
                 
                 # Fields not present in trader data
                 deal_id=None,
@@ -286,13 +270,11 @@ class EEXCSVLoader:
             logger.error(f"Error creating trader trade from row {index}: {e}")
             return None
     
-    def _create_exchange_trade(self, row: pd.Series, field_mappings: Dict[str, str], 
-                             index: int) -> Optional[EEXTrade]:
+    def _create_exchange_trade(self, row: pd.Series, index: int) -> Optional[EEXTrade]:
         """Create EEX exchange trade from CSV row.
         
         Args:
             row: Pandas series representing CSV row
-            field_mappings: Field name mappings
             index: Row index for ID generation
             
         Returns:
@@ -300,33 +282,33 @@ class EEXCSVLoader:
         """
         try:
             # Extract common fields
-            common_fields = self._extract_common_fields(row, field_mappings, index, EEXTradeSource.EXCHANGE)
+            common_fields = self._extract_common_fields(row, index, EEXTradeSource.EXCHANGE)
             if not common_fields:
                 return None
             
             # Extract exchange-specific fields
             trade_datetime = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "tradedatetime", field_mappings)
+                row.get("tradedatetime")
             ) or None
             
             deal_id = self.normalizer.normalize_integer_field(
-                self._get_field_value(row, "dealid", field_mappings)
+                row.get("dealid")
             )
             
             clearing_status = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "clearingstatus", field_mappings)
+                row.get("clearingstatus")
             ) or None
             
             trader_name = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "traderid", field_mappings)
+                row.get("traderid")
             ) or None
             
             trading_session = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "tradingsession", field_mappings)
+                row.get("tradingsession")
             ) or None
             
             cleared_date = self.normalizer.normalize_string_field(
-                self._get_field_value(row, "cleareddate", field_mappings)
+                row.get("cleareddate")
             ) or None
             
             return EEXTrade(
@@ -339,8 +321,6 @@ class EEXCSVLoader:
                 trade_datetime=trade_datetime,
                 trader_id=None,  # Exchange data doesn't have trader_id
                 special_comms=None,  # Exchange data doesn't have special_comms
-                remarks=None,  # Exchange data doesn't have remarks
-                broker=None,  # Exchange data doesn't have broker
                 deal_id=deal_id,
                 clearing_status=clearing_status,
                 trader_name=trader_name,
@@ -352,27 +332,17 @@ class EEXCSVLoader:
             logger.error(f"Error creating exchange trade from row {index}: {e}")
             return None
     
-    def _get_field_value(self, row: pd.Series, field_name: str, 
-                        field_mappings: Dict[str, str], default: Any = None) -> Any:
-        """Get field value from row using field mappings.
-        
-        Args:
-            row: Pandas series representing CSV row
-            field_name: Field name to look up
-            field_mappings: Field name mappings
-            default: Default value if field not found
-            
-        Returns:
-            Field value or default
-        """
-        # Use original field name if no mapping exists
-        actual_field_name = field_mappings.get(field_name, field_name)
-        
-        # Get value, handling NaN/missing values
-        value = row.get(actual_field_name, default)
-        
-        # Convert pandas NaN to None/default
-        if pd.isna(value):
-            return default
-        
-        return value
+    def _safe_str(self, value: Any) -> str:
+        """Safely convert value to string, handling NaN and None."""
+        if pd.isna(value) or value is None:
+            return ""
+        return str(value).strip()
+    
+    def _safe_int(self, value: Any) -> Optional[int]:
+        """Safely convert value to int, returning None for invalid values."""
+        if pd.isna(value) or value is None or value == "":
+            return None
+        try:
+            return int(float(str(value)))
+        except (ValueError, TypeError):
+            return None

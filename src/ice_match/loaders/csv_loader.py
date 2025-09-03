@@ -37,7 +37,8 @@ class CSVTradeLoader:
             # Force ID columns to be read as strings to prevent scientific notation conversion
             dtype_spec: Dict[str, Any] = {'dealid': 'str', 'tradeid': 'str'}
             df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)  # type: ignore[arg-type]
-            df.columns = df.columns.str.strip()
+            # Normalize column names to lowercase and replace special chars
+            df.columns = df.columns.str.strip().str.lower().str.replace('/', '_')
             logger.info(f"Loaded {len(df)} rows from trader CSV")
 
             trades = []
@@ -69,7 +70,8 @@ class CSVTradeLoader:
             # Force dealid and tradeid to be read as strings to prevent scientific notation conversion
             dtype_spec: Dict[str, Any] = {'dealid': 'str', 'tradeid': 'str'}
             df = pd.read_csv(file_path, encoding='utf-8-sig', dtype=dtype_spec)  # type: ignore[arg-type]
-            df.columns = df.columns.str.strip()
+            # Normalize column names to lowercase and replace special chars
+            df.columns = df.columns.str.strip().str.lower().str.replace('/', '_')
             logger.info(f"Loaded {len(df)} rows from exchange CSV")
 
             trades = []
@@ -97,7 +99,7 @@ class CSVTradeLoader:
             # Get raw values
             raw_product = self._safe_str(row.get("productname"))
             raw_month = self._safe_str(row.get("contractmonth"))
-            raw_buy_sell = self._safe_str(row.get("b/s"))
+            raw_buy_sell = self._safe_str(row.get("b_s"))
             quantity_str = self._safe_str(row.get("quantityunits"))
             price_str = self._safe_str(row.get("price"))
 
@@ -131,7 +133,7 @@ class CSVTradeLoader:
                 exch_clearing_acct_id=self._safe_int(row.get("exchclearingacctid")),
                 trade_date=None,  # Pass optional fields
                 trade_time=None,
-                special_comms=self._safe_str(row.get("specialComms")),
+                special_comms=self._safe_str(row.get("specialcomms")),
                 spread=self._safe_str(row.get("spread")),
                 raw_data=row.to_dict()
             )
@@ -145,7 +147,7 @@ class CSVTradeLoader:
             # Get raw values
             raw_product = self._safe_str(row.get("productname"))
             raw_month = self._safe_str(row.get("contractmonth"))
-            raw_buy_sell = self._safe_str(row.get("b/s"))
+            raw_buy_sell = self._safe_str(row.get("b_s"))
             quantity_str = self._safe_str(row.get("quantityunits"))
             price_str = self._safe_str(row.get("price"))
 

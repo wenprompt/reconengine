@@ -63,8 +63,6 @@ class SGXTrade(BaseModel):
     product_id: Optional[str] = Field(None, description="Product identifier")
     product_group_id: Optional[int] = Field(None, description="Product group identifier")
     special_comms: Optional[str] = Field(None, description="Special comments")
-    remarks: Optional[str] = Field(None, description="Trading remarks (fis, ssy, etc.)")
-    broker: Optional[str] = Field(None, description="Broker name")
     
     # Exchange-specific fields
     deal_id: Optional[int] = Field(None, description="Deal identifier")

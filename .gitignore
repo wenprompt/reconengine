@@ -18,6 +18,7 @@ src/unified_recon/data/
 src/ice_match/data/
 src/sgx_match/data/
 src/cme_match/data/
+src/test_json/
 tradefiles/input/
 tradefiles/output/
 tradefiles/input_traders/

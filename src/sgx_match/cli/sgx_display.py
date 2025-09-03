@@ -331,7 +331,6 @@ class SGXDisplay:
         table.add_column("B/S", justify="center")
         table.add_column("Trade Time", style="dim")
         table.add_column("Broker Group", justify="right")
-        table.add_column("Remarks", style="dim")
 
         for trade in trades[:MAX_UNMATCHED_DISPLAY]:  # Limit display for performance
             table.add_row(
@@ -343,7 +342,6 @@ class SGXDisplay:
                 trade.buy_sell,
                 trade.trade_time or "",
                 str(trade.broker_group_id or ""),
-                trade.remarks or "",
             )
 
         self.console.print("\n")
