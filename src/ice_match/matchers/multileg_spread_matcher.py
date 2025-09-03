@@ -254,7 +254,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             )
         except (ValueError, KeyError) as e:
             logger.warning(
-                f"Could not determine month order for trader pair {price_trade.trade_id}/{zero_trade.trade_id}: {e}"
+                f"Could not determine month order for trader pair {price_trade.internal_trade_id}/{zero_trade.internal_trade_id}: {e}"
             )
             return None
 
@@ -304,12 +304,12 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
                     trade1, trade2 = group_trades[i], group_trades[i + 1]
 
                     # Guard against mixed-tier pairs to avoid cross-tier contamination
-                    tier1 = tier_mapping.get(trade1.trade_id)
-                    tier2 = tier_mapping.get(trade2.trade_id)
+                    tier1 = tier_mapping.get(trade1.internal_trade_id)
+                    tier2 = tier_mapping.get(trade2.internal_trade_id)
 
                     if tier1 != tier2:
                         logger.debug(
-                            f"Skipping mixed-tier pair: {trade1.trade_id} ({tier1}) + {trade2.trade_id} ({tier2})"
+                            f"Skipping mixed-tier pair: {trade1.internal_trade_id} ({tier1}) + {trade2.internal_trade_id} ({tier2})"
                         )
                         continue
 
@@ -332,7 +332,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
                             )
                     else:
                         logger.debug(
-                            f"Spread validation failed for {trade1.trade_id}/{trade2.trade_id}"
+                            f"Spread validation failed for {trade1.internal_trade_id}/{trade2.internal_trade_id}"
                         )
 
         logger.info(
@@ -377,7 +377,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
 
         except (AttributeError, TypeError, ValueError, ArithmeticError) as e:
             logger.debug(
-                f"Failed to create ExchangeSpread from {trade1.trade_id}/{trade2.trade_id}: {e}"
+                f"Failed to create ExchangeSpread from {trade1.internal_trade_id}/{trade2.internal_trade_id}: {e}"
             )
             return None
 

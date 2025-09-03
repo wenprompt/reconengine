@@ -16,13 +16,9 @@ class DataValidationError(Exception):
 class DataValidator:
     """Validates CSV data for unified reconciliation processing."""
     
-    def __init__(self, required_columns: Dict[str, List[str]]):
-        """Initialize validator with required column specifications.
-        
-        Args:
-            required_columns: Dict mapping data type to required column names
-        """
-        self.required_columns = required_columns
+    def __init__(self):
+        """Initialize validator."""
+        pass
     
     def validate_file_exists(self, file_path: Path) -> bool:
         """Validate that file exists and is readable.
@@ -52,7 +48,7 @@ class DataValidator:
         return True
     
     def validate_csv_structure(self, df: pd.DataFrame, data_type: str, file_path: Path) -> bool:
-        """Validate CSV structure and required columns.
+        """Validate CSV structure and required exchangegroupid column.
         
         Args:
             df: DataFrame to validate
@@ -68,16 +64,7 @@ class DataValidator:
         if df.empty:
             raise DataValidationError(f"CSV file is empty: {file_path}")
         
-        # Check required columns
-        required_cols = self.required_columns.get(data_type, [])
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        
-        if missing_cols:
-            raise DataValidationError(
-                f"Missing required columns in {data_type} data ({file_path}): {missing_cols}"
-            )
-        
-        # Check for exchangegroupid specifically
+        # Check for exchangegroupid - the only critical column for routing
         if 'exchangegroupid' not in df.columns:
             raise DataValidationError(
                 f"Missing 'exchangegroupid' column in {file_path} - required for routing"

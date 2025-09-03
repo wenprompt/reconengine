@@ -44,7 +44,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # Match trader spread pairs with exchange spread pairs
         for trader_pair in trader_spread_pairs:
             # Skip if any trader trade is already matched
-            if any(not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER) for trade in trader_pair):
+            if any(not pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER) for trade in trader_pair):
                 continue
 
             match_result = self._match_spread_pair(trader_pair, exchange_spread_pairs, pool_manager)
@@ -53,15 +53,15 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 
                 # Mark all trades as matched
                 for trade in trader_pair:
-                    pool_manager.mark_as_matched(trade.trade_id, SGXTradeSource.TRADER, "spread")
+                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.TRADER, "spread")
                 
                 for trade in [match_result.exchange_trade] + match_result.additional_exchange_trades:
-                    pool_manager.mark_as_matched(trade.trade_id, SGXTradeSource.EXCHANGE, "spread")
+                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.EXCHANGE, "spread")
                 
                 # Record in audit trail
                 pool_manager.record_match(
-                    match_result.trader_trade.trade_id,
-                    match_result.exchange_trade.trade_id,
+                    match_result.trader_trade.internal_trade_id,
+                    match_result.exchange_trade.internal_trade_id,
                     match_result.match_type.value
                 )
                 
@@ -77,7 +77,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # Group trades by product and quantity
         trade_groups: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
         for trade in trader_trades:
-            if pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER):
+            if pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER):
                 key = self.create_universal_signature(trade, [trade.product_name, trade.quantity_units])
                 trade_groups[key].append(trade)
         
@@ -125,7 +125,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         
         # Initialize results
         all_spread_pairs: List[List[SGXTrade]] = []
-        remaining_trades = [t for t in exchange_trades if pool_manager.is_unmatched(t.trade_id, SGXTradeSource.EXCHANGE)]
+        remaining_trades = [t for t in exchange_trades if pool_manager.is_unmatched(t.internal_trade_id, SGXTradeSource.EXCHANGE)]
         
         # Track tier statistics
         tier_counts = {"tier1": 0, "tier2": 0}
@@ -148,9 +148,9 @@ class SpreadMatcher(MultiLegBaseMatcher):
             tier1_trade_ids = set()
             for pair in tier1_pairs:
                 for trade in pair:
-                    tier1_trade_ids.add(trade.trade_id)
+                    tier1_trade_ids.add(trade.internal_trade_id)
             
-            remaining_trades = [t for t in remaining_trades if t.trade_id not in tier1_trade_ids]
+            remaining_trades = [t for t in remaining_trades if t.internal_trade_id not in tier1_trade_ids]
             logger.debug(f"TIER 1 → TIER 2 Transition: {len(remaining_trades)} trades remaining after Tier 1")
         else:
             logger.debug("✗ TIER 1 Results: No spread pairs found using dealid method")
@@ -188,12 +188,12 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # Group trades by dealid
         dealid_groups: Dict[str, List[SGXTrade]] = defaultdict(list)
         for trade in exchange_trades:
-            if not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.EXCHANGE):
+            if not pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.EXCHANGE):
                 continue
                 
             # SGX trades have deal_id field directly (no raw_data access needed)
             dealid = trade.deal_id
-            tradeid = trade.trade_id
+            tradeid = trade.internal_trade_id
             
             # Only include trades that have both dealid and tradeid
             if dealid is not None and tradeid and str(dealid).strip() and str(tradeid).strip():
@@ -208,8 +208,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 trade1, trade2 = trades_in_group
                 
                 # Extract tradeids for comparison - must be different
-                tradeid1 = str(trade1.trade_id).strip()
-                tradeid2 = str(trade2.trade_id).strip()
+                tradeid1 = str(trade1.internal_trade_id).strip()
+                tradeid2 = str(trade2.internal_trade_id).strip()
                 
                 if tradeid1 != tradeid2 and tradeid1 and tradeid2:
                     # Validate spread characteristics using existing validation
@@ -223,8 +223,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
                         trade1, trade2 = trades_in_group[i], trades_in_group[j]
                         
                         # Must have different tradeids
-                        tradeid1 = str(trade1.trade_id).strip()
-                        tradeid2 = str(trade2.trade_id).strip()
+                        tradeid1 = str(trade1.internal_trade_id).strip()
+                        tradeid2 = str(trade2.internal_trade_id).strip()
                         
                         if tradeid1 != tradeid2 and tradeid1 and tradeid2:
                             if self.validate_spread_pair_characteristics(trade1, trade2):
@@ -238,7 +238,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         TIER 2: Enhanced time-based spread detection with price calculation matching.
 
         This method identifies spread pairs by:
-        1. Grouping exchange trades by exact same trade_datetime
+        1. Grouping exchange trades by exact same trade_time
         2. Finding pairs within datetime groups that form valid spreads
         3. Calculating spread price from exchange pair (earlier month - later month)
         4. Looking for trader spreads with one leg = spread price, other leg = 0
@@ -252,7 +252,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         """
         spread_pairs: List[List[SGXTrade]] = []
 
-        # Step 1: Group trades by exact same trade_datetime
+        # Step 1: Group trades by exact same trade_time
         time_groups = self._group_trades_by_exact_datetime(exchange_trades)
 
         if not time_groups:
@@ -274,8 +274,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     trade1, trade2 = trades[i], trades[j]
 
                     # Skip if either trade is already matched
-                    if not pool_manager.is_unmatched(trade1.trade_id, SGXTradeSource.EXCHANGE) or \
-                       not pool_manager.is_unmatched(trade2.trade_id, SGXTradeSource.EXCHANGE):
+                    if not pool_manager.is_unmatched(trade1.internal_trade_id, SGXTradeSource.EXCHANGE) or \
+                       not pool_manager.is_unmatched(trade2.internal_trade_id, SGXTradeSource.EXCHANGE):
                         continue
 
                     # Step 3: Validate pair forms a valid spread
@@ -290,16 +290,16 @@ class SpreadMatcher(MultiLegBaseMatcher):
                                 spread_pairs.append([trade1, trade2])
 
                                 logger.debug(
-                                    f"Added time-based spread pair: {trade1.trade_id}/{trade2.trade_id} "
+                                    f"Added time-based spread pair: {trade1.internal_trade_id}/{trade2.internal_trade_id} "
                                     f"(datetime: {datetime_key}, spread_price: {spread_price})"
                                 )
 
         return spread_pairs
 
     def _group_trades_by_exact_datetime(self, exchange_trades: List[SGXTrade]) -> Dict[str, List[SGXTrade]]:
-        """Group exchange trades by exact same trade_datetime for spread detection.
+        """Group exchange trades by exact same trade_time for spread detection.
 
-        This method groups trades that occur at the exact same trade_datetime,
+        This method groups trades that occur at the exact same trade_time,
         which is critical for identifying exchange spread pairs where both legs
         are executed simultaneously.
 
@@ -312,8 +312,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
         time_groups: Dict[str, List[SGXTrade]] = defaultdict(list)
 
         for trade in exchange_trades:
-            # Get the trade_datetime field directly from SGXTrade model
-            datetime_str = trade.trade_datetime
+            # Get the trade_time field directly from SGXTrade model
+            datetime_str = trade.trade_time
             if datetime_str and str(datetime_str).strip():
                 # Use the exact datetime string as the key (no parsing needed for grouping)
                 datetime_key = str(datetime_str).strip()
@@ -335,14 +335,14 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
             if spread_price is not None:
                 logger.debug(
-                    f"Calculated spread price: {spread_price} from {trade1.trade_id} (${trade1.price}) - {trade2.trade_id} (${trade2.price})"
+                    f"Calculated spread price: {spread_price} from {trade1.internal_trade_id} (${trade1.price}) - {trade2.internal_trade_id} (${trade2.price})"
                 )
             
             return spread_price
 
         except Exception as e:
             logger.debug(
-                f"Failed to calculate spread price for {trade1.trade_id}/{trade2.trade_id}: {e}"
+                f"Failed to calculate spread price for {trade1.internal_trade_id}/{trade2.internal_trade_id}: {e}"
             )
             return None
 
@@ -366,8 +366,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
             for j in range(i + 1, len(trader_trades)):
                 trader1, trader2 = trader_trades[i], trader_trades[j]
 
-                if not pool_manager.is_unmatched(trader1.trade_id, SGXTradeSource.TRADER) or \
-                   not pool_manager.is_unmatched(trader2.trade_id, SGXTradeSource.TRADER):
+                if not pool_manager.is_unmatched(trader1.internal_trade_id, SGXTradeSource.TRADER) or \
+                   not pool_manager.is_unmatched(trader2.internal_trade_id, SGXTradeSource.TRADER):
                     continue
 
                 # Check if this trader pair matches the exchange spread pattern
@@ -375,7 +375,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     trader1, trader2, exchange_trade1, exchange_trade2, spread_price
                 ):
                     logger.debug(
-                        f"Found matching trader spread: {trader1.trade_id} (${trader1.price}) + {trader2.trade_id} (${trader2.price}) "
+                        f"Found matching trader spread: {trader1.internal_trade_id} (${trader1.price}) + {trader2.internal_trade_id} (${trader2.price}) "
                         f"matches exchange spread price {spread_price}"
                     )
                     return True
@@ -467,7 +467,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 continue
                 
             # Skip if either exchange trade is already matched
-            if any(not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.EXCHANGE) 
+            if any(not pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.EXCHANGE) 
                    for trade in exchange_pair):
                 continue
             

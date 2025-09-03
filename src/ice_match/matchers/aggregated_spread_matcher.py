@@ -143,7 +143,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
                                 spread_pairs.append((trade2, trade1))
 
                             logger.debug(
-                                f"Found trader spread pair: {trade1.trade_id} + {trade2.trade_id}"
+                                f"Found trader spread pair: {trade1.internal_trade_id} + {trade2.internal_trade_id}"
                             )
                             break  # Only take one pair per trade
 

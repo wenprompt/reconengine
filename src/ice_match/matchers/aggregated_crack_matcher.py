@@ -159,7 +159,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
                 continue
 
             logger.debug(
-                f"Processing crack group with {len(group_trades)} trades: {[t.trade_id for t in group_trades]}"
+                f"Processing crack group with {len(group_trades)} trades: {[t.internal_trade_id for t in group_trades]}"
             )
 
             # Calculate total quantity in BBL (exchange trades are in BBL)
@@ -179,7 +179,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
                 ):
                     aggregations.append((group_trades, candidate_trade))
                     logger.debug(
-                        f"✅ Found crack aggregation with conversion: {len(group_trades)} trades → 1 trade ({candidate_trade.trade_id})"
+                        f"✅ Found crack aggregation with conversion: {len(group_trades)} trades → 1 trade ({candidate_trade.internal_trade_id})"
                     )
                     break
 

@@ -72,11 +72,11 @@ def create_reconciliation_dataframe(
     # Process matched trades
     for i, match in enumerate(matches, 1):
         # Collect all trader and exchange trade IDs
-        trader_ids = [match.trader_trade.trade_id]
-        trader_ids.extend([t.trade_id for t in match.additional_trader_trades])
+        trader_ids = [match.trader_trade.internal_trade_id]
+        trader_ids.extend([t.internal_trade_id for t in match.additional_trader_trades])
 
-        exchange_ids = [match.exchange_trade.trade_id]
-        exchange_ids.extend([t.trade_id for t in match.additional_exchange_trades])
+        exchange_ids = [match.exchange_trade.internal_trade_id]
+        exchange_ids.extend([t.internal_trade_id for t in match.additional_exchange_trades])
 
         # All matches are now MATCHED status
         recon_status = ReconStatus.MATCHED
@@ -102,7 +102,7 @@ def create_reconciliation_dataframe(
     for i, trade in enumerate(unmatched_traders, len(matches) + 1):
         record = {
             'reconid': f"RECON_{i:06d}",
-            'source_traders_id': [trade.trade_id],
+            'source_traders_id': [trade.internal_trade_id],
             'source_exch_id': [],
             'reconStatus': ReconStatus.UNMATCHED_TRADERS.value,
             'recon_run_datetime': execution_time,
@@ -122,7 +122,7 @@ def create_reconciliation_dataframe(
         record = {
             'reconid': f"RECON_{i:06d}",
             'source_traders_id': [],
-            'source_exch_id': [trade.trade_id],
+            'source_exch_id': [trade.internal_trade_id],
             'reconStatus': ReconStatus.UNMATCHED_EXCH.value,
             'recon_run_datetime': execution_time,
             'remarks': "ICE_unmatched_exchange",

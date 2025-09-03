@@ -249,7 +249,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 spread_pairs_found += 1
 
                 logger.debug(
-                    f"Found valid dealid spread pair: {trade1.trade_id}/{trade2.trade_id} "
+                    f"Found valid dealid spread pair: {trade1.internal_trade_id}/{trade2.internal_trade_id} "
                     f"(dealid: {dealid}, tradeids: {tradeid1}/{tradeid2})"
                 )
 
@@ -274,7 +274,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             - Matched trades are removed from pool before Tier 2
 
         🔹 TIER 2: Time-based grouping with price calculation matching
-            - Groups remaining trades by exact same tradedatetime
+            - Groups remaining trades by exact same tradetime
             - Calculates spread price from exchange pairs (earlier month - later month)
             - Matches with trader spreads having one leg = spread price, other = 0
             - Final tier processing
@@ -331,7 +331,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     all_trade_groups[key].extend(trades)
                     # Mark these trades as coming from Tier 1
                     for trade in trades:
-                        tier_trade_mapping[trade.trade_id] = "tier1"
+                        tier_trade_mapping[trade.internal_trade_id] = "tier1"
 
                 # Remove Tier 1 matched trades from remaining trades for Tier 2
                 tier1_matched_trades = []
@@ -374,7 +374,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     all_trade_groups[key].extend(trades)
                     # Mark these trades as coming from Tier 2
                     for trade in trades:
-                        tier_trade_mapping[trade.trade_id] = "tier2"
+                        tier_trade_mapping[trade.internal_trade_id] = "tier2"
 
                 # Remove Tier 2 matched trades from remaining trades (for potential Tier 3 re-enablement)
                 tier2_matched_trades = []
@@ -428,7 +428,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         #             all_trade_groups[key].extend(trades)
         #             # Mark these trades as coming from Tier 3
         #             for trade in trades:
-        #                 tier_trade_mapping[trade.trade_id] = "tier3"
+        #                 tier_trade_mapping[trade.internal_trade_id] = "tier3"
         #     else:
         #         logger.debug(
         #             "✗ TIER 3 Results: No spread pairs found using product/quantity method"
@@ -457,7 +457,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         TIER 2: Enhanced time-based spread detection with price calculation matching.
 
         This method identifies spread pairs by:
-        1. Grouping exchange trades by exact same tradedatetime
+        1. Grouping exchange trades by exact same tradetime
         2. Finding pairs within datetime groups that form valid spreads
         3. Calculating spread price from exchange pair (earlier month - later month)
         4. Looking for trader spreads with one leg = spread price, other leg = 0
@@ -472,7 +472,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
         spread_pairs_found = 0
 
-        # Step 1: Group trades by exact same tradedatetime (not time windows)
+        # Step 1: Group trades by exact same tradetime (not time windows)
         time_groups = self._group_trades_by_exact_datetime(exchange_trades)
 
         if not time_groups:
@@ -523,7 +523,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                                 spread_pairs_found += 1
 
                                 logger.debug(
-                                    f"Added time-based spread pair: {trade1.trade_id}/{trade2.trade_id} "
+                                    f"Added time-based spread pair: {trade1.internal_trade_id}/{trade2.internal_trade_id} "
                                     f"(datetime: {datetime_key}, spread_price: {spread_price})"
                                 )
 
@@ -532,9 +532,9 @@ class SpreadMatcher(MultiLegBaseMatcher):
     def _group_trades_by_exact_datetime(
         self, exchange_trades: List[Trade]
     ) -> Dict[str, List[Trade]]:
-        """Group exchange trades by exact same tradedatetime for spread detection.
+        """Group exchange trades by exact same tradetime for spread detection.
 
-        This method groups trades that occur at the exact same tradedatetime,
+        This method groups trades that occur at the exact same tradetime,
         which is critical for identifying exchange spread pairs where both legs
         are executed simultaneously.
 
@@ -542,13 +542,13 @@ class SpreadMatcher(MultiLegBaseMatcher):
             exchange_trades: List of exchange trades to group
 
         Returns:
-            Dict mapping datetime strings to lists of trades with that exact datetime
+            Dict mapping datetime strings to lists of trades with that exact tradetime
         """
         time_groups: Dict[str, List[Trade]] = defaultdict(list)
 
         for trade in exchange_trades:
-            # Get the raw tradedatetime field directly from raw_data
-            datetime_str = trade.raw_data.get("tradedatetime")
+            # Get the raw tradetime field directly from raw_data
+            datetime_str = trade.raw_data.get("tradetime")
             if datetime_str and str(datetime_str).strip():
                 # Use the exact datetime string as the key (no parsing needed for grouping)
                 datetime_key = str(datetime_str).strip()
@@ -583,13 +583,13 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 spread_price = trade2.price - trade1.price
 
             logger.debug(
-                f"Calculated spread price: {spread_price} from {trade1.trade_id} (${trade1.price}) - {trade2.trade_id} (${trade2.price})"
+                f"Calculated spread price: {spread_price} from {trade1.internal_trade_id} (${trade1.price}) - {trade2.internal_trade_id} (${trade2.price})"
             )
             return spread_price
 
         except (ArithmeticError, AttributeError, ValueError, TypeError) as e:
             logger.debug(
-                f"Failed to calculate spread price for {trade1.trade_id}/{trade2.trade_id}: {e}"
+                f"Failed to calculate spread price for {trade1.internal_trade_id}/{trade2.internal_trade_id}: {e}"
             )
             return None
 
@@ -625,7 +625,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     trader1, trader2, exchange_trade1, exchange_trade2, spread_price
                 ):
                     logger.debug(
-                        f"Found matching trader spread: {trader1.trade_id} (${trader1.price}) + {trader2.trade_id} (${trader2.price}) "
+                        f"Found matching trader spread: {trader1.internal_trade_id} (${trader1.price}) + {trader2.internal_trade_id} (${trader2.price}) "
                         f"matches exchange spread price {spread_price}"
                     )
                     return True
@@ -842,8 +842,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 )
 
                 # For Tier 1 matches, ensure both legs have the same dealid
-                source_tier1 = tier_trade_mapping.get(exchange_trade1.trade_id)
-                source_tier2 = tier_trade_mapping.get(exchange_trade2.trade_id)
+                source_tier1 = tier_trade_mapping.get(exchange_trade1.internal_trade_id)
+                source_tier2 = tier_trade_mapping.get(exchange_trade2.internal_trade_id)
                 if source_tier1 == "tier1" and source_tier2 == "tier1":
                     dealid1 = str(exchange_trade1.raw_data.get("dealid", "")).strip()
                     dealid2 = str(exchange_trade2.raw_data.get("dealid", "")).strip()
@@ -851,8 +851,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
                         if dealid1 != dealid2:
                             logger.debug(
                                 f"Skipping Tier 1 pair with mismatched dealids: "
-                                f"{exchange_trade1.trade_id} (dealid: {dealid1}) and "
-                                f"{exchange_trade2.trade_id} (dealid: {dealid2})"
+                                f"{exchange_trade1.internal_trade_id} (dealid: {dealid1}) and "
+                                f"{exchange_trade2.internal_trade_id} (dealid: {dealid2})"
                             )
                         continue
 
@@ -868,7 +868,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 ):
                     # Determine which tier this match came from
                     source_tier = tier_trade_mapping.get(
-                        exchange_trade1.trade_id, "unknown"
+                        exchange_trade1.internal_trade_id, "unknown"
                     )
 
                     # Get tier-specific confidence level

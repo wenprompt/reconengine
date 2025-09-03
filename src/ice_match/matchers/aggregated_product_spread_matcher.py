@@ -280,7 +280,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
                             spread_pairs.append((trade2, trade1))
 
                         logger.debug(
-                            f"Found trader spread pair: {trade1.trade_id} + {trade2.trade_id}"
+                            f"Found trader spread pair: {trade1.internal_trade_id} + {trade2.internal_trade_id}"
                         )
                         break  # Only one pair per trade
 
@@ -300,7 +300,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             if self._is_hyphenated_product(trade.product_name):
                 spread_trades.append(trade)
                 logger.debug(
-                    f"Found hyphenated exchange spread: {trade.trade_id} - {trade.product_name}"
+                    f"Found hyphenated exchange spread: {trade.internal_trade_id} - {trade.product_name}"
                 )
 
         # TODO: Could also add 2-leg exchange spread detection here if needed
@@ -471,7 +471,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
                 and self.validate_universal_fields(reference_trade, exchange_trade)
             ):
                 logger.debug(
-                    f"Found matching exchange trade {exchange_trade.trade_id} for {reference_trade.product_name} quantity {target_quantity} in {contract_month}"
+                    f"Found matching exchange trade {exchange_trade.internal_trade_id} for {reference_trade.product_name} quantity {target_quantity} in {contract_month}"
                 )
                 return exchange_trade
 
@@ -504,7 +504,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
                 or trade.buy_sell != first_trade.buy_sell
             ):
                 logger.debug(
-                    f"Inconsistent product group: {trade.trade_id} vs {first_trade.trade_id} "
+                    f"Inconsistent product group: {trade.internal_trade_id} vs {first_trade.internal_trade_id} "
                     f"(product: {trade.product_name}/{first_trade.product_name}, "
                     f"month: {trade.contract_month}/{first_trade.contract_month}, "
                     f"direction: {trade.buy_sell}/{first_trade.buy_sell})"
@@ -540,7 +540,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
                 and self.validate_universal_fields(reference_trade, exchange_trade)
             ):
                 logger.debug(
-                    f"Found matching exchange trade {exchange_trade.trade_id} for {reference_trade.product_name} quantity {target_quantity}"
+                    f"Found matching exchange trade {exchange_trade.internal_trade_id} for {reference_trade.product_name} quantity {target_quantity}"
                 )
                 return exchange_trade
 
@@ -1294,7 +1294,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         """Validate aggregated trader trades match exchange spread."""
         if not first_aggregation or not second_aggregation:
             logger.debug(
-                f"❌ Empty aggregation lists for exchange spread {exchange_spread.trade_id} validation"
+                f"❌ Empty aggregation lists for exchange spread {exchange_spread.internal_trade_id} validation"
             )
             return False
 

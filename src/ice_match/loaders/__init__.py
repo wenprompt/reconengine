@@ -1,5 +1,3 @@
-"""Data loaders for energy trade matching system."""
+"""ICE match loaders module - deprecated in favor of trade_factory."""
 
-from .csv_loader import CSVTradeLoader
-
-__all__ = ["CSVTradeLoader"]
+# This module is kept for structure but loaders have been replaced by trade_factory pattern

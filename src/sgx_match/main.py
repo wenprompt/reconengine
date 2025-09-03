@@ -7,12 +7,12 @@ import argparse
 import sys
 
 from .config import SGXConfigManager
-from .loaders import SGXCSVLoader
 from .core import SGXUnmatchedPool
+from .core.trade_factory import SGXTradeFactory
 from .matchers.exact_matcher import ExactMatcher
 from .matchers.spread_matcher import SpreadMatcher
 from .matchers.product_spread_matcher import ProductSpreadMatcher
-from .models import SGXMatchResult
+from .models import SGXMatchResult, SGXTradeSource
 from .cli import SGXDisplay
 from .normalizers import SGXTradeNormalizer
 
@@ -35,8 +35,8 @@ class SGXMatchingEngine:
             config_manager: Optional config manager. Creates default if None.
         """
         self.config_manager = config_manager or SGXConfigManager()
-        self.csv_loader = SGXCSVLoader(self.config_manager)
         self.normalizer = SGXTradeNormalizer(self.config_manager)
+        self.trade_factory = SGXTradeFactory(self.normalizer)
         self.display = SGXDisplay()
         
         # Initialize matchers based on config
@@ -68,10 +68,10 @@ class SGXMatchingEngine:
         self.display.show_header()
         
         try:
-            # Load data
+            # Load data using trade factory
             logger.info("Loading SGX trade data...")
-            trader_trades = self.csv_loader.load_trader_trades(trader_csv_path)
-            exchange_trades = self.csv_loader.load_exchange_trades(exchange_csv_path)
+            trader_trades = self.trade_factory.from_csv(trader_csv_path, SGXTradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_csv(exchange_csv_path, SGXTradeSource.EXCHANGE)
             
             self.display.show_loading_summary(len(trader_trades), len(exchange_trades))
             
@@ -98,8 +98,8 @@ class SGXMatchingEngine:
                 # Record matches in pool
                 for match in matches:
                     pool_manager.record_match(
-                        match.trader_trade.trade_id,
-                        match.exchange_trade.trade_id,
+                        match.trader_trade.internal_trade_id,
+                        match.exchange_trade.internal_trade_id,
                         match.match_type.value
                     )
                 
@@ -123,6 +123,65 @@ class SGXMatchingEngine:
             self.display.show_error(str(e))
             raise RuntimeError(f"SGX matching failed: {e}") from e
 
+    def run_matching_from_dataframes(self, trader_df, exchange_df) -> tuple:
+        """Run SGX matching process directly from DataFrames without CSV files.
+        
+        Args:
+            trader_df: Pandas DataFrame containing trader data
+            exchange_df: Pandas DataFrame containing exchange data
+            
+        Returns:
+            Tuple of (matches, statistics)
+        """
+        try:
+            # Create trades from DataFrames
+            logger.info("Creating SGX trades from DataFrames...")
+            trader_trades = self.trade_factory.from_dataframe(trader_df, SGXTradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_dataframe(exchange_df, SGXTradeSource.EXCHANGE)
+            
+            logger.info(f"Created {len(trader_trades)} trader trades and {len(exchange_trades)} exchange trades")
+            
+            # Initialize pool manager
+            pool_manager = SGXUnmatchedPool(trader_trades, exchange_trades)
+            
+            # Run matching rules in sequence
+            all_matches = []
+            processing_order = self.config_manager.get_processing_order()
+            
+            for rule_number in processing_order:
+                logger.info(f"Running Rule {rule_number}")
+                
+                # Get appropriate matcher for this rule
+                matcher = self._get_matcher_for_rule(rule_number)
+                if not matcher:
+                    continue
+                
+                matches = matcher.find_matches(pool_manager)
+                all_matches.extend(matches)
+                
+                # Record matches in pool
+                for match in matches:
+                    pool_manager.record_match(
+                        match.trader_trade.internal_trade_id,
+                        match.exchange_trade.internal_trade_id,
+                        match.match_type.value
+                    )
+            
+            # Get statistics and unmatched trades
+            statistics = pool_manager.get_match_statistics()
+            unmatched_trader = pool_manager.get_unmatched_trader_trades()
+            unmatched_exchange = pool_manager.get_unmatched_exchange_trades()
+            
+            # Add unmatched trades to statistics for unified system
+            statistics['unmatched_trader_trades'] = unmatched_trader
+            statistics['unmatched_exchange_trades'] = unmatched_exchange
+            
+            return all_matches, statistics
+            
+        except Exception as e:
+            logger.error(f"SGX DataFrame matching failed: {e}")
+            raise RuntimeError(f"SGX DataFrame matching failed: {e}") from e
+    
     def run_matching_minimal(self, trader_csv_path: Path, exchange_csv_path: Path) -> tuple[List[SGXMatchResult], Dict[str, Any]]:
         """Run SGX matching process without display output for unified system. 
         
@@ -135,8 +194,8 @@ class SGXMatchingEngine:
         """
         try:
             # Load data
-            trader_trades = self.csv_loader.load_trader_trades(trader_csv_path)
-            exchange_trades = self.csv_loader.load_exchange_trades(exchange_csv_path)
+            trader_trades = self.trade_factory.from_csv(trader_csv_path, SGXTradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_csv(exchange_csv_path, SGXTradeSource.EXCHANGE)
             
             # Initialize pool manager
             pool_manager = SGXUnmatchedPool(trader_trades, exchange_trades)
@@ -156,8 +215,8 @@ class SGXMatchingEngine:
                 # Record matches in pool
                 for match in matches:
                     pool_manager.record_match(
-                        match.trader_trade.trade_id,
-                        match.exchange_trade.trade_id,
+                        match.trader_trade.internal_trade_id,
+                        match.exchange_trade.internal_trade_id,
                         match.match_type.value
                     )
             

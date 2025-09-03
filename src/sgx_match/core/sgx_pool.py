@@ -27,8 +27,8 @@ class SGXUnmatchedPool:
         self._original_exchange_count = len(exchange_trades)
         
         # Active pools - trades still available for matching
-        self._trader_pool: Dict[str, SGXTrade] = {trade.trade_id: trade for trade in trader_trades}
-        self._exchange_pool: Dict[str, SGXTrade] = {trade.trade_id: trade for trade in exchange_trades}
+        self._trader_pool: Dict[str, SGXTrade] = {trade.internal_trade_id: trade for trade in trader_trades}
+        self._exchange_pool: Dict[str, SGXTrade] = {trade.internal_trade_id: trade for trade in exchange_trades}
         
         # Matched trade tracking
         self._matched_trader_ids: Set[str] = set()
@@ -182,8 +182,8 @@ class SGXUnmatchedPool:
         self._original_trader_count = len(trader_trades)
         self._original_exchange_count = len(exchange_trades)
         
-        self._trader_pool = {trade.trade_id: trade for trade in trader_trades}
-        self._exchange_pool = {trade.trade_id: trade for trade in exchange_trades}
+        self._trader_pool = {trade.internal_trade_id: trade for trade in trader_trades}
+        self._exchange_pool = {trade.internal_trade_id: trade for trade in exchange_trades}
         
         self._matched_trader_ids.clear()
         self._matched_exchange_ids.clear()

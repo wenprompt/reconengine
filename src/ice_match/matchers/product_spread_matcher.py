@@ -121,7 +121,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         # Debug: show hyphenated products found
         for trade in hyphenated_trades:
             logger.debug(
-                f"Found hyphenated product: {trade.trade_id} - {trade.product_name} "
+                f"Found hyphenated product: {trade.internal_trade_id} - {trade.product_name} "
                 f"{trade.contract_month} {trade.quantity_mt} {trade.price} {trade.buy_sell}"
             )
 
@@ -265,7 +265,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                     ):
                         spread_pairs.append((trade1, trade2))
                         logger.debug(
-                            f"Found trader spread pair: {trade1.trade_id} + {trade2.trade_id} "
+                            f"Found trader spread pair: {trade1.internal_trade_id} + {trade2.internal_trade_id} "
                             f"({trade1.product_name}/{trade2.product_name})"
                         )
 
@@ -320,7 +320,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                     ):
                         spread_pairs.append((trade1, trade2))
                         logger.debug(
-                            f"Found exchange spread pair: {trade1.trade_id} + {trade2.trade_id} "
+                            f"Found exchange spread pair: {trade1.internal_trade_id} + {trade2.internal_trade_id} "
                             f"({trade1.product_name}/{trade2.product_name})"
                         )
 
@@ -388,15 +388,15 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                 continue
 
             logger.debug(
-                f"Checking trader trade: {trade.trade_id} - {trade.product_name} {trade.price} {trade.buy_sell}"
+                f"Checking trader trade: {trade.internal_trade_id} - {trade.product_name} {trade.price} {trade.buy_sell}"
             )
 
             if trade.product_name == first_product:
                 first_trade = trade
-                logger.debug(f"Found first product match: {trade.trade_id}")
+                logger.debug(f"Found first product match: {trade.internal_trade_id}")
             elif trade.product_name == second_product:
                 second_trade = trade
-                logger.debug(f"Found second product match: {trade.trade_id}")
+                logger.debug(f"Found second product match: {trade.internal_trade_id}")
 
         # Must have both component trades
         if not first_trade or not second_trade:
@@ -450,8 +450,8 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         exchange1, exchange2 = exchange_pair
 
         logger.debug(
-            f"Attempting 2-leg match: Trader({trader1.trade_id}+{trader2.trade_id}) "
-            f"vs Exchange({exchange1.trade_id}+{exchange2.trade_id})"
+            f"Attempting 2-leg match: Trader({trader1.internal_trade_id}+{trader2.internal_trade_id}) "
+            f"vs Exchange({exchange1.internal_trade_id}+{exchange2.internal_trade_id})"
         )
 
         # Try both product orderings since we don't know which exchange trade corresponds to which trader product

@@ -49,7 +49,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             trader_trades_list = [trader_trade1, trader_trade2]  # Convert to list
             
             # Skip if any trader trade is already matched
-            if any(not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER) for trade in trader_trades_list):
+            if any(not pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER) for trade in trader_trades_list):
                 continue
 
             match_result = self._match_product_spread_pair(trader_trades_list, exchange_product_spread_pairs, pool_manager, confidence_tier)
@@ -58,15 +58,15 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 
                 # Mark all trades as matched
                 for trade in trader_trades_list:
-                    pool_manager.mark_as_matched(trade.trade_id, SGXTradeSource.TRADER, "product_spread")
+                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.TRADER, "product_spread")
                 
                 for trade in [match_result.exchange_trade] + match_result.additional_exchange_trades:
-                    pool_manager.mark_as_matched(trade.trade_id, SGXTradeSource.EXCHANGE, "product_spread")
+                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.EXCHANGE, "product_spread")
                 
                 # Record in audit trail
                 pool_manager.record_match(
-                    match_result.trader_trade.trade_id,
-                    match_result.exchange_trade.trade_id,
+                    match_result.trader_trade.internal_trade_id,
+                    match_result.exchange_trade.internal_trade_id,
                     match_result.match_type.value
                 )
                 
@@ -87,12 +87,12 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         ps_trades = [trade for trade in trader_trades if trade.spread and 'PS' in str(trade.spread).upper()]
         logger.debug(f"Total PS trades in trader_trades: {len(ps_trades)}")
         for trade in ps_trades:
-            logger.debug(f"PS trade: {trade.product_name}/{trade.buy_sell}, price={trade.price}, contract_month={trade.contract_month}, unmatched={pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER)}")
+            logger.debug(f"PS trade: {trade.product_name}/{trade.buy_sell}, price={trade.price}, contract_month={trade.contract_month}, unmatched={pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER)}")
         
         # Group trades by contract month, quantity, and universal fields
         trade_groups: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
         for trade in trader_trades:
-            if pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER):
+            if pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER):
                 key = self.create_universal_signature(trade, [trade.contract_month, trade.quantity_units])
                 trade_groups[key].append(trade)
         
@@ -113,7 +113,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                         is_match, confidence_tier = self._is_trader_product_spread_pair(trades[i], trades[j])
                         if is_match:
                             tier_desc = "PS required" if confidence_tier == 1 else "no PS required"
-                            logger.debug(f"Found trader product spread pair (Tier {confidence_tier} - {tier_desc}): {trades[i].trade_id} + {trades[j].trade_id}")
+                            logger.debug(f"Found trader product spread pair (Tier {confidence_tier} - {tier_desc}): {trades[i].internal_trade_id} + {trades[j].internal_trade_id}")
                             # Store trades with confidence tier information
                             product_spread_pairs.append((trades[i], trades[j], confidence_tier))
         
@@ -163,12 +163,12 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         # Group trades by dealid
         dealid_groups: Dict[str, List[SGXTrade]] = defaultdict(list)
         for trade in exchange_trades:
-            if not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.EXCHANGE):
+            if not pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.EXCHANGE):
                 continue
                 
             # SGX trades have deal_id field directly
             dealid = trade.deal_id
-            tradeid = trade.trade_id
+            tradeid = trade.internal_trade_id
             
             # Only include trades that have both dealid and tradeid
             if dealid is not None and tradeid and str(dealid).strip() and str(tradeid).strip():
@@ -183,8 +183,8 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 trade1, trade2 = trades_in_group
                 
                 # Extract tradeids for comparison - must be different
-                tradeid1 = str(trade1.trade_id).strip()
-                tradeid2 = str(trade2.trade_id).strip()
+                tradeid1 = str(trade1.internal_trade_id).strip()
+                tradeid2 = str(trade2.internal_trade_id).strip()
                 
                 if tradeid1 != tradeid2 and tradeid1 and tradeid2:
                     # Validate product spread characteristics
@@ -198,8 +198,8 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                         trade1, trade2 = trades_in_group[i], trades_in_group[j]
                         
                         # Must have different tradeids
-                        tradeid1 = str(trade1.trade_id).strip()
-                        tradeid2 = str(trade2.trade_id).strip()
+                        tradeid1 = str(trade1.internal_trade_id).strip()
+                        tradeid2 = str(trade2.internal_trade_id).strip()
                         
                         if tradeid1 != tradeid2 and tradeid1 and tradeid2:
                             if self._validate_exchange_product_spread_pair(trade1, trade2):
@@ -246,7 +246,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 continue
                 
             # Skip if either exchange trade is already matched
-            if any(not pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.EXCHANGE) 
+            if any(not pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.EXCHANGE) 
                    for trade in exchange_pair):
                 continue
             
@@ -463,7 +463,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         # Filter exchange trades to only hyphenated products
         hyphenated_trades = [
             t for t in exchange_trades 
-            if pool_manager.is_unmatched(t.trade_id, SGXTradeSource.EXCHANGE) and 
+            if pool_manager.is_unmatched(t.internal_trade_id, SGXTradeSource.EXCHANGE) and 
                "-" in t.product_name and self._parse_hyphenated_product(t.product_name) is not None
         ]
         
@@ -482,14 +482,14 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 matches.append(match)
                 
                 # Mark all trades as matched
-                pool_manager.mark_as_matched(exchange_trade.trade_id, SGXTradeSource.EXCHANGE, "product_spread")
+                pool_manager.mark_as_matched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE, "product_spread")
                 for trader_trade in [match.trader_trade] + match.additional_trader_trades:
-                    pool_manager.mark_as_matched(trader_trade.trade_id, SGXTradeSource.TRADER, "product_spread")
+                    pool_manager.mark_as_matched(trader_trade.internal_trade_id, SGXTradeSource.TRADER, "product_spread")
                 
                 # Record in audit trail
                 pool_manager.record_match(
-                    match.trader_trade.trade_id,
-                    match.exchange_trade.trade_id,
+                    match.trader_trade.internal_trade_id,
+                    match.exchange_trade.internal_trade_id,
                     match.match_type.value
                 )
                 
@@ -531,7 +531,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         index: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
         
         for trade in trader_trades:
-            if pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER):
+            if pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER):
                 # Index by contract month, quantity, and universal fields (same as regular matching)
                 signature = self.create_universal_signature(trade, [trade.contract_month, trade.quantity_units])
                 index[signature].append(trade)
@@ -579,15 +579,15 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         second_trade = None
         
         for trade in matching_trades:
-            if pool_manager.is_unmatched(trade.trade_id, SGXTradeSource.TRADER):
-                logger.debug(f"Checking trader trade: {trade.trade_id} - {trade.product_name} {trade.price} {trade.buy_sell}")
+            if pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER):
+                logger.debug(f"Checking trader trade: {trade.internal_trade_id} - {trade.product_name} {trade.price} {trade.buy_sell}")
                 
                 if trade.product_name == first_product:
                     first_trade = trade
-                    logger.debug(f"Found first product match: {trade.trade_id}")
+                    logger.debug(f"Found first product match: {trade.internal_trade_id}")
                 elif trade.product_name == second_product:
                     second_trade = trade
-                    logger.debug(f"Found second product match: {trade.trade_id}")
+                    logger.debug(f"Found second product match: {trade.internal_trade_id}")
         
         # Must have both component trades
         if not first_trade or not second_trade:

@@ -68,8 +68,8 @@ class MatchResult(BaseModel):
     def __str__(self) -> str:
         """Human-readable string representation."""
         return (
-                f"Match({self.match_id}: {self.trader_trade.trade_id} <-> "
-                f"{self.exchange_trade.trade_id} via {self.match_type.value} "
+                f"Match({self.match_id}: {self.trader_trade.internal_trade_id} <-> "
+                f"{self.exchange_trade.internal_trade_id} via {self.match_type.value} "
                 f"@ {self.confidence}%")
 
     def __repr__(self) -> str:
@@ -144,7 +144,7 @@ class MatchResult(BaseModel):
             "quality": self.match_quality,
             "rule_order": self.rule_order,
             "trader_trade": {
-                "id": self.trader_trade.trade_id,
+                "id": self.trader_trade.internal_trade_id,
                 "product": self.trader_trade.product_name,
                 "quantity_mt": float(self.trader_trade.quantity_mt),
                 "price": float(self.trader_trade.price),
@@ -152,7 +152,7 @@ class MatchResult(BaseModel):
                 "contract": self.trader_trade.contract_month
             },
             "exchange_trade": {
-                "id": self.exchange_trade.trade_id,
+                "id": self.exchange_trade.internal_trade_id,
                 "product": self.exchange_trade.product_name,
                 "quantity_mt": float(self.exchange_trade.quantity_mt),
                 "price": float(self.exchange_trade.price),

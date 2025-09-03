@@ -29,8 +29,8 @@ class UnmatchedPoolManager:
         self._original_exchange_count = len(exchange_trades)
 
         # Active pools - trades still available for matching
-        self._trader_pool: Dict[str, Trade] = {trade.trade_id: trade for trade in trader_trades}
-        self._exchange_pool: Dict[str, Trade] = {trade.trade_id: trade for trade in exchange_trades}
+        self._trader_pool: Dict[str, Trade] = {trade.internal_trade_id: trade for trade in trader_trades}
+        self._exchange_pool: Dict[str, Trade] = {trade.internal_trade_id: trade for trade in exchange_trades}
 
         # Matched trade tracking
         self._matched_trader_ids: Set[str] = set()
@@ -94,9 +94,9 @@ class UnmatchedPoolManager:
             True if trade has been matched, False otherwise
         """
         if trade.source == TradeSource.TRADER:
-            return trade.trade_id in self._matched_trader_ids
+            return trade.internal_trade_id in self._matched_trader_ids
         else:
-            return trade.trade_id in self._matched_exchange_ids
+            return trade.internal_trade_id in self._matched_exchange_ids
 
     def get_trade_by_id(self, trade_id: str) -> Optional[Trade]:
         """Get a trade by ID from either pool.
@@ -185,7 +185,7 @@ class UnmatchedPoolManager:
 
         success = True
         for trade in trades_to_remove:
-            trade_id = trade.trade_id
+            trade_id = trade.internal_trade_id
             if trade.source == TradeSource.TRADER:
                 if trade_id not in self._trader_pool:
                     logger.warning(f"Trader trade {trade_id} not found in unmatched pool for recording match.")
@@ -210,8 +210,8 @@ class UnmatchedPoolManager:
                 self._matched_exchange_ids.add(trade_id)
 
         # Record in history (using the primary trader and exchange trade for simplicity in history)
-        self._match_history.append((match_result.trader_trade.trade_id,
-                                    match_result.exchange_trade.trade_id,
+        self._match_history.append((match_result.trader_trade.internal_trade_id,
+                                    match_result.exchange_trade.internal_trade_id,
                                     match_result.match_type.value))
 
         logger.debug(f"Recorded match {match_result.match_id}. Removed {len(trades_to_remove)} trades from pools.")
@@ -227,8 +227,8 @@ class UnmatchedPoolManager:
             trader_trades: New list of trader trades
             exchange_trades: New list of exchange trades
         """
-        self._trader_pool = {trade.trade_id: trade for trade in trader_trades}
-        self._exchange_pool = {trade.trade_id: trade for trade in exchange_trades}
+        self._trader_pool = {trade.internal_trade_id: trade for trade in trader_trades}
+        self._exchange_pool = {trade.internal_trade_id: trade for trade in exchange_trades}
         self._matched_trader_ids.clear()
         self._matched_exchange_ids.clear()
         self._match_history.clear()

@@ -1,7 +1,6 @@
 """Trade data model for ice trade matching system."""
 
 from decimal import Decimal
-from datetime import datetime
 from enum import Enum
 from typing import Optional, ClassVar
 from pydantic import BaseModel, Field, ConfigDict
@@ -29,7 +28,7 @@ class Trade(BaseModel):
     )
 
     # Core identification
-    trade_id: str = Field(..., description="Unique identifier for this trade")
+    internal_trade_id: str = Field(..., description="Unique identifier for this trade")
     source: TradeSource = Field(..., description="Whether from trader or exchange")
 
     # Trading details
@@ -46,12 +45,12 @@ class Trade(BaseModel):
     exch_clearing_acct_id: Optional[int] = Field(None, description="Clearing account identifier")
 
     # Metadata
-    trade_date: Optional[datetime] = Field(None, description="Trade date")
-    trade_time: Optional[datetime] = Field(None, description="Trade time")
+    trade_date: Optional[str] = Field(default=None, description="Trade date")
+    trade_time: Optional[str] = Field(default=None, description="Trade time")
 
     # Special fields
-    special_comms: Optional[str] = Field(None, description="Special comments")
-    spread: Optional[str] = Field(None, description="Spread information")
+    special_comms: Optional[str] = Field(default=None, description="Special commissions")
+    spread: Optional[str] = Field(default=None, description="Spread information")
 
     # Raw data for audit trail
     raw_data: dict = Field(default_factory=dict, description="Original raw data")
@@ -63,13 +62,13 @@ class Trade(BaseModel):
 
     def __str__(self) -> str:
         """Human-readable string representation."""
-        return (f"Trade({self.trade_id}: {self.product_name} "
+        return (f"Trade({self.internal_trade_id}: {self.product_name} "
                 f"{self.quantity}{self.unit} @ {self.price} "
                 f"{self.contract_month} {self.buy_sell})")
 
     def __repr__(self) -> str:
         """Developer string representation."""
-        return (f"Trade(id={self.trade_id}, source={self.source.value}, "
+        return (f"Trade(id={self.internal_trade_id}, source={self.source.value}, "
                 f"product={self.product_name}, qty={self.quantity}, "
                 f"price={self.price}, month={self.contract_month}, "
                 f"side={self.buy_sell})")

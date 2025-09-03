@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Protocol
 from decimal import Decimal
 
-from .models import MatchResult, Trade
-from .loaders import CSVTradeLoader
+from .models import MatchResult, Trade, TradeSource
 from .normalizers import TradeNormalizer
 from .config import ConfigManager
 from .core import UnmatchedPoolManager
+from .core.trade_factory import ICETradeFactory
 from .matchers import (
     ExactMatcher,
     SpreadMatcher,
@@ -87,7 +87,7 @@ class ICEMatchingEngine:
         """
         self.config_manager = config_manager or ConfigManager.default()
         self.normalizer = TradeNormalizer(self.config_manager)
-        self.loader = CSVTradeLoader(self.normalizer)  # Pass normalizer to loader
+        self.trade_factory = ICETradeFactory(self.normalizer)  # Trade factory for flexible input
         self.displayer = MatchDisplayer(self.config_manager)
 
         # Setup logging
@@ -130,9 +130,9 @@ class ICEMatchingEngine:
             ) as progress:
                 task = progress.add_task("Loading...", total=None)
 
-                trader_trades, exchange_trades = self.loader.load_both_files(
-                    trader_csv_path, exchange_csv_path
-                )
+                # Use trade factory for consistency
+                trader_trades = self.trade_factory.from_csv(trader_csv_path, TradeSource.TRADER)
+                exchange_trades = self.trade_factory.from_csv(exchange_csv_path, TradeSource.EXCHANGE)
 
                 progress.remove_task(task)
 
@@ -343,10 +343,9 @@ class ICEMatchingEngine:
             # Set conversion ratio for all Trade instances
             Trade.set_conversion_ratio(self.config_manager.get_conversion_ratio())
 
-            # Load data
-            trader_trades, exchange_trades = self.loader.load_both_files(
-                trader_csv_path, exchange_csv_path
-            )
+            # Load data using trade factory
+            trader_trades = self.trade_factory.from_csv(trader_csv_path, TradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_csv(exchange_csv_path, TradeSource.EXCHANGE)
 
             # Initialize pool manager
             pool_manager = UnmatchedPoolManager(trader_trades, exchange_trades)
@@ -422,6 +421,106 @@ class ICEMatchingEngine:
 
         except Exception as e:
             self.logger.error(f"ICE minimal matching failed: {e}")
+            raise RuntimeError(f"ICE matching failed: {e}") from e
+    
+    def run_matching_from_dataframes(self, trader_df, exchange_df) -> tuple[List[MatchResult], Dict[str, Any]]:
+        """Run ICE matching process directly from DataFrames without CSV files.
+        
+        Args:
+            trader_df: DataFrame containing trader trades
+            exchange_df: DataFrame containing exchange trades
+            
+        Returns:
+            Tuple of (matches, statistics) for unified system integration
+        """
+        from datetime import datetime
+        from .utils.dataframe_output import create_reconciliation_dataframe
+        
+        start_time = time.time()
+        execution_datetime = datetime.now()
+        
+        try:
+            # Set conversion ratio for all Trade instances
+            Trade.set_conversion_ratio(self.config_manager.get_conversion_ratio())
+            
+            # Create trades directly from DataFrames using trade factory
+            trader_trades = self.trade_factory.from_dataframe(trader_df, TradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_dataframe(exchange_df, TradeSource.EXCHANGE)
+            
+            # Initialize pool manager
+            pool_manager = UnmatchedPoolManager(trader_trades, exchange_trades)
+            
+            # Run all matching rules in sequence
+            all_matches = []
+            
+            # Get processing order from config
+            processing_order = self.config_manager.get_processing_order()
+            
+            # Create matcher instances based on config
+            matchers: Dict[int, MatcherProtocol] = {
+                1: ExactMatcher(self.config_manager),
+                2: SpreadMatcher(self.config_manager, self.normalizer),
+                3: CrackMatcher(self.config_manager, self.normalizer),
+                4: ComplexCrackMatcher(self.config_manager, self.normalizer),
+                5: ProductSpreadMatcher(self.config_manager, self.normalizer),
+                6: FlyMatcher(self.config_manager, self.normalizer),
+                7: AggregationMatcher(self.config_manager),
+                8: AggregatedComplexCrackMatcher(self.config_manager, self.normalizer),
+                9: AggregatedSpreadMatcher(self.config_manager, self.normalizer),
+                10: MultilegSpreadMatcher(self.config_manager, self.normalizer),
+                11: AggregatedCrackMatcher(self.config_manager, self.normalizer),
+                12: ComplexCrackRollMatcher(self.config_manager, self.normalizer),
+                13: AggregatedProductSpreadMatcher(self.config_manager, self.normalizer)
+            }
+            
+            # Process through all rules in sequence
+            for rule_num in processing_order:
+                if rule_num in matchers:
+                    matcher = matchers[rule_num]
+                    rule_matches = matcher.find_matches(pool_manager)
+                    all_matches.extend(rule_matches)
+            
+            processing_time = time.time() - start_time
+            
+            # Get statistics from pool manager
+            pool_stats = pool_manager.get_statistics()
+            
+            # Extract match rates
+            trader_match_rate = float(pool_stats['match_rates']['trader'].replace('%', ''))
+            exchange_match_rate = float(pool_stats['match_rates']['exchange'].replace('%', ''))
+            overall_match_rate = float(pool_stats['match_rates']['overall'].replace('%', ''))
+            
+            # Get rule breakdown
+            rule_breakdown: Dict[int, int] = {}
+            for match in all_matches:
+                rule_num = match.rule_order
+                rule_breakdown[rule_num] = rule_breakdown.get(rule_num, 0) + 1
+            
+            # Generate DataFrame output
+            df = create_reconciliation_dataframe(all_matches, pool_manager, execution_datetime)
+            
+            # Get unmatched trades
+            unmatched_trader = pool_manager.get_unmatched_trader_trades()
+            unmatched_exchange = pool_manager.get_unmatched_exchange_trades()
+            
+            # Prepare statistics dictionary
+            statistics = {
+                'matches_found': len(all_matches),
+                'match_rate': overall_match_rate,
+                'trader_match_rate': trader_match_rate,
+                'exchange_match_rate': exchange_match_rate,
+                'processing_time': processing_time,
+                'rule_breakdown': rule_breakdown,
+                'reconciliation_dataframe': df,
+                'pool_statistics': pool_stats,
+                'unmatched_trader_trades': unmatched_trader,
+                'unmatched_exchange_trades': unmatched_exchange
+            }
+            
+            return all_matches, statistics
+            
+        except Exception as e:
+            self.logger.error(f"ICE DataFrame matching failed: {e}")
             raise RuntimeError(f"ICE matching failed: {e}") from e
 
 

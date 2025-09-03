@@ -220,7 +220,7 @@ class FlyMatcher(BaseMatcher):
                 if self._is_valid_fly_group(trades_in_group):
                     fly_groups.append(trades_in_group)
                     logger.debug(
-                        f"Found dealid fly group: {[t.trade_id for t in trades_in_group]} (dealid: {dealid_str})"
+                        f"Found dealid fly group: {[t.internal_trade_id for t in trades_in_group]} (dealid: {dealid_str})"
                     )
             elif len(trades_in_group) > 3:
                 # Multiple legs - try to find valid 3-trade combinations
@@ -235,7 +235,7 @@ class FlyMatcher(BaseMatcher):
                             if self._is_valid_fly_group(potential_group):
                                 fly_groups.append(potential_group)
                                 logger.debug(
-                                    f"Found dealid fly group: {[t.trade_id for t in potential_group]} (dealid: {dealid_str})"
+                                    f"Found dealid fly group: {[t.internal_trade_id for t in potential_group]} (dealid: {dealid_str})"
                                 )
 
         return fly_groups

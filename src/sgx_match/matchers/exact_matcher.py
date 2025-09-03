@@ -66,15 +66,15 @@ class ExactMatcher(BaseMatcher):
             
             for exchange_trade in matching_exchange_trades:
                 # Verify both trades are still unmatched
-                if (pool_manager.is_unmatched(trader_trade.trade_id, SGXTradeSource.TRADER) and
-                    pool_manager.is_unmatched(exchange_trade.trade_id, SGXTradeSource.EXCHANGE)):
+                if (pool_manager.is_unmatched(trader_trade.internal_trade_id, SGXTradeSource.TRADER) and
+                    pool_manager.is_unmatched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE)):
                     
                     match_result = self._create_match_result(trader_trade, exchange_trade)
                     matches.append(match_result)
                     
                     # Mark trades as matched
-                    pool_manager.mark_as_matched(trader_trade.trade_id, SGXTradeSource.TRADER)
-                    pool_manager.mark_as_matched(exchange_trade.trade_id, SGXTradeSource.EXCHANGE)
+                    pool_manager.mark_as_matched(trader_trade.internal_trade_id, SGXTradeSource.TRADER)
+                    pool_manager.mark_as_matched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE)
                     
                     logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
                     

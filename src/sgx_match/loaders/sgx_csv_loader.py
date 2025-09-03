@@ -119,7 +119,7 @@ class SGXCSVLoader:
             trader_id = self._safe_str(row.get("traderid"))
             
             # Generate unique trade ID (always generate, don't conflate with trader_id)
-            trade_id = f"T_{index}"
+            internal_trade_id = f"T_{index}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(
@@ -174,7 +174,7 @@ class SGXCSVLoader:
             )
             
             return SGXTrade(
-                trade_id=trade_id,
+                internal_trade_id=internal_trade_id,
                 source=SGXTradeSource.TRADER,
                 product_name=product_name,
                 quantity_lots=quantity_lots,
@@ -203,7 +203,6 @@ class SGXCSVLoader:
                 trade_time=self.normalizer.normalize_string_field(
                     row.get("tradetime")
                 ),
-                trade_datetime=None,  # Trader data doesn't have combined datetime
                 trader_id=trader_id,
                 product_id=self.normalizer.normalize_string_field(
                     row.get("productid")
@@ -237,7 +236,7 @@ class SGXCSVLoader:
         """
         try:
             # Always generate consistent trade ID with row index for easy identification
-            trade_id = f"E_{index}"
+            internal_trade_id = f"E_{index}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(
@@ -285,7 +284,7 @@ class SGXCSVLoader:
             )
             
             return SGXTrade(
-                trade_id=trade_id,
+                internal_trade_id=internal_trade_id,
                 source=SGXTradeSource.EXCHANGE,
                 product_name=product_name,
                 quantity_lots=quantity_lots,
@@ -311,9 +310,8 @@ class SGXCSVLoader:
                 trade_date=self.normalizer.normalize_string_field(
                     row.get("tradedate")
                 ),
-                trade_time=None,  # Exchange data doesn't have separate trade_time
-                trade_datetime=self.normalizer.normalize_string_field(
-                    row.get("tradedatetime")
+                trade_time=self.normalizer.normalize_string_field(
+                    row.get("tradetime")  # Exchange now uses standardized tradetime column
                 ),
                 trader_id=None,  # Exchange data doesn't have trader_id
                 product_id=None,  # Exchange data doesn't have product_id

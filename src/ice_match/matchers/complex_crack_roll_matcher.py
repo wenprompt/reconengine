@@ -116,7 +116,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             return crack_pairs
 
         # Sort by trade_id to find consecutive trades (assuming trade_id reflects order)
-        crack_trades.sort(key=lambda t: t.trade_id)
+        crack_trades.sort(key=lambda t: t.internal_trade_id)
 
         # Look for consecutive pairs with index proximity (±2 tolerance)
         for i in range(len(crack_trades)):
@@ -126,7 +126,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
                 if self._validate_crack_roll_pattern(trade1, trade2):
                     crack_pairs.append((trade1, trade2))
                     logger.debug(
-                        f"Found potential crack roll pair: {trade1.trade_id} + {trade2.trade_id}"
+                        f"Found potential crack roll pair: {trade1.internal_trade_id} + {trade2.internal_trade_id}"
                     )
 
         return crack_pairs
