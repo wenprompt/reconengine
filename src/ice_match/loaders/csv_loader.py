@@ -118,7 +118,7 @@ class CSVTradeLoader:
                 unit = self.normalizer.get_trader_product_unit_default(product_name)
 
             return Trade(
-                trade_id=f"T_{index:04d}",
+                trade_id=f"T_{index}",
                 source=TradeSource.TRADER,
                 product_name=product_name,
                 quantity=Decimal(quantity_str.replace(",", "")),
@@ -161,7 +161,7 @@ class CSVTradeLoader:
             spread = "S" if trade_id_raw else None
 
             return Trade(
-                trade_id=f"E_{index:04d}",
+                trade_id=f"E_{index}",
                 source=TradeSource.EXCHANGE,
                 product_name=product_name,
                 quantity=Decimal(quantity_str.replace(",", "").replace('"', "")),

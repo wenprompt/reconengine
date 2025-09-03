@@ -4,7 +4,6 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 import logging
-import uuid
 
 from ..models import SGXTrade, SGXTradeSource
 from ..normalizers import SGXTradeNormalizer
@@ -125,7 +124,7 @@ class SGXCSVLoader:
             trader_id = self._get_field_value(row, "traderid", field_mappings)
             
             # Generate unique trade ID (always generate, don't conflate with trader_id)
-            trade_id = f"T_{index}_{uuid.uuid4().hex[:6]}"
+            trade_id = f"T_{index}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(
@@ -251,7 +250,7 @@ class SGXCSVLoader:
         """
         try:
             # Always generate consistent trade ID with row index for easy identification
-            trade_id = f"E_{index}_{uuid.uuid4().hex[:6]}"
+            trade_id = f"E_{index}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(

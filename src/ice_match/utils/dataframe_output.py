@@ -167,8 +167,8 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
 
     # Add columns with appropriate styling
     table.add_column("ReconID", style="green", width=12)
-    table.add_column("Trader IDs", style="blue", width=12)
-    table.add_column("Exchange IDs", style="purple", width=12)
+    table.add_column("Trade IDs (T)", style="blue", width=12)
+    table.add_column("Trade IDs (E)", style="purple", width=12)
     table.add_column("Status", style="bold", width=10)
     table.add_column("Remarks", style="magenta", width=15)
     table.add_column("Confidence", style="yellow", width=8, justify="right")

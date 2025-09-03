@@ -4,7 +4,6 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 import logging
-import uuid
 
 from ..models import CMETrade, CMETradeSource
 from ..normalizers import CMETradeNormalizer
@@ -122,7 +121,7 @@ class CMECSVLoader:
         """
         try:
             # Generate unique trade ID
-            trade_id = f"T_{index}_{uuid.uuid4().hex[:6]}"
+            trade_id = f"T_{index}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(
@@ -240,7 +239,7 @@ class CMECSVLoader:
         """
         try:
             # Always generate consistent trade ID with row index for easy identification
-            trade_id = f"E_{index}_{uuid.uuid4().hex[:6]}"
+            trade_id = f"E_{index}"
             
             # Extract and normalize core fields
             product_name = self.normalizer.normalize_product_name(

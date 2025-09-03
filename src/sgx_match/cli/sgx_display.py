@@ -141,8 +141,8 @@ class SGXDisplay:
         table.add_column("Quantity", justify="right", style="blue")
         table.add_column("Price", justify="right", style="magenta")
         table.add_column("B/S", justify="center")
-        table.add_column("Trader ID", style="dim")
-        table.add_column("Exchange ID", style="dim")
+        table.add_column("Trade ID (T)", style="dim")
+        table.add_column("Trade ID (E)", style="dim")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -175,8 +175,8 @@ class SGXDisplay:
         table.add_column("Quantity", justify="right", style="blue")
         table.add_column("Spread Price", justify="right", style="magenta")
         table.add_column("Directions", justify="center")
-        table.add_column("Trader IDs", style="dim")
-        table.add_column("Exchange IDs", style="dim")
+        table.add_column("Trade IDs (T)", style="dim")
+        table.add_column("Trade IDs (E)", style="dim")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -245,8 +245,8 @@ class SGXDisplay:
         table.add_column("Quantity", justify="right", style="blue")
         table.add_column("Spread Price", justify="right", style="magenta")
         table.add_column("Directions", justify="center")
-        table.add_column("Trader IDs", style="dim")
-        table.add_column("Exchange IDs", style="dim")
+        table.add_column("Trade IDs (T)", style="dim")
+        table.add_column("Trade IDs (E)", style="dim")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:

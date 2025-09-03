@@ -112,8 +112,8 @@ class MatchDisplayer:
 
         match_table = Table(title=title, box=box.ROUNDED, width=140)
         match_table.add_column("Match ID", style="cyan", no_wrap=True, width=14)
-        match_table.add_column("Trader ID", style="green", no_wrap=True, width=18)
-        match_table.add_column("Exchange ID", style="blue", no_wrap=True, width=18)
+        match_table.add_column("Trade ID (T)", style="green", no_wrap=True, width=18)
+        match_table.add_column("Trade ID (E)", style="blue", no_wrap=True, width=18)
         match_table.add_column("Product", style="white", width=14)
         match_table.add_column("Qty (MT)", justify="right", style="white", width=10)
         match_table.add_column("Price", justify="right", style="white", width=8)
