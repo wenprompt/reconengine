@@ -35,10 +35,10 @@ class SGXTrade(BaseModel):
     product_name: str = Field(
         ..., description="Normalized product name (FE, PMX, CAPE, etc.)"
     )
-    quantity_lots: Optional[Decimal] = Field(
-        None, ge=0, description="Trade quantity in lots"
+    quantitylot: Optional[Decimal] = Field(
+        None, ge=0, description="Trade quantity in lots (matches CSV column)"
     )
-    quantity_units: Decimal = Field(..., gt=0, description="Trade quantity in units")
+    quantityunit: Decimal = Field(..., gt=0, description="Trade quantity in units (matches CSV column)")
     unit: Optional[str] = Field(None, description="Quantity unit (MT, Day, etc.)")
     price: Decimal = Field(..., description="Trade price")
     contract_month: str = Field(..., description="Contract month (e.g., Oct25)")
@@ -85,7 +85,6 @@ class SGXTrade(BaseModel):
     # Exchange-specific fields
     deal_id: Optional[int] = Field(default=None, description="Deal identifier")
     clearing_status: Optional[str] = Field(default=None, description="Clearing status")
-    trader_name: Optional[str] = Field(default=None, description="Trader name")
     trading_session: Optional[str] = Field(
         default=None, description="Trading session (T, T+1)"
     )
@@ -117,7 +116,7 @@ class SGXTrade(BaseModel):
         return (
             self.product_name,
             self.contract_month,
-            self.quantity_units,
+            self.quantityunit,
             self.price,
             self.buy_sell,
         )
@@ -126,5 +125,5 @@ class SGXTrade(BaseModel):
         """String representation for debugging."""
         return (
             f"SGXTrade({self.display_id}: {self.product_name} "
-            f"{self.contract_month} {self.quantity_units} @ {self.price} {self.buy_sell})"
+            f"{self.contract_month} {self.quantityunit} @ {self.price} {self.buy_sell})"
         )

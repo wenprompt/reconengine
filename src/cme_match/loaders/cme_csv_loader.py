@@ -163,7 +163,7 @@ class CMECSVLoader:
                 trade_id=trade_id,
                 source=CMETradeSource.TRADER,
                 product_name=product_name,
-                quantity_lots=quantity_lots,
+                quantitylots=quantity_lots,
                 unit=self.normalizer.normalize_string_field(
                     row.get("unit")
                 ) or None,
@@ -273,7 +273,7 @@ class CMECSVLoader:
                 trade_id=trade_id,
                 source=CMETradeSource.EXCHANGE,
                 product_name=product_name,
-                quantity_lots=quantity_lots,
+                quantitylots=quantity_lots,
                 unit=self.normalizer.normalize_string_field(
                     row.get("unit")
                 ) or None,

@@ -19,7 +19,7 @@ class MultiLegBaseMatcher(BaseMatcher, ABC):
     
     Inherits universal field validation from SGXBaseMatcher and adds:
     - Shared utility methods for multi-leg instruments
-    - SGX-specific quantity handling (quantity_units field)
+    - SGX-specific quantity handling (quantityunit field)
     """
     
     def __init__(self, config_manager: SGXConfigManager):
@@ -27,7 +27,7 @@ class MultiLegBaseMatcher(BaseMatcher, ABC):
         super().__init__(config_manager)
     
     def _get_quantity_for_grouping(self, trade: SGXTrade) -> Decimal:
-        """Get appropriate quantity for grouping (SGX uses quantity_units directly).
+        """Get appropriate quantity for grouping (SGX uses quantityunit directly).
         
         Args:
             trade: SGXTrade object to get quantity for
@@ -35,7 +35,7 @@ class MultiLegBaseMatcher(BaseMatcher, ABC):
         Returns:
             Decimal: Trade quantity in units
         """
-        return trade.quantity_units
+        return trade.quantityunit
     
     def validate_spread_pair_characteristics(self, trade1: SGXTrade, trade2: SGXTrade) -> bool:
         """Validate that two trades can form a valid spread pair.
@@ -52,7 +52,7 @@ class MultiLegBaseMatcher(BaseMatcher, ABC):
             
         Validation criteria:
             - Same product name
-            - Same quantity (quantity_units)
+            - Same quantity (quantityunit)
             - Opposite buy/sell directions
             - Different contract months
             - Universal fields match (broker, clearing account, etc.)
@@ -62,7 +62,7 @@ class MultiLegBaseMatcher(BaseMatcher, ABC):
             return False
             
         # Must have same quantity
-        if trade1.quantity_units != trade2.quantity_units:
+        if trade1.quantityunit != trade2.quantityunit:
             return False
         
         # Must have opposite buy/sell directions

@@ -118,7 +118,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
                     if pool_manager.record_match(match):
                         matches.append(match)
                         logger.info(
-                            f"Found aggregated crack match: {crack_trade.product_name} {crack_trade.contract_month} {crack_trade.quantity}"
+                            f"Found aggregated crack match: {crack_trade.product_name} {crack_trade.contract_month} {crack_trade.quantityunit}"
                         )
                     else:
                         logger.error(f"Failed to record aggregated crack match: {match.match_id}")

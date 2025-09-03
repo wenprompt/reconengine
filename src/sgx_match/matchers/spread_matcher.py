@@ -78,7 +78,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         trade_groups: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
         for trade in trader_trades:
             if pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER):
-                key = self.create_universal_signature(trade, [trade.product_name, trade.quantity_units])
+                key = self.create_universal_signature(trade, [trade.product_name, trade.quantityunit])
                 trade_groups[key].append(trade)
         
         # Find pairs within each group
@@ -399,7 +399,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             return False
 
         # Must have same quantity
-        if trader1.quantity_units != exchange1.quantity_units or trader2.quantity_units != exchange1.quantity_units:
+        if trader1.quantityunit != exchange1.quantityunit or trader2.quantityunit != exchange1.quantityunit:
             return False
 
         # Universal fields must match
@@ -570,7 +570,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # Rule-specific matched fields
         rule_specific_fields = [
             "product_name",
-            "quantity_units", 
+            "quantityunit", 
             "contract_months",
             "spread_price_calculation",
         ]

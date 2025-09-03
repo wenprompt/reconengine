@@ -274,7 +274,7 @@ class MatchDisplayer:
             trade_table.add_row(
                 trade.internal_trade_id,
                 trade.product_name,
-                f"{trade.quantity:,.0f}",
+                f"{trade.quantityunit:,.0f}",
                 trade.unit.upper(),
                 f"{trade.price:,.2f}",
                 trade.contract_month,

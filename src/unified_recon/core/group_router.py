@@ -363,19 +363,20 @@ class UnifiedTradeRouter:
                 records.append(trade.raw_data)
             else:
                 # Fallback: convert trade object to dict (less ideal but functional)
+                # All trade models now use standardized field names: quantityunit for ICE/SGX
                 records.append({
                     'internaltradeid': trade.internal_trade_id,
                     'exchangegroupid': trade.exchange_group_id,
                     'brokergroupid': trade.broker_group_id,
                     'exchclearingacctid': trade.exch_clearing_acct_id,
                     'productname': trade.product_name,
-                    'quantityunit': float(trade.quantity) if hasattr(trade, 'quantity') else float(trade.quantity_units),
+                    'quantityunit': float(trade.quantityunit),  # Standardized field name
                     'price': float(trade.price),
                     'contractmonth': trade.contract_month,
                     'b_s': trade.buy_sell,
-                    'unit': trade.unit if hasattr(trade, 'unit') else None,
-                    'tradedate': trade.trade_date if hasattr(trade, 'trade_date') else None,
-                    'tradetime': trade.trade_time if hasattr(trade, 'trade_time') else None,
+                    'unit': getattr(trade, 'unit', None),  # Optional field
+                    'tradedate': getattr(trade, 'trade_date', None),  # Optional field
+                    'tradetime': getattr(trade, 'trade_time', None),  # Optional field
                 })
         
         df = pd.DataFrame(records)

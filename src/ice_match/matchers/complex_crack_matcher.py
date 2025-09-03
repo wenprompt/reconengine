@@ -78,7 +78,7 @@ class ComplexCrackMatcher(BaseMatcher):
                     self.matches_found.append(match)
                     logger.info(
                         f"Found complex crack match: {crack_trade.product_name} "
-                        f"{crack_trade.contract_month} {crack_trade.quantity}"
+                        f"{crack_trade.contract_month} {crack_trade.quantityunit}"
                     )
                 else:
                     logger.error(f"Failed to record complex crack match: {match.match_id}")

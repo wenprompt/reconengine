@@ -173,7 +173,7 @@ class CMEDisplay:
                 trade.display_id,
                 trade.product_name,
                 trade.contract_month,
-                str(trade.quantity_lots),
+                str(trade.quantitylots),
                 str(trade.price),
                 trade.buy_sell,
             )
@@ -202,7 +202,7 @@ class CMEDisplay:
                 trade.display_id,
                 trade.product_name,
                 trade.contract_month,
-                str(trade.quantity_lots),
+                str(trade.quantitylots),
                 str(trade.price),
                 trade.buy_sell,
             )

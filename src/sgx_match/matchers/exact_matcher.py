@@ -115,7 +115,7 @@ class ExactMatcher(BaseMatcher):
         rule_fields = [
             trade.product_name,
             trade.contract_month,
-            trade.quantity_units,
+            trade.quantityunit,
             trade.price,
             trade.buy_sell
         ]
@@ -150,7 +150,7 @@ class ExactMatcher(BaseMatcher):
         match_id = self.generate_match_id(self.rule_number)
         
         # Fields that matched exactly (rule-specific + universal)
-        rule_fields = ["product_name", "contract_month", "quantity_units", "price", "buy_sell"]
+        rule_fields = ["product_name", "contract_month", "quantityunit", "price", "buy_sell"]
         matched_fields = self.get_universal_matched_fields(rule_fields)
         
         return SGXMatchResult(

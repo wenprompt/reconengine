@@ -603,7 +603,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         ].model_copy(
             update={
                 "product_name": f"{product1_name}/{product2_name}",
-                "quantity": aggregated_quantity,  # Update base quantity field, not the property
+                "quantityunit": aggregated_quantity,  # Update base quantity field
             }
         )
 

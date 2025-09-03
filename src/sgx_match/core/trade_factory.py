@@ -347,8 +347,8 @@ class SGXTradeFactory:
                 internal_trade_id=internal_trade_id,
                 source=SGXTradeSource.TRADER,
                 product_name=product_name,
-                quantity_units=Decimal(quantity_units.replace(",", "")),
-                quantity_lots=(
+                quantityunit=Decimal(quantity_units.replace(",", "")),
+                quantitylot=(
                     self._safe_decimal(quantity_lots) if quantity_lots else None
                 ),
                 unit=self._safe_str(row.get("unit")),
@@ -410,10 +410,10 @@ class SGXTradeFactory:
                 internal_trade_id=internal_trade_id,
                 source=SGXTradeSource.EXCHANGE,
                 product_name=product_name,
-                quantity_units=Decimal(
+                quantityunit=Decimal(
                     quantity_units.replace(",", "").replace('"', "")
                 ),
-                quantity_lots=(
+                quantitylot=(
                     self._safe_decimal(quantity_lots) if quantity_lots else None
                 ),
                 unit=self._safe_str(row.get("unit")),
@@ -430,7 +430,6 @@ class SGXTradeFactory:
                 trade_time=self._safe_str(row.get("tradetime")),  # Exchange now uses tradetime (standardized)
                 # Exchange-specific optional fields
                 clearing_status=self._safe_str(row.get("clearingstatus")),
-                trader_name=self._safe_str(row.get("tradername")),
                 trading_session=self._safe_str(row.get("tradingsession")),
                 cleared_date=self._safe_str(row.get("cleareddate")),
                 # Common optional fields

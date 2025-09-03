@@ -93,7 +93,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         trade_groups: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
         for trade in trader_trades:
             if pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER):
-                key = self.create_universal_signature(trade, [trade.contract_month, trade.quantity_units])
+                key = self.create_universal_signature(trade, [trade.contract_month, trade.quantityunit])
                 trade_groups[key].append(trade)
         
         logger.debug(f"Trader product spread groups: {len(trade_groups)}")
@@ -104,7 +104,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             if len(trades) >= 1:
                 # Log details of all trades in this group
                 for idx, trade in enumerate(trades):
-                    logger.debug(f"  Trade {idx}: {trade.product_name}/{trade.buy_sell}, price={trade.price}, spread={trade.spread}, contract_month={trade.contract_month}, quantity={trade.quantity_units}")
+                    logger.debug(f"  Trade {idx}: {trade.product_name}/{trade.buy_sell}, price={trade.price}, spread={trade.spread}, contract_month={trade.contract_month}, quantity={trade.quantityunit}")
             
             if len(trades) >= 2:
                 for i in range(len(trades)):
@@ -219,7 +219,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             return False
         
         # Must have same quantity
-        if trade1.quantity_units != trade2.quantity_units:
+        if trade1.quantityunit != trade2.quantityunit:
             return False
         
         # Must have opposite B/S directions
@@ -286,9 +286,9 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             return False
 
         # Validate quantities match
-        if (trader_trade1.quantity_units != exchange_trade1.quantity_units or
-            trader_trade1.quantity_units != exchange_trade2.quantity_units):
-            logger.debug(f"Product spread validation failed: quantity mismatch - trader: {trader_trade1.quantity_units}, exchange: {exchange_trade1.quantity_units}/{exchange_trade2.quantity_units}")
+        if (trader_trade1.quantityunit != exchange_trade1.quantityunit or
+            trader_trade1.quantityunit != exchange_trade2.quantityunit):
+            logger.debug(f"Product spread validation failed: quantity mismatch - trader: {trader_trade1.quantityunit}, exchange: {exchange_trade1.quantityunit}/{exchange_trade2.quantityunit}")
             return False
 
         # Validate B/S directions and product spread prices
@@ -373,7 +373,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         rule_specific_fields = [
             "product_names",
             "contract_month", 
-            "quantity_units",
+            "quantityunit",
             "product_spread_price_calculation",
         ]
 
@@ -533,7 +533,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         for trade in trader_trades:
             if pool_manager.is_unmatched(trade.internal_trade_id, SGXTradeSource.TRADER):
                 # Index by contract month, quantity, and universal fields (same as regular matching)
-                signature = self.create_universal_signature(trade, [trade.contract_month, trade.quantity_units])
+                signature = self.create_universal_signature(trade, [trade.contract_month, trade.quantityunit])
                 index[signature].append(trade)
         
         logger.debug(f"Created trader index for hyphenated matching with {len(index)} signatures")
@@ -564,7 +564,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         logger.debug(f"Parsed '{exchange_trade.product_name}' into: '{first_product}' + '{second_product}'")
         
         # Create signature for finding matching trader trades
-        signature = self.create_universal_signature(exchange_trade, [exchange_trade.contract_month, exchange_trade.quantity_units])
+        signature = self.create_universal_signature(exchange_trade, [exchange_trade.contract_month, exchange_trade.quantityunit])
         
         if signature not in trader_index:
             logger.debug(f"No trader trades found for signature: {signature}")
