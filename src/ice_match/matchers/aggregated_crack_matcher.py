@@ -237,7 +237,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         """Create MatchResult for aggregated crack match using base class method."""
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_CRACK")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields that match
         rule_specific_fields = [

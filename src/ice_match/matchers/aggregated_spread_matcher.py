@@ -383,7 +383,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         zero_ex_trades, _, _ = zero_aggregation
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_SPREAD")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields that match
         rule_specific_fields = [

@@ -117,24 +117,23 @@ class BaseMatcher(ABC):
         # Return the mapped attribute name or the original if not found
         return field_mappings.get(config_field_name, config_field_name)
 
-    def generate_match_id(self, rule_number: int, match_type_prefix: str = "") -> str:
-        """Generate a unique match ID with validation.
+    def generate_match_id(self, rule_number: int) -> str:
+        """Generate a unique match ID with standardized format.
 
         Args:
             rule_number: Rule number for the match
-            match_type_prefix: Optional prefix for match type (e.g., "EXACT", "SPREAD")
 
         Returns:
-            Unique match ID string
+            Unique match ID string in format: MODULE_RULE_UUID
 
         Raises:
             ValueError: If UUID_LENGTH is invalid or UUID generation fails
 
         Examples:
-            >>> matcher.generate_match_id(1, "EXACT")
-            'EXACT_1_a1b2c3d4'
+            >>> matcher.generate_match_id(1)
+            'ICE_1_a1b2c3d4'
             >>> matcher.generate_match_id(2)
-            'RULE_2_e5f6g7h8'
+            'ICE_2_e5f6g7h8'
         """
         # Validate UUID_LENGTH to prevent silent failures
         if not (1 <= UUID_LENGTH <= 32):
@@ -147,11 +146,8 @@ class BaseMatcher(ABC):
             logger.error(f"Failed to generate UUID: {e}")
             raise ValueError(f"UUID generation failed: {e}") from e
 
-        # Build match ID with optional prefix
-        if match_type_prefix:
-            match_id = f"{match_type_prefix}_{rule_number}_{uuid_suffix}"
-        else:
-            match_id = f"RULE_{rule_number}_{uuid_suffix}"
+        # Build match ID with standardized format: MODULE_RULE_UUID
+        match_id = f"ICE_{rule_number}_{uuid_suffix}"
 
         logger.debug(f"Generated match ID: {match_id}")
         return match_id

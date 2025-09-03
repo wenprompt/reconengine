@@ -2,8 +2,16 @@
 
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Any
+import uuid
+import logging
 from ..models import SGXTrade
 from ..config import SGXConfigManager
+
+# Constants
+UUID_LENGTH = 8  # Length of UUID suffix for match IDs (must be 1-32)
+
+# Module logger
+logger = logging.getLogger(__name__)
 
 
 class BaseMatcher(ABC):
@@ -101,6 +109,41 @@ class BaseMatcher(ABC):
         """
         field_mappings = self.config_manager.get_universal_field_mappings()
         return field_mappings.get(config_field_name, config_field_name)
+    
+    def generate_match_id(self, rule_number: int) -> str:
+        """Generate a unique match ID with standardized format.
+
+        Args:
+            rule_number: Rule number for the match
+
+        Returns:
+            Unique match ID string in format: MODULE_RULE_UUID
+
+        Raises:
+            ValueError: If UUID_LENGTH is invalid or UUID generation fails
+
+        Examples:
+            >>> matcher.generate_match_id(1)
+            'SGX_1_a1b2c3d4'
+            >>> matcher.generate_match_id(2)
+            'SGX_2_e5f6g7h8'
+        """
+        # Validate UUID_LENGTH to prevent silent failures
+        if not (1 <= UUID_LENGTH <= 32):
+            raise ValueError(f"UUID_LENGTH must be between 1 and 32, got {UUID_LENGTH}")
+
+        # Generate UUID suffix with validated length
+        try:
+            uuid_suffix = uuid.uuid4().hex[:UUID_LENGTH]
+        except (OSError, SystemError, ValueError) as e:
+            logger.error(f"Failed to generate UUID: {e}")
+            raise ValueError(f"UUID generation failed: {e}") from e
+
+        # Build match ID with standardized format: MODULE_RULE_UUID
+        match_id = f"SGX_{rule_number}_{uuid_suffix}"
+
+        logger.debug(f"Generated match ID: {match_id}")
+        return match_id
     
     @abstractmethod
     def find_matches(self, pool_manager) -> List:

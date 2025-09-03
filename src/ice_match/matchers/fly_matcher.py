@@ -420,7 +420,7 @@ class FlyMatcher(BaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
         return MatchResult(
-            match_id=self.generate_match_id(self.rule_number, "FLY"),
+            match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.FLY,
             confidence=self.confidence,
             trader_trade=trader_trades[0],  # Primary trade (earliest month)

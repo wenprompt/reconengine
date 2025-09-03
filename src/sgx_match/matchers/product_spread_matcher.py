@@ -2,7 +2,6 @@
 
 from typing import List, Optional, Dict, Tuple
 import logging
-import uuid
 from collections import defaultdict
 from decimal import Decimal
 
@@ -385,7 +384,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         tier_confidence = self._calculate_tier_confidence(confidence_tier)
 
         return SGXMatchResult(
-            match_id=self._generate_match_id(),
+            match_id=self.generate_match_id(self.rule_number),
             match_type=SGXMatchType.PRODUCT_SPREAD,
             confidence=tier_confidence,
             trader_trade=trader_trades[0],
@@ -430,11 +429,6 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         
         return tier_confidence
 
-    def _generate_match_id(self) -> str:
-        """Generate unique match ID for product spread matches."""
-        prefix = self.config_manager.get_match_id_prefix()
-        uuid_suffix = uuid.uuid4().hex[:6]
-        return f"{prefix}_PRODUCT_SPREAD_{self.rule_number}_{uuid_suffix}"
 
     def get_rule_info(self) -> dict:
         """Get information about this matching rule."""

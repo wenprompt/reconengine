@@ -665,9 +665,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             all_exchange_trades[1:] if len(all_exchange_trades) > 1 else []
         )
 
-        match_id = (
-            f"multileg_spread_{primary_trader.trade_id}_{primary_exchange.trade_id}"
-        )
+        match_id = self.generate_match_id(self.rule_number)
 
         # Only pass rule-specific fields - universal fields added automatically
         matched_fields = self.get_universal_matched_fields(["product_name", "quantity"])

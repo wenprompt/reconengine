@@ -39,7 +39,6 @@ class SGXMatchingConfig(BaseModel):
     )
 
     # Match ID prefix
-    match_id_prefix: str = Field(default="SGX", description="Prefix for match IDs")
 
 
 class SGXConfigManager:
@@ -144,13 +143,6 @@ class SGXConfigManager:
         """
         return self.normalizer_config.get("buy_sell_mappings", {})
 
-    def get_match_id_prefix(self) -> str:
-        """Get prefix for match IDs.
-
-        Returns:
-            String prefix for generating match IDs
-        """
-        return self.matching_config.match_id_prefix
 
     def get_field_mappings(self) -> Dict[str, Dict[str, str]]:
         """Get field mappings for trader and exchange CSV files.

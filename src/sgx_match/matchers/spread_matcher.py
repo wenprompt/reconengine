@@ -579,7 +579,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
         return SGXMatchResult(
-            match_id=self._generate_match_id(),
+            match_id=self.generate_match_id(self.rule_number),
             match_type=SGXMatchType.SPREAD,
             confidence=self.confidence,
             trader_trade=trader_trades[0],
@@ -590,12 +590,6 @@ class SpreadMatcher(MultiLegBaseMatcher):
             additional_exchange_trades=exchange_trades[1:],
         )
 
-    def _generate_match_id(self) -> str:
-        """Generate unique match ID for spread matches."""
-        import uuid
-        prefix = self.config_manager.get_match_id_prefix()
-        uuid_suffix = uuid.uuid4().hex[:6]
-        return f"{prefix}_SPREAD_{self.rule_number}_{uuid_suffix}"
 
     def get_rule_info(self) -> dict:
         """Get information about this matching rule."""

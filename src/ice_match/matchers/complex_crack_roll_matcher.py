@@ -516,7 +516,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         }
 
         return MatchResult(
-            match_id=self.generate_match_id(self.rule_number, "COMPLEX_CRACK_ROLL"),
+            match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.COMPLEX_CRACK_ROLL,
             confidence=self.confidence,
             trader_trade=trader1,

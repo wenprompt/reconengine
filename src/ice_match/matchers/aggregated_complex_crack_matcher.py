@@ -250,7 +250,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         """Create MatchResult for aggregated complex crack match."""
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_CRACK")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Primary exchange trade is the first base trade
         primary_base_trade = base_trades[0]

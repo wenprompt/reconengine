@@ -145,9 +145,7 @@ class ComplexCrackMatcher(BaseMatcher):
                     crack_trade, base_trade, brent_trade
                 ):
                     return MatchResult(
-                        match_id=self.generate_match_id(
-                            self.rule_number, "COMPLEX_CRACK"
-                        ),
+                        match_id=self.generate_match_id(self.rule_number),
                         match_type=MatchType.COMPLEX_CRACK,
                         confidence=self.confidence,  # Get confidence from config
                         trader_trade=crack_trade,

@@ -589,7 +589,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             all_trader_trades.extend(spread_pair)
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_PROD_SPREAD")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Create synthetic spread trade for display
         product1_name = product1_exchange.product_name
@@ -928,7 +928,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         price_trade, zero_trade = trader_spread_pair
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_PROD_SPREAD")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields for Tier 4
         rule_specific_fields = [
@@ -1082,7 +1082,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         all_exchange_trades = product1_aggregation + product2_aggregation
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_PROD_SPREAD")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields
         rule_specific_fields = [
@@ -1358,7 +1358,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         all_exchange_trades = price_aggregation + zero_aggregation
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_PROD_SPREAD")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields
         rule_specific_fields = [
@@ -1408,7 +1408,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         all_trader_trades = first_aggregation + second_aggregation
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_PROD_SPREAD")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields
         rule_specific_fields = [

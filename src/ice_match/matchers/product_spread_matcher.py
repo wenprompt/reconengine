@@ -572,7 +572,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         exchange1_ordered, exchange2_ordered = exchange_order
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "PROD_SPREAD_2LEG")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields that match exactly
         rule_specific_fields = [
@@ -726,7 +726,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             MatchResult representing the product spread match
         """
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "PROD_SPREAD")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields that match exactly
         rule_specific_fields = ["contract_month", "quantity_mt"]
