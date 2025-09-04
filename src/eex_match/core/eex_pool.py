@@ -75,39 +75,6 @@ class EEXUnmatchedPool:
         else:
             raise ValueError(f"Unknown trade source: {source}")
     
-    def mark_as_matched(self, trade_id: str, source: EEXTradeSource, 
-                       match_type: str = "unknown") -> bool:
-        """Mark a trade as matched and remove from pool.
-        
-        Args:
-            trade_id: Trade ID to mark as matched
-            source: Trade source (TRADER or EXCHANGE)
-            match_type: Type of match for audit trail
-            
-        Returns:
-            True if trade was successfully marked, False if not found
-        """
-        if source == EEXTradeSource.TRADER:
-            if trade_id in self._trader_pool:
-                del self._trader_pool[trade_id]
-                self._matched_trader_ids.add(trade_id)
-                logger.debug(f"Marked trader trade {trade_id} as matched ({match_type})")
-                return True
-            else:
-                logger.warning(f"Attempted to mark non-existent trader trade {trade_id} as matched")
-                return False
-                
-        elif source == EEXTradeSource.EXCHANGE:
-            if trade_id in self._exchange_pool:
-                del self._exchange_pool[trade_id]
-                self._matched_exchange_ids.add(trade_id)
-                logger.debug(f"Marked exchange trade {trade_id} as matched ({match_type})")
-                return True
-            else:
-                logger.warning(f"Attempted to mark non-existent exchange trade {trade_id} as matched")
-                return False
-        else:
-            raise ValueError(f"Unknown trade source: {source}")
     
     def record_match(self, match_result: "EEXMatchResult") -> bool:
         """Atomically record a match and remove all involved trades from pools.
