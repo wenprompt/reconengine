@@ -348,10 +348,10 @@ class ICETradeFactory:
             else:
                 unit = self.normalizer.get_trader_product_unit_default(product_name)
 
-            # Use internaltradeid from JSON mapping or fallback to T_{index}
+            # Use internaltradeid from JSON mapping or fallback to index
             internal_trade_id_raw = self._safe_str(row.get("internaltradeid"))
             internal_trade_id = (
-                internal_trade_id_raw if internal_trade_id_raw else f"T_{index}"
+                internal_trade_id_raw if internal_trade_id_raw else str(index)
             )
 
             return Trade(
@@ -407,10 +407,10 @@ class ICETradeFactory:
             # Exchange data now has tradetime column (standardized)
             trade_time = self._safe_str(row.get("tradetime"))
 
-            # Use internaltradeid from JSON mapping or fallback to E_{index}
+            # Use internaltradeid from JSON mapping or fallback to index  
             internal_trade_id_raw = self._safe_str(row.get("internaltradeid"))
             internal_trade_id = (
-                internal_trade_id_raw if internal_trade_id_raw else f"E_{index}"
+                internal_trade_id_raw if internal_trade_id_raw else str(index)
             )
 
             # Note: Exchange trades don't have spread or special_comms fields
