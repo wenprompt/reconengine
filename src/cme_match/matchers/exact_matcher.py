@@ -66,15 +66,15 @@ class ExactMatcher(BaseMatcher):
             
             for exchange_trade in matching_exchange_trades:
                 # Verify both trades are still unmatched
-                if (pool_manager.is_unmatched(trader_trade.trade_id, CMETradeSource.TRADER) and
-                    pool_manager.is_unmatched(exchange_trade.trade_id, CMETradeSource.EXCHANGE)):
+                if (pool_manager.is_unmatched(trader_trade.internal_trade_id, CMETradeSource.TRADER) and
+                    pool_manager.is_unmatched(exchange_trade.internal_trade_id, CMETradeSource.EXCHANGE)):
                     
                     match_result = self._create_match_result(trader_trade, exchange_trade)
                     matches.append(match_result)
                     
                     # Mark trades as matched
-                    pool_manager.mark_as_matched(trader_trade.trade_id, CMETradeSource.TRADER)
-                    pool_manager.mark_as_matched(exchange_trade.trade_id, CMETradeSource.EXCHANGE)
+                    pool_manager.mark_as_matched(trader_trade.internal_trade_id, CMETradeSource.TRADER)
+                    pool_manager.mark_as_matched(exchange_trade.internal_trade_id, CMETradeSource.EXCHANGE)
                     
                     logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
                     
@@ -115,7 +115,7 @@ class ExactMatcher(BaseMatcher):
         rule_fields = [
             trade.product_name,
             trade.contract_month,
-            trade.quantitylots,
+            trade.quantitylot,
             trade.price,
             trade.buy_sell
         ]
@@ -150,7 +150,7 @@ class ExactMatcher(BaseMatcher):
         match_id = self.generate_match_id(self.rule_number)
         
         # Fields that matched exactly (rule-specific + universal)
-        rule_fields = ["product_name", "contract_month", "quantitylots", "price", "buy_sell"]
+        rule_fields = ["product_name", "contract_month", "quantitylot", "price", "buy_sell"]
         matched_fields = self.get_universal_matched_fields(rule_fields)
         
         return CMEMatchResult(

@@ -316,8 +316,7 @@ uv run python -m src.unified_recon.main                    # Shows all matches+u
 uv run python -m src.unified_recon.main --log-level DEBUG # Enable debug logging
 
 # JSON payload routing (API simulation)
-uv run python -m src.unified_recon.main --json-file src/test_json/sample_full.json         # Route JSON trades by exchangeGroupId
-uv run python -m src.unified_recon.main --json-file src/test_json/sample_full.json --log-level INFO  # With detailed logging
+uv run python -m src.unified_recon.main --json-file src/test_json/sample_full.json
 
 # Run ICE match system directly
 uv run python -m src.ice_match.main
@@ -902,7 +901,7 @@ settings = get_settings()
 
 ---
 
-# 📊 JSON Routing Implementation 
+# 📊 JSON Routing Implementation
 
 _The following section documents the JSON API payload processing functionality added to the unified reconciliation system._
 
@@ -954,8 +953,8 @@ The JSON routing system implements a sophisticated processing pipeline:
 {
   "exchange_group_mappings": {
     "1": "ice_match",
-    "2": "sgx_match", 
-    "4": "ice_match"    // Added for sample JSON data
+    "2": "sgx_match",
+    "4": "ice_match" // Added for sample JSON data
   }
 }
 ```
@@ -972,7 +971,7 @@ The system supports JSON payloads with this structure:
       "internalTradeId": "10",
       "productName": "380CST",
       "quantityUnit": 1000,
-      "price": 401.00,
+      "price": 401.0,
       "contractMonth": "Jul-25",
       "b_s": "B",
       "brokerGroupId": 18,
@@ -988,6 +987,7 @@ The system supports JSON payloads with this structure:
 ### Real-World Results
 
 **Processing `sample_full.json`:**
+
 - **Total Trades**: 100 (38 trader + 62 exchange)
 - **Exchange Group**: All trades with `exchangeGroupId: 4` → routed to ICE match system
 - **Match Results**: 21 matches found with 64.8% match rate

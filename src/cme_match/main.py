@@ -1,16 +1,16 @@
 """Main entry point for CME trade matching system."""
 
 import logging
-import sys
 from pathlib import Path
 from typing import List, Optional
 import argparse
+import sys
 
 from .config import CMEConfigManager
-from .loaders import CMECSVLoader
 from .core import CMEUnmatchedPool
+from .core.trade_factory import CMETradeFactory
 from .matchers.exact_matcher import ExactMatcher
-from .models import CMEMatchResult
+from .models import CMEMatchResult, CMETradeSource
 from .cli import CMEDisplay
 from .normalizers import CMETradeNormalizer
 
@@ -33,8 +33,8 @@ class CMEMatchingEngine:
             config_manager: Optional config manager. Creates default if None.
         """
         self.config_manager = config_manager or CMEConfigManager()
-        self.csv_loader = CMECSVLoader(self.config_manager)
         self.normalizer = CMETradeNormalizer(self.config_manager)
+        self.trade_factory = CMETradeFactory(self.normalizer)
         self.display = CMEDisplay()
         
         # Initialize matchers based on config (only exact matching for CME)
@@ -64,8 +64,8 @@ class CMEMatchingEngine:
         try:
             # Load data
             logger.info("Loading CME trade data...")
-            trader_trades = self.csv_loader.load_trader_trades(trader_csv_path)
-            exchange_trades = self.csv_loader.load_exchange_trades(exchange_csv_path)
+            trader_trades = self.trade_factory.from_csv(trader_csv_path, CMETradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_csv(exchange_csv_path, CMETradeSource.EXCHANGE)
             
             self.display.show_loading_summary(len(trader_trades), len(exchange_trades))
             
@@ -92,8 +92,8 @@ class CMEMatchingEngine:
                 # Record matches in pool
                 for match in matches:
                     pool_manager.record_match(
-                        match.trader_trade.trade_id, 
-                        match.exchange_trade.trade_id, 
+                        match.trader_trade.internal_trade_id, 
+                        match.exchange_trade.internal_trade_id, 
                         match.match_type.value
                     )
                 

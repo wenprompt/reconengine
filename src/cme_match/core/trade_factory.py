@@ -1,4 +1,4 @@
-"""Trade factory for creating SGX Trade objects from various input formats."""
+"""Trade factory for creating CME Trade objects from various input formats."""
 
 import pandas as pd
 from pathlib import Path
@@ -6,30 +6,30 @@ from typing import List, Dict, Any, Optional
 from decimal import Decimal
 import logging
 
-from ..models import SGXTrade, SGXTradeSource
-from ..normalizers import SGXTradeNormalizer
+from ..models import CMETrade, CMETradeSource
+from ..normalizers import CMETradeNormalizer
 
 logger = logging.getLogger(__name__)
 
 
-class SGXTradeFactory:
-    """Factory for creating SGX Trade objects from various input formats.
+class CMETradeFactory:
+    """Factory for creating CME Trade objects from various input formats.
 
-    This factory abstracts the creation of SGXTrade objects from different
+    This factory abstracts the creation of CMETrade objects from different
     input sources (CSV, DataFrame, JSON, API) to support flexible data ingestion.
     """
 
-    def __init__(self, normalizer: SGXTradeNormalizer):
+    def __init__(self, normalizer: CMETradeNormalizer):
         """Initialize the trade factory.
 
         Args:
-            normalizer: The SGXTradeNormalizer instance for data standardization
+            normalizer: The CMETradeNormalizer instance for data standardization
         """
         self.normalizer = normalizer
 
     def from_dataframe(
-        self, df: pd.DataFrame, source: SGXTradeSource
-    ) -> List[SGXTrade]:
+        self, df: pd.DataFrame, source: CMETradeSource
+    ) -> List[CMETrade]:
         """Create trades from a pandas DataFrame.
 
         Args:
@@ -37,7 +37,7 @@ class SGXTradeFactory:
             source: Whether this is trader or exchange data
 
         Returns:
-            List of SGXTrade objects
+            List of CMETrade objects
 
         Raises:
             ValueError: If required fields are missing
@@ -63,7 +63,7 @@ class SGXTradeFactory:
         # Enumerate over rows for guaranteed integer index
         for i, (_, row) in enumerate(df.iterrows()):
             try:
-                if source == SGXTradeSource.TRADER:
+                if source == CMETradeSource.TRADER:
                     trade = self._create_trader_trade(row, i)
                 else:
                     trade = self._create_exchange_trade(row, i)
@@ -77,7 +77,7 @@ class SGXTradeFactory:
         logger.info(f"Successfully created {len(trades)} {source.value} trades")
         return trades
 
-    def from_csv(self, csv_path: Path, source: SGXTradeSource) -> List[SGXTrade]:
+    def from_csv(self, csv_path: Path, source: CMETradeSource) -> List[CMETrade]:
         """Create trades from a CSV file (backward compatibility).
 
         Args:
@@ -85,7 +85,7 @@ class SGXTradeFactory:
             source: Whether this is trader or exchange data
 
         Returns:
-            List of SGXTrade objects
+            List of CMETrade objects
 
         Raises:
             FileNotFoundError: If CSV file doesn't exist
@@ -111,8 +111,8 @@ class SGXTradeFactory:
             raise ValueError(f"Failed to load {source.value} CSV: {e}") from e
 
     def from_json(
-        self, json_data: List[Dict[str, Any]], source: SGXTradeSource
-    ) -> List[SGXTrade]:
+        self, json_data: List[Dict[str, Any]], source: CMETradeSource
+    ) -> List[CMETrade]:
         """Create trades directly from JSON data.
 
         Args:
@@ -120,7 +120,7 @@ class SGXTradeFactory:
             source: Whether this is trader or exchange data
 
         Returns:
-            List of SGXTrade objects
+            List of CMETrade objects
         """
         if not json_data:
             logger.warning(f"Empty JSON data provided for {source.value} trades")
@@ -133,7 +133,7 @@ class SGXTradeFactory:
         return self.from_dataframe(df, source)
 
     def _json_to_dataframe(
-        self, json_data: List[Dict], source: SGXTradeSource
+        self, json_data: List[Dict], source: CMETradeSource
     ) -> pd.DataFrame:
         """Convert JSON data to DataFrame with field normalization.
 
@@ -174,7 +174,6 @@ class SGXTradeFactory:
             "exchangeClearingAccountId": "exchclearingacctid",
             "productName": "productname",
             "contractMonth": "contractmonth",
-            "quantityUnit": "quantityunit",
             "quantityLot": "quantitylot",
             "traderId": "traderid",
             "tradeDate": "tradedate",
@@ -193,7 +192,7 @@ class SGXTradeFactory:
 
         return normalized
 
-    def _ensure_all_fields(self, record: Dict, source: SGXTradeSource) -> Dict:
+    def _ensure_all_fields(self, record: Dict, source: CMETradeSource) -> Dict:
         """Ensure all required and optional fields exist in the record.
 
         Args:
@@ -224,12 +223,12 @@ class SGXTradeFactory:
 
         return record
 
-    def _get_required_fields(self, source: SGXTradeSource) -> List[str]:
+    def _get_required_fields(self, source: CMETradeSource) -> List[str]:
         """Get required fields for the given source type."""
-        # Common required fields - SGX uses quantityunit as required
+        # Common required fields - CME uses quantitylot as required
         required = [
             "productname",
-            "quantityunit",
+            "quantitylot",
             "price",
             "contractmonth",
             "b_s",
@@ -239,29 +238,27 @@ class SGXTradeFactory:
         ]
 
         # Source-specific required fields
-        if source == SGXTradeSource.EXCHANGE:
-            required.extend(["tradetime", "unit"])
+        if source == CMETradeSource.EXCHANGE:
+            required.append("tradetime")  # Exchange files require tradetime
 
         return required
 
-    def _get_optional_fields(self, source: SGXTradeSource) -> List[str]:
+    def _get_optional_fields(self, source: CMETradeSource) -> List[str]:
         """Get optional fields for the given source type."""
         optional = [
             "tradedate",
-            "quantitylot",
+            "unit",
             "strike",
             "put_call",
         ]  # Common optional fields
 
-        if source == SGXTradeSource.TRADER:
+        if source == CMETradeSource.TRADER:
             optional.extend(
                 [
                     "tradetime",
                     "traderid",
                     "spread",
                     "specialcomms",
-                    "traderid",
-                    "unit",
                 ]
             )
             # Trader CSV has 'tradetime' column which maps to trade_time
@@ -273,17 +270,16 @@ class SGXTradeFactory:
                     "tradetime",
                     "clearingstatus",
                     "traderid",
-                    "tradingsession",
-                    "cleareddate",
                     "productid",
                     "productgroupid",
+                    "quantitylot",
                 ]
-            )  # Exchange CSV now has 'tradetime' column (standardized) which maps to trade_time
+            )
 
         return optional
 
     def _validate_required_fields(
-        self, df: pd.DataFrame, source: SGXTradeSource
+        self, df: pd.DataFrame, source: CMETradeSource
     ) -> None:
         """Validate that all required fields are present in DataFrame.
 
@@ -311,7 +307,7 @@ class SGXTradeFactory:
                 )
 
     def _fill_optional_fields(
-        self, df: pd.DataFrame, source: SGXTradeSource
+        self, df: pd.DataFrame, source: CMETradeSource
     ) -> pd.DataFrame:
         """Add missing optional fields to DataFrame with appropriate defaults.
 
@@ -331,23 +327,22 @@ class SGXTradeFactory:
 
         return df
 
-    def _create_trader_trade(self, row: pd.Series, index: int) -> Optional[SGXTrade]:
-        """Create a SGXTrade object from a trader data row.
+    def _create_trader_trade(self, row: pd.Series, index: int) -> Optional[CMETrade]:
+        """Create a CMETrade object from a trader data row.
 
         Args:
             row: Pandas Series containing trade data
             index: Row index for trade ID generation
 
         Returns:
-            SGXTrade object or None if creation fails
+            CMETrade object or None if creation fails
         """
         try:
             # Get raw values
             raw_product = self._safe_str(row.get("productname"))
             raw_month = self._safe_str(row.get("contractmonth"))
             raw_buy_sell = self._safe_str(row.get("b_s"))
-            quantity_units = self._safe_str(row.get("quantityunit"))
-            quantity_lots = self._safe_str(row.get("quantitylot"))
+            quantity_lot = self._safe_str(row.get("quantitylot"))
             price = self._safe_str(row.get("price"))
 
             # Normalize critical fields
@@ -355,7 +350,7 @@ class SGXTradeFactory:
             contract_month = self.normalizer.normalize_contract_month(raw_month)
             buy_sell = self.normalizer.normalize_buy_sell(raw_buy_sell)
 
-            if not all([product_name, quantity_units, price, contract_month, buy_sell]):
+            if not all([product_name, quantity_lot, price, contract_month, buy_sell]):
                 return None
 
             # Use internaltradeid from JSON mapping or fallback to T_{index}
@@ -364,14 +359,11 @@ class SGXTradeFactory:
                 internal_trade_id_raw if internal_trade_id_raw else f"T_{index}"
             )
 
-            return SGXTrade(
+            return CMETrade(
                 internal_trade_id=internal_trade_id,
-                source=SGXTradeSource.TRADER,
+                source=CMETradeSource.TRADER,
                 product_name=product_name,
-                quantityunit=Decimal(self._clean_numeric_string(quantity_units)),
-                quantitylot=(
-                    self._safe_decimal(quantity_lots) if quantity_lots else None
-                ),
+                quantitylot=Decimal(self._clean_numeric_string(quantity_lot)),
                 unit=self._safe_str(row.get("unit")),
                 price=Decimal(price),
                 contract_month=contract_month,
@@ -396,23 +388,22 @@ class SGXTradeFactory:
             logger.error(f"Error creating trader trade from row {index}: {e}")
             return None
 
-    def _create_exchange_trade(self, row: pd.Series, index: int) -> Optional[SGXTrade]:
-        """Create a SGXTrade object from an exchange data row.
+    def _create_exchange_trade(self, row: pd.Series, index: int) -> Optional[CMETrade]:
+        """Create a CMETrade object from an exchange data row.
 
         Args:
             row: Pandas Series containing trade data
             index: Row index for trade ID generation
 
         Returns:
-            SGXTrade object or None if creation fails
+            CMETrade object or None if creation fails
         """
         try:
             # Get raw values
             raw_product = self._safe_str(row.get("productname"))
             raw_month = self._safe_str(row.get("contractmonth"))
             raw_buy_sell = self._safe_str(row.get("b_s"))
-            quantity_units = self._safe_str(row.get("quantityunit"))
-            quantity_lots = self._safe_str(row.get("quantitylot"))
+            quantity_lot = self._safe_str(row.get("quantitylot"))
             price = self._safe_str(row.get("price"))
 
             # Normalize critical fields
@@ -420,7 +411,7 @@ class SGXTradeFactory:
             contract_month = self.normalizer.normalize_contract_month(raw_month)
             buy_sell = self.normalizer.normalize_buy_sell(raw_buy_sell)
 
-            if not all([product_name, quantity_units, price, contract_month, buy_sell]):
+            if not all([product_name, quantity_lot, price, contract_month, buy_sell]):
                 return None
 
             # Use internaltradeid from JSON mapping or fallback to E_{index}
@@ -429,14 +420,11 @@ class SGXTradeFactory:
                 internal_trade_id_raw if internal_trade_id_raw else f"E_{index}"
             )
 
-            return SGXTrade(
+            return CMETrade(
                 internal_trade_id=internal_trade_id,
-                source=SGXTradeSource.EXCHANGE,
+                source=CMETradeSource.EXCHANGE,
                 product_name=product_name,
-                quantityunit=Decimal(self._clean_numeric_string(quantity_units)),
-                quantitylot=(
-                    self._safe_decimal(quantity_lots) if quantity_lots else None
-                ),
+                quantitylot=Decimal(self._clean_numeric_string(quantity_lot)),
                 unit=self._safe_str(row.get("unit")),
                 price=Decimal(price),
                 contract_month=contract_month,
@@ -453,8 +441,6 @@ class SGXTradeFactory:
                 ),  # Exchange now uses tradetime (standardized)
                 # Exchange-specific optional fields
                 clearing_status=self._safe_str(row.get("clearingstatus")),
-                trading_session=self._safe_str(row.get("tradingsession")),
-                cleared_date=self._safe_str(row.get("cleareddate")),
                 # Common optional fields
                 trader_id=self._safe_str(row.get("traderid")),
                 spread=self._safe_str(row.get("spread")),
