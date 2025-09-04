@@ -1,6 +1,7 @@
 """Base matcher providing universal field validation for EEX trades."""
 
 from typing import List, Dict, Tuple
+import uuid
 import logging
 from abc import ABC, abstractmethod
 
@@ -104,6 +105,18 @@ class BaseMatcher(ABC):
         ]
         
         return rule_fields + universal_model_fields
+    
+    def generate_match_id(self, rule_number: int) -> str:
+        """Generate a unique match ID with EEX prefix and rule number.
+        
+        Args:
+            rule_number: The rule number that created this match
+            
+        Returns:
+            Match ID in format: EEX_{rule}_{uuid}
+        """
+        unique_id = str(uuid.uuid4())[:8]
+        return f"EEX_{rule_number}_{unique_id}"
     
     @abstractmethod
     def find_matches(self, pool_manager: EEXUnmatchedPool) -> List[EEXMatchResult]:

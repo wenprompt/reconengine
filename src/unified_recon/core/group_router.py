@@ -389,21 +389,36 @@ class UnifiedTradeRouter:
                 records.append(trade.raw_data)
             else:
                 # Fallback: convert trade object to dict (less ideal but functional)
-                # All trade models now use standardized field names: quantityunit for ICE/SGX
-                records.append({
+                # Probe for different quantity field names (CME uses quantitylot, others use quantityunit)
+                quantity_value = None
+                for attr in ("quantitylot", "quantityunit"):
+                    v = getattr(trade, attr, None)
+                    if v is not None:
+                        quantity_value = v
+                        break
+                
+                q_float = float(quantity_value) if quantity_value is not None else None
+                
+                record = {
                     'internaltradeid': trade.internal_trade_id,
                     'exchangegroupid': trade.exchange_group_id,
                     'brokergroupid': trade.broker_group_id,
                     'exchclearingacctid': trade.exch_clearing_acct_id,
                     'productname': trade.product_name,
-                    'quantityunit': float(trade.quantityunit),  # Standardized field name
+                    'quantityunit': q_float,  # Use the probed quantity value
                     'price': float(trade.price),
                     'contractmonth': trade.contract_month,
                     'b_s': trade.buy_sell,
                     'unit': getattr(trade, 'unit', None),  # Optional field
                     'tradedate': getattr(trade, 'trade_date', None),  # Optional field
                     'tradetime': getattr(trade, 'trade_time', None),  # Optional field
-                })
+                }
+                
+                # Also emit quantitylot if present (for CME compatibility)
+                if hasattr(trade, 'quantitylot'):
+                    record['quantitylot'] = q_float
+                
+                records.append(record)
         
         df = pd.DataFrame(records)
         logger.debug(f"Converted {len(trades)} Trade objects to DataFrame with {len(df)} rows")

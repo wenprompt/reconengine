@@ -2,7 +2,6 @@
 
 from typing import List, Dict, Tuple
 from collections import defaultdict
-import uuid
 import logging
 
 from ..models import EEXTrade, EEXMatchResult, EEXMatchType, EEXTradeSource
@@ -35,6 +34,7 @@ class ExactMatcher(BaseMatcher):
             config_manager: Configuration manager
         """
         super().__init__(config_manager)
+        self.rule_number = 1
         self.confidence = config_manager.get_rule_confidence(1)
         logger.info(f"Initialized EEX ExactMatcher with {self.confidence}% confidence")
     
@@ -153,7 +153,8 @@ class ExactMatcher(BaseMatcher):
         Returns:
             EEXMatchResult object
         """
-        match_id = str(uuid.uuid4())[:8]
+        # Generate match ID using the base class method
+        match_id = self.generate_match_id(self.rule_number)
         
         # Get list of matched fields
         rule_fields = [
@@ -167,7 +168,7 @@ class ExactMatcher(BaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_fields)
         
         return EEXMatchResult(
-            match_id=f"EEX_EXACT_{match_id}",
+            match_id=match_id,
             match_type=EEXMatchType.EXACT,
             rule_order=1,
             confidence=self.confidence,

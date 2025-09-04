@@ -114,7 +114,7 @@ class EEXDisplay:
             
             for match in exact_matches[:20]:  # Show first 20 matches
                 table.add_row(
-                    match.match_id[-8:],  # Last 8 chars of match ID
+                    match.match_id,  # Show full match ID with EEX prefix
                     match.trader_trade.internal_trade_id,
                     match.exchange_trade.internal_trade_id,
                     match.matched_product,
