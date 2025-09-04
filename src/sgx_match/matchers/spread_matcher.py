@@ -49,23 +49,12 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
             match_result = self._match_spread_pair(trader_pair, exchange_spread_pairs, pool_manager)
             if match_result:
-                matches.append(match_result)
-                
-                # Mark all trades as matched
-                for trade in trader_pair:
-                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.TRADER, "spread")
-                
-                for trade in [match_result.exchange_trade] + match_result.additional_exchange_trades:
-                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.EXCHANGE, "spread")
-                
-                # Record in audit trail
-                pool_manager.record_match(
-                    match_result.trader_trade.internal_trade_id,
-                    match_result.exchange_trade.internal_trade_id,
-                    match_result.match_type.value
-                )
-                
-                logger.debug(f"Created spread match: {match_result.match_id}")
+                # Atomically record the match
+                if pool_manager.record_match(match_result):
+                    matches.append(match_result)
+                    logger.debug(f"Created spread match: {match_result.match_id}")
+                else:
+                    logger.warning(f"Failed to atomically record spread match {match_result.match_id}")
 
         logger.info(f"Found {len(matches)} spread matches")
         return matches

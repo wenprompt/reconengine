@@ -1,6 +1,7 @@
 """Exact matching rule for EEX trades (Rule 1)."""
 
 from typing import List, Dict, Tuple
+from collections import defaultdict
 import uuid
 import logging
 
@@ -65,46 +66,57 @@ class ExactMatcher(BaseMatcher):
             # Create matching signature for this trader trade
             signature = self._create_matching_signature(trader_trade)
             
-            # Look for matching exchange trade
-            if signature in exchange_lookup:
-                exchange_trade = exchange_lookup[signature]
+            # Look for matching exchange trades
+            if signature in exchange_lookup and exchange_lookup[signature]:
+                # Get list of potential exchange trades
+                exchange_trades_list = exchange_lookup[signature]
                 
-                # Double-check the match is still available in the pool
-                if not pool_manager.is_unmatched(
-                    exchange_trade.internal_trade_id, EEXTradeSource.EXCHANGE
-                ):
-                    continue
-                
-                # Create match result
-                match = self._create_match_result(trader_trade, exchange_trade)
-                
-                # Atomically record the match (ICE pattern)
-                if pool_manager.record_match(match):
-                    matches.append(match)
-                    logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
-                else:
-                    logger.warning(f"Failed to atomically record match for {trader_trade.display_id} ↔ {exchange_trade.display_id}")
-                
-                # Remove from lookup to prevent duplicate matching
-                del exchange_lookup[signature]
+                # Find first available exchange trade from the list
+                for exchange_trade in exchange_trades_list:
+                    # Double-check the match is still available in the pool
+                    if not pool_manager.is_unmatched(
+                        exchange_trade.internal_trade_id, EEXTradeSource.EXCHANGE
+                    ):
+                        continue
+                    
+                    # Create match result
+                    match = self._create_match_result(trader_trade, exchange_trade)
+                    
+                    # Atomically record the match (ICE pattern)
+                    if pool_manager.record_match(match):
+                        matches.append(match)
+                        logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
+                        
+                        # Remove this specific trade from the list (already safe since we're breaking)
+                        exchange_trades_list.remove(exchange_trade)
+                        
+                        # If list is now empty, remove the signature key
+                        if not exchange_trades_list:
+                            del exchange_lookup[signature]
+                        
+                        # Break after finding first match for this trader trade
+                        break
+                    else:
+                        logger.warning(f"Failed to atomically record match for {trader_trade.display_id} ↔ {exchange_trade.display_id}")
+                        # Don't break - try next exchange trade
         
         logger.info(f"Found {len(matches)} exact matches")
         return matches
     
-    def _build_exchange_lookup(self, exchange_trades: List[EEXTrade]) -> Dict[Tuple, EEXTrade]:
+    def _build_exchange_lookup(self, exchange_trades: List[EEXTrade]) -> Dict[Tuple, List[EEXTrade]]:
         """Build a lookup dictionary for exchange trades based on matching signature.
         
         Args:
             exchange_trades: List of unmatched exchange trades
             
         Returns:
-            Dictionary mapping signatures to trades
+            Dictionary mapping signatures to lists of trades
         """
-        lookup = {}
+        lookup = defaultdict(list)
         for trade in exchange_trades:
             signature = self._create_matching_signature(trade)
-            lookup[signature] = trade
-        return lookup
+            lookup[signature].append(trade)
+        return dict(lookup)
     
     def _create_matching_signature(self, trade: EEXTrade) -> Tuple:
         """Create a signature for exact matching.

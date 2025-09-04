@@ -144,17 +144,26 @@ class ExactMatcher(BaseMatcher):
         if trader_signature not in exchange_index:
             return None
 
+        exchange_trades_list = exchange_index[trader_signature]
+        
         # Check each potential exchange match
-        for exchange_trade in exchange_index[trader_signature]:
+        for i in range(len(exchange_trades_list) - 1, -1, -1):  # Iterate backwards for safe removal
+            exchange_trade = exchange_trades_list[i]
+            
             # Verify trade is still unmatched
             if pool_manager.is_trade_matched(exchange_trade):
                 continue
 
-            # Verify exact match validation
-            if not self.validate_match(trader_trade, exchange_trade):
+            # Since signature match guarantees field equality, we only need minimal validation
+            # Check source types (signature doesn't validate these)
+            if trader_trade.source != TradeSource.TRADER or exchange_trade.source != TradeSource.EXCHANGE:
                 continue
 
-            # Found exact match!
+            # Found exact match! Remove from index to prevent re-checking
+            del exchange_trades_list[i]
+            if not exchange_trades_list:
+                del exchange_index[trader_signature]
+            
             return self._create_match_result(trader_trade, exchange_trade)
 
         return None

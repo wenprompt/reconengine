@@ -54,23 +54,12 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
 
             match_result = self._match_product_spread_pair(trader_trades_list, exchange_product_spread_pairs, pool_manager, confidence_tier)
             if match_result:
-                matches.append(match_result)
-                
-                # Mark all trades as matched
-                for trade in trader_trades_list:
-                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.TRADER, "product_spread")
-                
-                for trade in [match_result.exchange_trade] + match_result.additional_exchange_trades:
-                    pool_manager.mark_as_matched(trade.internal_trade_id, SGXTradeSource.EXCHANGE, "product_spread")
-                
-                # Record in audit trail
-                pool_manager.record_match(
-                    match_result.trader_trade.internal_trade_id,
-                    match_result.exchange_trade.internal_trade_id,
-                    match_result.match_type.value
-                )
-                
-                logger.debug(f"Created product spread match: {match_result.match_id}")
+                # Atomically record the match
+                if pool_manager.record_match(match_result):
+                    matches.append(match_result)
+                    logger.debug(f"Created product spread match: {match_result.match_id}")
+                else:
+                    logger.warning(f"Failed to atomically record product spread match {match_result.match_id}")
 
         # Tier 3: Process hyphenated exchange spreads vs trader pairs (1-to-2)
         hyphenated_matches = self._find_hyphenated_exchange_matches(trader_trades, exchange_trades, pool_manager)
@@ -479,21 +468,12 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         for exchange_trade in hyphenated_trades:
             match = self._find_hyphenated_product_spread_match(exchange_trade, trader_index, pool_manager)
             if match:
-                matches.append(match)
-                
-                # Mark all trades as matched
-                pool_manager.mark_as_matched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE, "product_spread")
-                for trader_trade in [match.trader_trade] + match.additional_trader_trades:
-                    pool_manager.mark_as_matched(trader_trade.internal_trade_id, SGXTradeSource.TRADER, "product_spread")
-                
-                # Record in audit trail
-                pool_manager.record_match(
-                    match.trader_trade.internal_trade_id,
-                    match.exchange_trade.internal_trade_id,
-                    match.match_type.value
-                )
-                
-                logger.debug(f"Found Tier 3 hyphenated product spread match: {match.match_id}")
+                # Atomically record the match
+                if pool_manager.record_match(match):
+                    matches.append(match)
+                    logger.debug(f"Found Tier 3 hyphenated product spread match: {match.match_id}")
+                else:
+                    logger.warning(f"Failed to atomically record Tier 3 match {match.match_id}")
         
         logger.debug(f"Found {len(matches)} Tier 3 hyphenated matches")
         return matches

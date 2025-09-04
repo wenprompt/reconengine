@@ -62,24 +62,39 @@ class ExactMatcher(BaseMatcher):
         
         # Find matches
         for trader_trade in trader_trades:
-            matching_exchange_trades = self._find_matching_exchanges(trader_trade, exchange_index)
+            signature = self._create_matching_signature(trader_trade)
             
-            for exchange_trade in matching_exchange_trades:
-                # Verify both trades are still unmatched
-                if (pool_manager.is_unmatched(trader_trade.internal_trade_id, SGXTradeSource.TRADER) and
-                    pool_manager.is_unmatched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE)):
+            # Skip if no matching signature exists
+            if signature not in exchange_index:
+                continue
+                
+            exchange_trades_list = exchange_index[signature]
+            
+            # Iterate backwards for safe removal
+            for i in range(len(exchange_trades_list) - 1, -1, -1):
+                exchange_trade = exchange_trades_list[i]
+                
+                # Verify exchange trade is still unmatched
+                if not pool_manager.is_unmatched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE):
+                    continue
                     
-                    match_result = self._create_match_result(trader_trade, exchange_trade)
+                match_result = self._create_match_result(trader_trade, exchange_trade)
+                
+                # Atomically record the match
+                if pool_manager.record_match(match_result):
                     matches.append(match_result)
-                    
-                    # Mark trades as matched
-                    pool_manager.mark_as_matched(trader_trade.internal_trade_id, SGXTradeSource.TRADER)
-                    pool_manager.mark_as_matched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE)
-                    
                     logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
                     
-                    # Break after first match to avoid duplicates
+                    # Remove matched trade from index to prevent re-checking
+                    del exchange_trades_list[i]
+                    if not exchange_trades_list:
+                        del exchange_index[signature]
+                    
+                    # Break after successful match
                     break
+                else:
+                    logger.warning(f"Failed to atomically record match for {trader_trade.display_id} ↔ {exchange_trade.display_id}")
+                    # Don't break - try next exchange trade
         
         logger.info(f"Exact matching completed. Found {len(matches)} matches")
         return matches
@@ -123,19 +138,6 @@ class ExactMatcher(BaseMatcher):
         # Add universal fields using base class method
         return self.create_universal_signature(trade, rule_fields)
     
-    def _find_matching_exchanges(self, trader_trade: SGXTrade, 
-                               exchange_index: Dict[tuple, List[SGXTrade]]) -> List[SGXTrade]:
-        """Find exchange trades that match the given trader trade.
-        
-        Args:
-            trader_trade: Trader trade to find matches for
-            exchange_index: Pre-built index of exchange trades
-            
-        Returns:
-            List of matching exchange trades
-        """
-        signature = self._create_matching_signature(trader_trade)
-        return exchange_index.get(signature, [])
     
     def _create_match_result(self, trader_trade: SGXTrade, exchange_trade: SGXTrade) -> SGXMatchResult:
         """Create a match result for two matched trades.
