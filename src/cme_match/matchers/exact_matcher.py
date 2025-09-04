@@ -93,7 +93,7 @@ class ExactMatcher(BaseMatcher):
                     # Break after successful match
                     break
                 else:
-                    logger.warning(f"Failed to atomically record match for {trader_trade.display_id} ↔ {exchange_trade.display_id}")
+                    logger.warning(f"Could not save match for trades {trader_trade.display_id} ↔ {exchange_trade.display_id}. Trade already matched.")
                     # Don't break - try next exchange trade
         
         logger.info(f"Exact matching completed. Found {len(matches)} matches")

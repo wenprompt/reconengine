@@ -620,7 +620,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             logger.debug("✅ All hyphenated spread validations passed")
             return True
             
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, ArithmeticError) as e:
             logger.error(f"Error validating hyphenated spread match: {e}")
             return False
 

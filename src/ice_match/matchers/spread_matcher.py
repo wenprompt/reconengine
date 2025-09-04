@@ -217,8 +217,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
             if len(trades_in_group) != 2:
                 if len(trades_in_group) > 2:
                     logger.warning(
-                        f"DealID {dealid} has {len(trades_in_group)} legs, which is more than 2. "
-                        f"This group will be skipped for Tier 1 spread matching."
+                        f"Transaction ID {dealid} has {len(trades_in_group)} related trades (expected 2 for spread). "
+                        f"Skipping this group from spread matching."
                     )
                 continue
 
@@ -310,11 +310,11 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
         # 🔹 TIER 1: DealID/TradeID-based grouping (Most Accurate)
         # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-        logger.info("🔹 TIER 1: Executing DealID/TradeID-based spread grouping...")
+        logger.info("🔹 TIER 1: Grouping spread trades by transaction ID...")
 
         if self._is_dealid_data_usable(remaining_trades):
             logger.debug(
-                "DealID data quality sufficient - proceeding with dealid/tradeid grouping"
+                "Transaction ID data available - grouping related spread trades"
             )
             tier1_groups, tier1_spread_count = self._group_exchange_spreads_by_dealid(
                 remaining_trades, pool_manager

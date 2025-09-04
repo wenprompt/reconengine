@@ -318,11 +318,11 @@ def main() -> None:
     
     # Validate input files
     if not args.trader_csv.exists():
-        print(f"Error: Trader CSV file not found: {args.trader_csv}")
+        logger.error(f"Trader data file not found at '{args.trader_csv}'. Please check the file path and try again.")
         sys.exit(1)
     
     if not args.exchange_csv.exists():
-        print(f"Error: Exchange CSV file not found: {args.exchange_csv}")
+        logger.error(f"Exchange data file not found at '{args.exchange_csv}'. Please check the file path and try again.")
         sys.exit(1)
     
     # Run matching
@@ -338,7 +338,7 @@ def main() -> None:
         sys.exit(0 if matches else 1)
         
     except KeyboardInterrupt:
-        print("\nOperation cancelled by user")
+        logger.info("Operation cancelled by user")
         sys.exit(130)
     except Exception as e:
         logger.exception(f"Fatal error: {e}")  # Use logger.exception to capture full traceback

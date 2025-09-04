@@ -109,7 +109,10 @@ class UnifiedTradeRouter:
         return trader_df, exchange_df
     
     def load_and_validate_json_data(self, json_path: Path) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Load and validate JSON data using trade factories for sophisticated field handling.
+        """Load and validate JSON data from file using trade factories for sophisticated field handling.
+        
+        This method loads JSON from a file and delegates to load_and_validate_json_dict
+        for processing, avoiding code duplication.
         
         Args:
             json_path: Path to JSON file
@@ -131,6 +134,35 @@ class UnifiedTradeRouter:
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
+            # Delegate to the dictionary-based method for processing
+            return self.load_and_validate_json_dict(data)
+            
+        except json.JSONDecodeError as e:
+            raise DataValidationError(f"Invalid JSON format in file {json_path}: {e}") from e
+        except DataValidationError:
+            # Re-raise validation errors with file context
+            raise
+        except Exception as e:
+            logger.error(f"Error loading JSON from {json_path}: {e}")
+            raise DataValidationError(f"Failed to load JSON data from file: {e}") from e
+    
+    def load_and_validate_json_dict(self, data: Dict[str, Any]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Process and validate JSON data from dictionary, using trade factories for sophisticated field handling.
+        
+        This method avoids filesystem I/O by accepting data directly.
+        
+        Args:
+            data: Dictionary with 'traderTrades' and 'exchangeTrades' arrays
+            
+        Returns:
+            Tuple of (trader_df, exchange_df)
+            
+        Raises:
+            DataValidationError: If JSON validation fails
+        """
+        logger.info("Processing JSON data from dictionary")
+        
+        try:
             # Validate JSON structure
             if not isinstance(data, dict):
                 raise DataValidationError("JSON must be a dictionary with 'traderTrades' and 'exchangeTrades' keys")
@@ -192,7 +224,7 @@ class UnifiedTradeRouter:
                     group_exchange_trades = eex_factory.from_json(group_data['exchange_trades'], EEXTradeSource.EXCHANGE)
                     
                 else:
-                    logger.warning(f"Skipping group {group_id}: unknown system '{system_name}'")
+                    logger.warning(f"Skipping group {group_id}: System '{system_name}' not supported. Available systems: ICE, SGX, CME, EEX")
                     continue
                 
                 all_trader_trades.extend(group_trader_trades)
@@ -205,11 +237,9 @@ class UnifiedTradeRouter:
             logger.info(f"Successfully processed JSON data: {len(trader_df)} trader trades, {len(exchange_df)} exchange trades")
             return trader_df, exchange_df
             
-        except json.JSONDecodeError as e:
-            raise DataValidationError(f"Invalid JSON format: {e}") from e
         except Exception as e:
-            logger.error(f"Error loading JSON from {json_path}: {e}")
-            raise DataValidationError(f"Failed to load JSON data: {e}") from e
+            logger.error(f"Error processing JSON data: {e}")
+            raise DataValidationError(f"Failed to process JSON data: {e}") from e
     
     def group_trades_by_exchange_group(self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[int, Dict[str, Any]]:
         """Group trades by exchange group and prepare for routing.

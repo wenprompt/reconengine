@@ -579,11 +579,11 @@ Examples:
 
     # Validate file paths
     if not args.trader_csv.exists():
-        print(f"Error: Trader CSV file not found: {args.trader_csv}")
+        logger.error(f"Trader data file not found at '{args.trader_csv}'. Please check the file path and try again.")
         return 1
 
     if not args.exchange_csv.exists():
-        print(f"Error: Exchange CSV file not found: {args.exchange_csv}")
+        logger.error(f"Exchange data file not found at '{args.exchange_csv}'. Please check the file path and try again.")
         return 1
 
     # Handle --show-rules argument

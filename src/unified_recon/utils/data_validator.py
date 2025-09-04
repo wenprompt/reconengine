@@ -175,7 +175,8 @@ class DataValidator:
                         'start': valid_dates.min().strftime('%Y-%m-%d'),
                         'end': valid_dates.max().strftime('%Y-%m-%d')
                     }
-            except Exception:
+            except (AttributeError, TypeError, ValueError, KeyError):
+                # Date parsing failed, skip date range statistics
                 pass
         
         logger.debug(f"Group {group_id} {data_type} data quality: {stats}")

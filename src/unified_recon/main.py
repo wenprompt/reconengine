@@ -393,7 +393,7 @@ def main() -> int:
                 logger.info(f"Group {group_id} completed: {results['matches_found']} matches ({results['match_rate']:.1f}%)")
                 
             except Exception as e:
-                logger.error(f"Failed to process group {group_id}: {e}")
+                logger.error(f"Unable to process exchange group {group_id}: {e}. Continuing with remaining groups.")
                 display.display_error(f"Failed to process group {group_id}", str(e))
                 continue
         
