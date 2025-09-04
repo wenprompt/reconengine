@@ -218,18 +218,18 @@ uv run python -m mypy src/             # Type checking
                     └─────────────────────────────┘
 
 Field Mapping Example:
-┌────────────────────┬────────────────────┬──────────────────┐
-│   JSON Field       │  Intermediate      │  Trade Field     │
-├────────────────────┼────────────────────┼──────────────────┤
-│ internalTradeId    │ internal_trade_id  │ internal_trade_id│
-│ productName        │ product_name       │ product_name     │
-│ quantityUnit       │ quantity_unit      │ quantity         │
-│ contractMonth      │ contract_month     │ contract_month   │
-│ b_s                │ b_s                │ buy_sell         │
-│ brokerGroupId      │ broker_group_id    │ broker_group_id  │
-│ exchClearingAcctId │ exch_clearing_acct │ exch_clearing_   │
-│                    │ _id                │ acct_id          │
-└────────────────────┴────────────────────┴──────────────────┘
+┌──────────────────────────────┬───────────────────────┬──────────────────┐
+│   JSON Field                 │  Intermediate         │  Trade Field     │
+├──────────────────────────────┼───────────────────────┼──────────────────┤
+│ internalTradeId              │ internaltradeid       │ internal_trade_id│
+│ productName                  │ productname           │ product_name     │
+│ quantityUnit                 │ quantityunit          │ quantity         │
+│ contractMonth                │ contractmonth         │ contract_month   │
+│ b/s                          │ b_s                   │ buy_sell         │
+│ brokerGroupId                │ brokergroupid         │ broker_group_id  │
+│ exchangeClearingAccountId    │ exchclearingacctid    │ exch_clearing_   │
+│                              │                       │ acct_id          │
+└──────────────────────────────┴───────────────────────┴──────────────────┘
 ```
 
 ### Trade Model Flow
