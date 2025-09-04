@@ -19,6 +19,10 @@ from ...cme_match.core.trade_factory import CMETradeFactory
 from ...cme_match.normalizers import CMETradeNormalizer
 from ...cme_match.models import CMETradeSource
 from ...cme_match.config import CMEConfigManager
+from ...eex_match.core.trade_factory import EEXTradeFactory
+from ...eex_match.normalizers import EEXTradeNormalizer
+from ...eex_match.models import EEXTradeSource
+from ...eex_match.config import EEXConfigManager
 
 from ..utils.data_validator import DataValidator, DataValidationError
 
@@ -177,6 +181,15 @@ class UnifiedTradeRouter:
                     
                     group_trader_trades = cme_factory.from_json(group_data['trader_trades'], CMETradeSource.TRADER)
                     group_exchange_trades = cme_factory.from_json(group_data['exchange_trades'], CMETradeSource.EXCHANGE)
+                    
+                elif system_name == "eex_match":
+                    # Use EEX trade factory for sophisticated field handling
+                    eex_config_manager = EEXConfigManager()
+                    eex_normalizer = EEXTradeNormalizer(eex_config_manager)
+                    eex_factory = EEXTradeFactory(eex_normalizer)
+                    
+                    group_trader_trades = eex_factory.from_json(group_data['trader_trades'], EEXTradeSource.TRADER)
+                    group_exchange_trades = eex_factory.from_json(group_data['exchange_trades'], EEXTradeSource.EXCHANGE)
                     
                 else:
                     logger.warning(f"Skipping group {group_id}: unknown system '{system_name}'")

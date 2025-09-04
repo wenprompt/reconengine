@@ -61,7 +61,7 @@ The EEX matching system processes European Energy Exchange trades using a single
 
 The unified reconciliation system acts as a centralized data router and aggregator:
 
-- **Data Routing**: Groups trades by `exchangegroupid` and routes to appropriate systems (Group 1 → ICE, Group 2 → SGX, Group 4 → ICE)
+- **Data Routing**: Groups trades by `exchangegroupid` and routes to appropriate systems (Group 1 → ICE, Group 2 → SGX, Group 3 → CME, Group 4 → ICE, Group 5 → EEX)
 - **System Integration**: Calls individual matching systems with filtered data while maintaining system isolation
 - **Result Aggregation**: Combines results from multiple systems with unified reporting
 - **JSON API Support**: Processes JSON payloads using trade factories for sophisticated field handling and normalization
@@ -350,7 +350,7 @@ uv run ruff check --fix .
 uv run python -m mypy src/
 
 # Centralized data routing with master data processing
-uv run python -m src.unified_recon.main                    # Shows all matches+unmatches
+uv run python -m src.unified_recon.main  # Shows all matches+unmatches
 uv run python -m src.unified_recon.main --log-level DEBUG # Enable debug logging
 
 # JSON payload routing (API simulation)
@@ -358,7 +358,6 @@ uv run python -m src.unified_recon.main --json-file src/test_json/sample_full.js
 
 # Run ICE match system directly
 uv run python -m src.ice_match.main
-uv run python -m src.ice_match.main --show-rules  # Display detailed rule information
 uv run python -m src.ice_match.main --log-level DEBUG  # Enable debug logging
 
 # Run SGX match system directly
@@ -370,7 +369,7 @@ uv run python -m src.cme_match.main  # Shows all matches+unmatches
 uv run python -m src.cme_match.main --log-level DEBUG  # Enable debug logging
 
 # Run EEX match system directly
-uv run python -m src.eex_match.main  # Shows all matches+unmatches (default like SGX)
+uv run python -m src.eex_match.main  # Shows all matches+unmatches
 uv run python -m src.eex_match.main --log-level DEBUG  # Enable debug logging
 
 # options

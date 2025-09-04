@@ -26,7 +26,8 @@
     "(?i)^nov[\\s\\-]?(\\d{2})$": "Nov-\\1",
     "(?i)^dec[\\s\\-]?(\\d{2})$": "Dec-\\1",
     "(?i)^balmo$": "Balmo",
-    "(?i)bal month": "Balmo"
+    "(?i)bal month": "Balmo",
+    "(?i)^balmond$": "BalmoNd"
   },
   "product_conversion_ratios": {
     "marine 0.5% crack": 6.35,

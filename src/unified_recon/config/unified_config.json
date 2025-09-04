@@ -3,7 +3,8 @@
     "1": "ice_match",
     "2": "sgx_match",
     "3": "cme_match",
-    "4": "ice_match"
+    "4": "ice_match",
+    "5": "eex_match"
   },
   "system_configs": {
     "ice_match": {
@@ -17,6 +18,10 @@
     "cme_match": {
       "module": "src.cme_match.main",
       "description": "CME MATCH"
+    },
+    "eex_match": {
+      "module": "src.eex_match.main",
+      "description": "EEX MATCH"
     }
   },
   "data_settings": {

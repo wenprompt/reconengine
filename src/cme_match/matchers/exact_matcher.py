@@ -70,15 +70,15 @@ class ExactMatcher(BaseMatcher):
                     pool_manager.is_unmatched(exchange_trade.internal_trade_id, CMETradeSource.EXCHANGE)):
                     
                     match_result = self._create_match_result(trader_trade, exchange_trade)
-                    matches.append(match_result)
                     
-                    # Mark trades as matched
-                    pool_manager.mark_as_matched(trader_trade.internal_trade_id, CMETradeSource.TRADER)
-                    pool_manager.mark_as_matched(exchange_trade.internal_trade_id, CMETradeSource.EXCHANGE)
+                    # Atomically record the match (ICE pattern)
+                    if pool_manager.record_match(match_result):
+                        matches.append(match_result)
+                        logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
+                    else:
+                        logger.warning(f"Failed to atomically record match for {trader_trade.display_id} ↔ {exchange_trade.display_id}")
                     
-                    logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
-                    
-                    # Break after first match to avoid duplicates
+                    # Break after first match attempt to avoid duplicates
                     break
         
         logger.info(f"Exact matching completed. Found {len(matches)} matches")

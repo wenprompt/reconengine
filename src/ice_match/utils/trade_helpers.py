@@ -107,9 +107,14 @@ def get_month_order_tuple(contract_month: str) -> Optional[Tuple[int, int]]:
         >>> get_month_order_tuple("Dec-24")
         (2024, 12)
     """
-    # Handle Balance of Month (Balmo) as the earliest possible month
+    # Handle Balance of Month (Balmo) and Balmo Next Day (BalmoNd)
+    # These need special handling as they come before regular months
+    # We use negative values to ensure they sort before regular months
+    # TODO: Currently using year 0 for Balmo/BalmoNd - may need year context
     if contract_month == "Balmo":
-        return (0, 0)  # Earlier than any (year, month) combination like (2025, 1)
+        return (-1, 0)  # Balmo comes before everything
+    if contract_month == "BalmoNd":
+        return (0, 0)  # BalmoNd comes after Balmo but before regular months
 
     month_year_parts = extract_month_year(contract_month)
     if not month_year_parts:

@@ -102,10 +102,10 @@ class EEXTradeFactory:
             # Force ID columns to be read as strings to prevent scientific notation
             dtype_spec: Any = {"dealid": "str", "tradeid": "str"}
             df = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=dtype_spec)
-            
+
             # Remove empty rows (where all required fields are null)
-            df = df.dropna(how='all')
-            
+            df = df.dropna(how="all")
+
             logger.info(f"Loaded {len(df)} non-empty rows from {source.value} CSV")
 
             return self.from_dataframe(df, source)
@@ -265,8 +265,6 @@ class EEXTradeFactory:
                     "traderid",
                     "spread",
                     "specialcomms",
-                    "productid",
-                    "productgroupid",
                 ]
             )
         else:  # Exchange
@@ -276,6 +274,8 @@ class EEXTradeFactory:
                     "tradeid",
                     "clearingstatus",
                     "traderid",
+                    "productid",
+                    "productgroupid",
                 ]
             )
 

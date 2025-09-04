@@ -272,7 +272,6 @@ class CMETradeFactory:
                     "traderid",
                     "productid",
                     "productgroupid",
-                    "quantitylot",
                 ]
             )
 

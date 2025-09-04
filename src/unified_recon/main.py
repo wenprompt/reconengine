@@ -209,6 +209,49 @@ def call_cme_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) ->
         raise RuntimeError(f"CME match system processing failed: {e}") from e
 
 
+def call_eex_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
+    """Call EEX match system with filtered data.
+    
+    Args:
+        trader_df: Filtered trader DataFrame for group 5
+        exchange_df: Filtered exchange DataFrame for group 5
+        
+    Returns:
+        Dict with EEX match results and statistics
+    """
+    # Import and call EEX match system
+    try:
+        from ..eex_match.main import EEXMatchingEngine  # type: ignore
+        
+        # Set up EEX system engine
+        engine = EEXMatchingEngine()
+        
+        # Load and process data through EEX system using DataFrames directly
+        start_time = time.time()
+        
+        # Use EEX engine to run matching process with DataFrames (no CSV files)
+        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
+        
+        processing_time = time.time() - start_time
+        
+        # Get match rate from EEX statistics (overall match rate)
+        match_rate = statistics['match_rate']
+        
+        return {
+            'matches_found': len(matches),
+            'match_rate': match_rate,
+            'processing_time': processing_time,
+            'detailed_results': matches,
+            'unmatched_trader_trades': statistics.get('unmatched_trader_trades', []),
+            'unmatched_exchange_trades': statistics.get('unmatched_exchange_trades', [])
+        }
+        
+    except ImportError as e:
+        raise ImportError(f"Failed to import EEX match system: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"EEX match system processing failed: {e}") from e
+
+
 def main() -> int:
     """Main entry point for unified reconciliation system.
     
@@ -311,6 +354,11 @@ def main() -> int:
                     )
                 elif system_name == "cme_match":
                     results = call_cme_match_system(
+                        group_info['trader_data'],
+                        group_info['exchange_data']
+                    )
+                elif system_name == "eex_match":
+                    results = call_eex_match_system(
                         group_info['trader_data'],
                         group_info['exchange_data']
                     )

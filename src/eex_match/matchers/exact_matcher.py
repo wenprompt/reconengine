@@ -78,26 +78,12 @@ class ExactMatcher(BaseMatcher):
                 # Create match result
                 match = self._create_match_result(trader_trade, exchange_trade)
                 
-                # Record the match in pool (atomic operation)
-                pool_manager.record_match(
-                    trader_trade.internal_trade_id,
-                    exchange_trade.internal_trade_id,
-                    EEXMatchType.EXACT.value
-                )
-                
-                # Mark trades as matched
-                pool_manager.mark_as_matched(
-                    trader_trade.internal_trade_id, 
-                    EEXTradeSource.TRADER,
-                    EEXMatchType.EXACT.value
-                )
-                pool_manager.mark_as_matched(
-                    exchange_trade.internal_trade_id,
-                    EEXTradeSource.EXCHANGE,
-                    EEXMatchType.EXACT.value
-                )
-                
-                matches.append(match)
+                # Atomically record the match (ICE pattern)
+                if pool_manager.record_match(match):
+                    matches.append(match)
+                    logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
+                else:
+                    logger.warning(f"Failed to atomically record match for {trader_trade.display_id} ↔ {exchange_trade.display_id}")
                 
                 # Remove from lookup to prevent duplicate matching
                 del exchange_lookup[signature]

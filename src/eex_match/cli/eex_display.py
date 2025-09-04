@@ -145,12 +145,12 @@ class EEXDisplay:
             unmatched_exchange: List of unmatched exchange trades
         """
         if unmatched_trader:
-            self._show_unmatched_trader_trades(unmatched_trader)
+            self._show_unmatched_trader_table(unmatched_trader)
         
         if unmatched_exchange:
-            self._show_unmatched_exchange_trades(unmatched_exchange)
+            self._show_unmatched_exchange_table(unmatched_exchange)
     
-    def _show_unmatched_trader_trades(self, trades: List[EEXTrade]) -> None:
+    def _show_unmatched_trader_table(self, trades: List[EEXTrade]) -> None:
         """Display unmatched trader trades in a table.
         
         Args:
@@ -190,7 +190,7 @@ class EEXDisplay:
         
         self.console.print()
     
-    def _show_unmatched_exchange_trades(self, trades: List[EEXTrade]) -> None:
+    def _show_unmatched_exchange_table(self, trades: List[EEXTrade]) -> None:
         """Display unmatched exchange trades in a table.
         
         Args:

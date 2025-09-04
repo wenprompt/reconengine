@@ -85,17 +85,9 @@ class CMEMatchingEngine:
                     logger.warning(f"No matcher found for rule {rule_number}")
                     continue
                 
-                # Find matches
+                # Find matches (now atomically records matches internally)
                 matches = matcher.find_matches(pool_manager)
                 all_matches.extend(matches)
-                
-                # Record matches in pool
-                for match in matches:
-                    pool_manager.record_match(
-                        match.trader_trade.internal_trade_id, 
-                        match.exchange_trade.internal_trade_id, 
-                        match.match_type.value
-                    )
                 
                 logger.info(f"Rule {rule_number} found {len(matches)} matches")
             
@@ -162,14 +154,6 @@ class CMEMatchingEngine:
                 
                 matches = matcher.find_matches(pool_manager)
                 all_matches.extend(matches)
-                
-                # Record matches in pool
-                for match in matches:
-                    pool_manager.record_match(
-                        match.trader_trade.internal_trade_id,
-                        match.exchange_trade.internal_trade_id,
-                        match.match_type.value
-                    )
             
             # Get statistics and unmatched trades
             statistics = pool_manager.get_match_statistics()
@@ -246,9 +230,9 @@ def main() -> None:
         help=f"Data directory containing CSV files (default: {DEFAULT_DATA_DIR})"
     )
     parser.add_argument(
-        "--show-unmatched",
+        "--no-unmatched",
         action="store_true",
-        help="Display unmatched trades after processing"
+        help="Hide unmatched trades after processing (default: show unmatched)"
     )
     parser.add_argument(
         "--show-rules",
@@ -293,7 +277,7 @@ def main() -> None:
         matches = engine.run_matching(
             trader_path, 
             exchange_path, 
-            show_unmatched=args.show_unmatched or args.log_level == "DEBUG"
+            show_unmatched=not args.no_unmatched  # Show unmatched by default like SGX/EEX
         )
         
         logger.info(f"CME matching completed. Total matches: {len(matches)}")
