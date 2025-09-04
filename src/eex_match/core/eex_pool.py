@@ -1,37 +1,37 @@
-"""Unmatched CME trade pool manager for ensuring non-duplication."""
+"""Unmatched EEX trade pool manager for ensuring non-duplication."""
 
 from typing import List, Set, Dict, Tuple, Any, TYPE_CHECKING
 import logging
 
-from ..models import CMETrade, CMETradeSource
+from ..models import EEXTrade, EEXTradeSource
 
 if TYPE_CHECKING:
-    from ..models import CMEMatchResult
+    from ..models import EEXMatchResult
 
 logger = logging.getLogger(__name__)
 
 
-class CMEUnmatchedPool:
-    """Manages pools of unmatched CME trades to ensure no duplicate matching.
+class EEXUnmatchedPool:
+    """Manages pools of unmatched EEX trades to ensure no duplicate matching.
     
     Critical for the sequential rule processing where once a trade is matched
     by ANY rule, it must be permanently removed from consideration.
     """
     
-    def __init__(self, trader_trades: List[CMETrade], exchange_trades: List[CMETrade]):
-        """Initialize the CME pool manager with initial trade lists.
+    def __init__(self, trader_trades: List[EEXTrade], exchange_trades: List[EEXTrade]):
+        """Initialize the EEX pool manager with initial trade lists.
         
         Args:
-            trader_trades: List of all CME trader trades
-            exchange_trades: List of all CME exchange trades
+            trader_trades: List of all EEX trader trades
+            exchange_trades: List of all EEX exchange trades
         """
         # Store original trades for statistics
         self._original_trader_count = len(trader_trades)
         self._original_exchange_count = len(exchange_trades)
         
         # Active pools - trades still available for matching
-        self._trader_pool: Dict[str, CMETrade] = {trade.internal_trade_id: trade for trade in trader_trades}
-        self._exchange_pool: Dict[str, CMETrade] = {trade.internal_trade_id: trade for trade in exchange_trades}
+        self._trader_pool: Dict[str, EEXTrade] = {trade.internal_trade_id: trade for trade in trader_trades}
+        self._exchange_pool: Dict[str, EEXTrade] = {trade.internal_trade_id: trade for trade in exchange_trades}
         
         # Matched trade tracking
         self._matched_trader_ids: Set[str] = set()
@@ -40,9 +40,9 @@ class CMEUnmatchedPool:
         # Match history for audit trail
         self._match_history: List[Tuple[str, str, str]] = []  # (trader_id, exchange_id, rule_type)
         
-        logger.info(f"Initialized CME pool with {len(trader_trades)} trader trades and {len(exchange_trades)} exchange trades")
+        logger.info(f"Initialized EEX pool with {len(trader_trades)} trader trades and {len(exchange_trades)} exchange trades")
     
-    def get_unmatched_trades(self, source: CMETradeSource) -> List[CMETrade]:
+    def get_unmatched_trades(self, source: EEXTradeSource) -> List[EEXTrade]:
         """Get list of unmatched trades for a specific source.
         
         Args:
@@ -51,14 +51,14 @@ class CMEUnmatchedPool:
         Returns:
             List of unmatched trades from the specified source
         """
-        if source == CMETradeSource.TRADER:
+        if source == EEXTradeSource.TRADER:
             return list(self._trader_pool.values())
-        elif source == CMETradeSource.EXCHANGE:
+        elif source == EEXTradeSource.EXCHANGE:
             return list(self._exchange_pool.values())
         else:
             raise ValueError(f"Unknown trade source: {source}")
     
-    def is_unmatched(self, trade_id: str, source: CMETradeSource) -> bool:
+    def is_unmatched(self, trade_id: str, source: EEXTradeSource) -> bool:
         """Check if a trade is still unmatched.
         
         Args:
@@ -68,15 +68,15 @@ class CMEUnmatchedPool:
         Returns:
             True if trade is still unmatched, False otherwise
         """
-        if source == CMETradeSource.TRADER:
+        if source == EEXTradeSource.TRADER:
             return trade_id in self._trader_pool
-        elif source == CMETradeSource.EXCHANGE:
+        elif source == EEXTradeSource.EXCHANGE:
             return trade_id in self._exchange_pool
         else:
             raise ValueError(f"Unknown trade source: {source}")
     
     
-    def record_match(self, match_result: "CMEMatchResult") -> bool:
+    def record_match(self, match_result: "EEXMatchResult") -> bool:
         """Atomically record a match and remove all involved trades from pools.
         
         This follows the ICE-style atomic pattern that prevents partial states.
@@ -89,15 +89,15 @@ class CMEUnmatchedPool:
         """
         # Collect all trades to remove
         trades_to_remove = []
-        trades_to_remove.append((match_result.trader_trade.internal_trade_id, CMETradeSource.TRADER))
+        trades_to_remove.append((match_result.trader_trade.internal_trade_id, EEXTradeSource.TRADER))
         if match_result.additional_trader_trades:
             for trade in match_result.additional_trader_trades:
-                trades_to_remove.append((trade.internal_trade_id, CMETradeSource.TRADER))
+                trades_to_remove.append((trade.internal_trade_id, EEXTradeSource.TRADER))
         
-        trades_to_remove.append((match_result.exchange_trade.internal_trade_id, CMETradeSource.EXCHANGE))
+        trades_to_remove.append((match_result.exchange_trade.internal_trade_id, EEXTradeSource.EXCHANGE))
         if match_result.additional_exchange_trades:
             for trade in match_result.additional_exchange_trades:
-                trades_to_remove.append((trade.internal_trade_id, CMETradeSource.EXCHANGE))
+                trades_to_remove.append((trade.internal_trade_id, EEXTradeSource.EXCHANGE))
         
         # First verify all trades are available for matching
         for trade_id, source in trades_to_remove:
@@ -107,7 +107,7 @@ class CMEUnmatchedPool:
         
         # All trades verified, now remove them atomically
         for trade_id, source in trades_to_remove:
-            if source == CMETradeSource.TRADER:
+            if source == EEXTradeSource.TRADER:
                 del self._trader_pool[trade_id]
                 self._matched_trader_ids.add(trade_id)
             else:  # EXCHANGE
@@ -148,7 +148,7 @@ class CMEUnmatchedPool:
             "match_history": self._match_history.copy()
         }
     
-    def get_unmatched_trader_trades(self) -> List[CMETrade]:
+    def get_unmatched_trader_trades(self) -> List[EEXTrade]:
         """Get all unmatched trader trades.
         
         Returns:
@@ -156,7 +156,7 @@ class CMEUnmatchedPool:
         """
         return list(self._trader_pool.values())
     
-    def get_unmatched_exchange_trades(self) -> List[CMETrade]:
+    def get_unmatched_exchange_trades(self) -> List[EEXTrade]:
         """Get all unmatched exchange trades.
         
         Returns:
@@ -180,7 +180,7 @@ class CMEUnmatchedPool:
         """
         return self._matched_exchange_ids.copy()
     
-    def reset(self, trader_trades: List[CMETrade], exchange_trades: List[CMETrade]) -> None:
+    def reset(self, trader_trades: List[EEXTrade], exchange_trades: List[EEXTrade]) -> None:
         """Reset the pool with new trade lists.
         
         Args:
@@ -197,4 +197,4 @@ class CMEUnmatchedPool:
         self._matched_exchange_ids.clear()
         self._match_history.clear()
         
-        logger.info(f"Reset CME pool with {len(trader_trades)} trader trades and {len(exchange_trades)} exchange trades")
+        logger.info(f"Reset EEX pool with {len(trader_trades)} trader trades and {len(exchange_trades)} exchange trades")

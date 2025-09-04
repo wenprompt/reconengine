@@ -15,6 +15,14 @@ from ...sgx_match.core.trade_factory import SGXTradeFactory
 from ...sgx_match.normalizers import SGXTradeNormalizer
 from ...sgx_match.models import SGXTradeSource
 from ...sgx_match.config import SGXConfigManager
+from ...cme_match.core.trade_factory import CMETradeFactory
+from ...cme_match.normalizers import CMETradeNormalizer
+from ...cme_match.models import CMETradeSource
+from ...cme_match.config import CMEConfigManager
+from ...eex_match.core.trade_factory import EEXTradeFactory
+from ...eex_match.normalizers import EEXTradeNormalizer
+from ...eex_match.models import EEXTradeSource
+from ...eex_match.config import EEXConfigManager
 
 from ..utils.data_validator import DataValidator, DataValidationError
 
@@ -164,6 +172,24 @@ class UnifiedTradeRouter:
                     
                     group_trader_trades = sgx_factory.from_json(group_data['trader_trades'], SGXTradeSource.TRADER)
                     group_exchange_trades = sgx_factory.from_json(group_data['exchange_trades'], SGXTradeSource.EXCHANGE)
+                    
+                elif system_name == "cme_match":
+                    # Use CME trade factory for sophisticated field handling
+                    cme_config_manager = CMEConfigManager()
+                    cme_normalizer = CMETradeNormalizer(cme_config_manager)
+                    cme_factory = CMETradeFactory(cme_normalizer)
+                    
+                    group_trader_trades = cme_factory.from_json(group_data['trader_trades'], CMETradeSource.TRADER)
+                    group_exchange_trades = cme_factory.from_json(group_data['exchange_trades'], CMETradeSource.EXCHANGE)
+                    
+                elif system_name == "eex_match":
+                    # Use EEX trade factory for sophisticated field handling
+                    eex_config_manager = EEXConfigManager()
+                    eex_normalizer = EEXTradeNormalizer(eex_config_manager)
+                    eex_factory = EEXTradeFactory(eex_normalizer)
+                    
+                    group_trader_trades = eex_factory.from_json(group_data['trader_trades'], EEXTradeSource.TRADER)
+                    group_exchange_trades = eex_factory.from_json(group_data['exchange_trades'], EEXTradeSource.EXCHANGE)
                     
                 else:
                     logger.warning(f"Skipping group {group_id}: unknown system '{system_name}'")
@@ -363,21 +389,36 @@ class UnifiedTradeRouter:
                 records.append(trade.raw_data)
             else:
                 # Fallback: convert trade object to dict (less ideal but functional)
-                # All trade models now use standardized field names: quantityunit for ICE/SGX
-                records.append({
+                # Probe for different quantity field names (CME uses quantitylot, others use quantityunit)
+                quantity_value = None
+                for attr in ("quantitylot", "quantityunit"):
+                    v = getattr(trade, attr, None)
+                    if v is not None:
+                        quantity_value = v
+                        break
+                
+                q_float = float(quantity_value) if quantity_value is not None else None
+                
+                record = {
                     'internaltradeid': trade.internal_trade_id,
                     'exchangegroupid': trade.exchange_group_id,
                     'brokergroupid': trade.broker_group_id,
                     'exchclearingacctid': trade.exch_clearing_acct_id,
                     'productname': trade.product_name,
-                    'quantityunit': float(trade.quantityunit),  # Standardized field name
+                    'quantityunit': q_float,  # Use the probed quantity value
                     'price': float(trade.price),
                     'contractmonth': trade.contract_month,
                     'b_s': trade.buy_sell,
                     'unit': getattr(trade, 'unit', None),  # Optional field
                     'tradedate': getattr(trade, 'trade_date', None),  # Optional field
                     'tradetime': getattr(trade, 'trade_time', None),  # Optional field
-                })
+                }
+                
+                # Also emit quantitylot if present (for CME compatibility)
+                if hasattr(trade, 'quantitylot'):
+                    record['quantitylot'] = q_float
+                
+                records.append(record)
         
         df = pd.DataFrame(records)
         logger.debug(f"Converted {len(trades)} Trade objects to DataFrame with {len(df)} rows")

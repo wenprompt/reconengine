@@ -10,6 +10,7 @@ This is a **Reconciliation Engine** that contains multiple specialized matching 
 - **ICE Trade Matching System** (`src/ice_match/`) - Energy derivatives matching with 13 sequential rules
 - **SGX Trade Matching System** (`src/sgx_match/`) - Singapore Exchange iron ore futures matching with 3 sequential rules
 - **CME Trade Matching System** (`src/cme_match/`) - Chicago Mercantile Exchange futures matching with 1 exact matching rule
+- **EEX Trade Matching System** (`src/eex_match/`) - European Energy Exchange matching with 1 exact matching rule
 - **Future Modules**: Plans for additional matching systems like `ffa_match` and others
 
 Each matching system has its own specialized rules and matching logic tailored to specific exchanges and products.
@@ -45,11 +46,22 @@ The CME matching system processes Chicago Mercantile Exchange futures trades usi
 - **Universal Field Validation**: Inherits broker group and clearing account validation from base architecture
 - **Lot-Based Trading**: CME-specific design around lot-based contract specifications
 
+### EEX Match Module Summary
+
+The EEX matching system processes European Energy Exchange trades using a single-rule exact matching approach:
+
+- **Rule 1**: Exact matching on 7 fields (product, contract month, quantity unit, price, buy/sell, + universal fields)
+- **CAPE Focus**: Specialized for Capesize freight derivatives and related products
+- **Trade Factory Pattern**: Uses SGX-style trade factory for CSV, DataFrame, and JSON data ingestion
+- **Single Rule Architecture**: Only exact matching implemented, focusing on high-confidence matches (100%)
+- **Universal Field Validation**: Inherits broker group and clearing account validation from base architecture
+- **Clean Implementation**: Follows SGX pattern with no unnecessary loaders folder
+
 ### Unified Reconciliation System Summary
 
 The unified reconciliation system acts as a centralized data router and aggregator:
 
-- **Data Routing**: Groups trades by `exchangegroupid` and routes to appropriate systems (Group 1 → ICE, Group 2 → SGX, Group 4 → ICE)
+- **Data Routing**: Groups trades by `exchangegroupid` and routes to appropriate systems (Group 1 → ICE, Group 2 → SGX, Group 3 → CME, Group 4 → ICE, Group 5 → EEX)
 - **System Integration**: Calls individual matching systems with filtered data while maintaining system isolation
 - **Result Aggregation**: Combines results from multiple systems with unified reporting
 - **JSON API Support**: Processes JSON payloads using trade factories for sophisticated field handling and normalization
@@ -179,8 +191,6 @@ src/cme_match/
 ├── models/                 # Pydantic v2 data models
 │   ├── trade.py           # CMETrade model with futures support
 │   └── match_result.py    # CMEMatchResult model for output
-├── loaders/               # CSV data loading with normalization integration
-│   └── cme_csv_loader.py  # Handles CME trader and exchange CSV files
 ├── normalizers/          # Data normalization and standardization
 │   └── cme_trade_normalizer.py # CME-specific product names, contract months
 ├── matchers/            # Matching rule implementations (1 rule)
@@ -196,6 +206,34 @@ src/cme_match/
 ├── data/            # CME sample data sets (uses unified_recon data folder)
 └── docs/
     └── rules.md        # CME rule specifications
+```
+
+**EEX Match Module Structure:**
+
+```text
+src/eex_match/
+├── main.py                 # Main application entry point with CLI
+├── models/                 # Pydantic v2 data models
+│   ├── trade.py           # EEXTrade model with CAPE support
+│   └── match_result.py    # EEXMatchResult model for output
+├── normalizers/          # Data normalization and standardization
+│   └── eex_trade_normalizer.py # EEX-specific product names, contract months
+├── matchers/            # Matching rule implementations (1 rule)
+│   ├── base_matcher.py   # Base matcher with universal field validation
+│   └── exact_matcher.py # Rule 1: Exact matching for EEX
+├── core/               # Core system components
+│   ├── trade_factory.py  # Trade factory for CSV, DataFrame, JSON ingestion
+│   └── eex_pool.py    # Non-duplication pool management for EEX
+├── config/            # Configuration management
+│   ├── config_manager.py # EEX-specific settings and configuration
+│   └── normalizer_config.json # EEX product mappings and field configuration
+├── cli/              # Rich CLI interface
+│   └── eex_display.py # Beautiful terminal output for EEX results
+├── data/            # EEX sample data sets
+│   ├── sourceTraders.csv    # EEX trader data (2 records)
+│   └── sourceExchange.csv   # EEX exchange data (2 records)
+└── docs/
+    └── rules.md        # EEX rule specifications
 ```
 
 ### Architecture Principles
@@ -312,16 +350,14 @@ uv run ruff check --fix .
 uv run python -m mypy src/
 
 # Centralized data routing with master data processing
-uv run python -m src.unified_recon.main                    # Shows all matches+unmatches
+uv run python -m src.unified_recon.main  # Shows all matches+unmatches
 uv run python -m src.unified_recon.main --log-level DEBUG # Enable debug logging
 
 # JSON payload routing (API simulation)
-uv run python -m src.unified_recon.main --json-file src/test_json/sample_full.json         # Route JSON trades by exchangeGroupId
-uv run python -m src.unified_recon.main --json-file src/test_json/sample_full.json --log-level INFO  # With detailed logging
+uv run python -m src.unified_recon.main --json-file src/test_json/sample_full.json
 
 # Run ICE match system directly
 uv run python -m src.ice_match.main
-uv run python -m src.ice_match.main --show-rules  # Display detailed rule information
 uv run python -m src.ice_match.main --log-level DEBUG  # Enable debug logging
 
 # Run SGX match system directly
@@ -330,13 +366,17 @@ uv run python -m src.sgx_match.main --log-level DEBUG  # Enable debug logging
 
 # Run CME match system directly
 uv run python -m src.cme_match.main  # Shows all matches+unmatches
-uv run python -m src.cme_match.main --show-rules  # Display rule information
 uv run python -m src.cme_match.main --log-level DEBUG  # Enable debug logging
+
+# Run EEX match system directly
+uv run python -m src.eex_match.main  # Shows all matches+unmatches
+uv run python -m src.eex_match.main --log-level DEBUG  # Enable debug logging
 
 # options
 --help
 --log-level DEBUG
 --no-unmatched
+--show-rules
 --json-file path/to/file.json
 ```
 
@@ -611,6 +651,68 @@ _See `src/cme_match/docs/rules.md` for detailed specifications and examples._
 ---
 
 _End of CME Match Module specific documentation_
+
+# 📊 EEX Match Module Implementation
+
+_The following sections document the specific implementation for the `src/eex_match/` module._
+
+## ✅ EEX Implementation Status
+
+**EEX Match Module Completed**:
+
+- **1 Sequential Rule**: Exact matching (Rule 1) with 100% confidence for EEX trades
+- **CAPE Specialization**: Designed for Capesize freight derivatives and related products
+- **Trade Factory Pattern**: Follows SGX pattern with `from_csv()`, `from_dataframe()`, `from_json()` methods
+- **Universal Field Validation**: JSON-driven configuration system inherited from SGX/CME architecture
+- **Pydantic v2 Models**: Complete type safety and validation for EEXTrade and EEXMatchResult
+- **Performance Optimized**: O(N+M) algorithms with signature-based indexing for efficient matching
+- **Rich CLI Interface**: Beautiful terminal output with match tables and statistics
+- **Single Rule Architecture**: Only exact matching implemented, focusing on high-confidence matching
+- **Clean Architecture**: No unnecessary loaders folder, follows SGX pattern exactly
+
+## 🔧 EEX Match Core Components
+
+### EEX Trade Model Architecture
+
+The EEX module implements specialized models for European Energy Exchange trading:
+
+- **EEXTrade Model**: Immutable trade objects with `internal_trade_id`, `quantitylot`, `quantityunit` fields
+- **EEXTradeSource Enum**: TRADER and EXCHANGE source identification
+- **EEXMatchType Enum**: EXACT match type classification (single rule system)
+- **CAPE Integration**: Native support for Capesize freight derivatives
+- **Universal Fields**: Inherits broker_group_id and exch_clearing_acct_id validation from base architecture
+
+### EEX Normalization System
+
+The EEX normalizer focuses on European Energy Exchange data standardization:
+
+- **Product Mappings**: CAPE, CAPE5TC, PMX4TC, SMX10TC and other EEX products
+- **Contract Month Patterns**: Handles both formats: 25-Oct and Oct25 standardization
+- **Buy/Sell Normalization**: Case-insensitive B/S indicator standardization
+- **JSON Configuration**: All mappings stored in `normalizer_config.json`
+- **Consistent Architecture**: Matches SGX/CME normalization patterns for unified system behavior
+
+### EEX Trade Factory
+
+The EEX trade factory processes European Energy Exchange data files:
+
+- **Multiple Input Formats**: CSV, DataFrame, and JSON support
+- **Automatic Normalization**: All fields normalized during loading via EEXTradeNormalizer
+- **Type Safety**: Proper pandas DataFrame type handling
+- **Error Handling**: Graceful handling of malformed data and empty rows
+- **Field Mapping**: Supports both trader and exchange CSV schemas
+
+### EEX Matching Rules Summary
+
+**Single-Rule Exact Matching System**
+
+- **Rule 1**: Exact matching on 7 fields (product, contract month, quantity unit, price, buy/sell + universal fields) - 100% confidence
+
+_See `src/eex_match/docs/rules.md` for detailed specifications and examples._
+
+---
+
+_End of EEX Match Module specific documentation_
 
 ## 🏗️ Pydantic v2 Data Validation Architecture
 
@@ -902,7 +1004,7 @@ settings = get_settings()
 
 ---
 
-# 📊 JSON Routing Implementation 
+# 📊 JSON Routing Implementation
 
 _The following section documents the JSON API payload processing functionality added to the unified reconciliation system._
 
@@ -954,8 +1056,8 @@ The JSON routing system implements a sophisticated processing pipeline:
 {
   "exchange_group_mappings": {
     "1": "ice_match",
-    "2": "sgx_match", 
-    "4": "ice_match"    // Added for sample JSON data
+    "2": "sgx_match",
+    "4": "ice_match" // Added for sample JSON data
   }
 }
 ```
@@ -972,7 +1074,7 @@ The system supports JSON payloads with this structure:
       "internalTradeId": "10",
       "productName": "380CST",
       "quantityUnit": 1000,
-      "price": 401.00,
+      "price": 401.0,
       "contractMonth": "Jul-25",
       "b_s": "B",
       "brokerGroupId": 18,
@@ -988,6 +1090,7 @@ The system supports JSON payloads with this structure:
 ### Real-World Results
 
 **Processing `sample_full.json`:**
+
 - **Total Trades**: 100 (38 trader + 62 exchange)
 - **Exchange Group**: All trades with `exchangeGroupId: 4` → routed to ICE match system
 - **Match Results**: 21 matches found with 64.8% match rate

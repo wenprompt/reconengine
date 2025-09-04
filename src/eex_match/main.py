@@ -1,4 +1,4 @@
-"""Main entry point for CME trade matching system."""
+"""Main entry point for EEX trade matching system."""
 
 import logging
 from pathlib import Path
@@ -6,13 +6,12 @@ from typing import List, Optional
 import argparse
 import sys
 
-from .config import CMEConfigManager
-from .core import CMEUnmatchedPool
-from .core.trade_factory import CMETradeFactory
+from .config import EEXConfigManager
+from .core import EEXUnmatchedPool, EEXTradeFactory
 from .matchers.exact_matcher import ExactMatcher
-from .models import CMEMatchResult, CMETradeSource
-from .cli import CMEDisplay
-from .normalizers import CMETradeNormalizer
+from .models import EEXMatchResult, EEXTradeSource
+from .cli import EEXDisplay
+from .normalizers import EEXTradeNormalizer
 
 # Default file paths
 DEFAULT_DATA_DIR = Path(__file__).parent / "data"
@@ -23,21 +22,21 @@ DEFAULT_EXCHANGE_FILE = "sourceExchange.csv"
 logger = logging.getLogger(__name__)
 
 
-class CMEMatchingEngine:
-    """Main CME trade matching engine."""
+class EEXMatchingEngine:
+    """Main EEX trade matching engine."""
     
-    def __init__(self, config_manager: Optional[CMEConfigManager] = None):
-        """Initialize CME matching engine. 
+    def __init__(self, config_manager: Optional[EEXConfigManager] = None):
+        """Initialize EEX matching engine. 
         
         Args:
             config_manager: Optional config manager. Creates default if None.
         """
-        self.config_manager = config_manager or CMEConfigManager()
-        self.normalizer = CMETradeNormalizer(self.config_manager)
-        self.trade_factory = CMETradeFactory(self.normalizer)
-        self.display = CMEDisplay()
+        self.config_manager = config_manager or EEXConfigManager()
+        self.normalizer = EEXTradeNormalizer(self.config_manager)
+        self.trade_factory = EEXTradeFactory(self.normalizer)
+        self.display = EEXDisplay()
         
-        # Initialize matchers based on config (only exact matching for CME)
+        # Initialize matchers based on config (only exact matching for EEX)
         self.exact_matcher = ExactMatcher(self.config_manager)
         
         # Build matcher registry for scalable rule lookup
@@ -45,11 +44,11 @@ class CMEMatchingEngine:
             1: self.exact_matcher
         }
         
-        logger.info("Initialized CME matching engine with exact matcher only")
+        logger.info("Initialized EEX matching engine with exact matcher only")
     
     def run_matching(self, trader_csv_path: Path, exchange_csv_path: Path,
-                     show_unmatched: bool = False) -> List[CMEMatchResult]:
-        """Run the complete CME matching process.
+                     show_unmatched: bool = False) -> List[EEXMatchResult]:
+        """Run the complete EEX matching process.
         
         Args:
             trader_csv_path: Path to trader CSV file
@@ -63,16 +62,16 @@ class CMEMatchingEngine:
         
         try:
             # Load data
-            logger.info("Loading CME trade data...")
-            trader_trades = self.trade_factory.from_csv(trader_csv_path, CMETradeSource.TRADER)
-            exchange_trades = self.trade_factory.from_csv(exchange_csv_path, CMETradeSource.EXCHANGE)
+            logger.info("Loading EEX trade data...")
+            trader_trades = self.trade_factory.from_csv(trader_csv_path, EEXTradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_csv(exchange_csv_path, EEXTradeSource.EXCHANGE)
             
             self.display.show_loading_summary(len(trader_trades), len(exchange_trades))
             
             # Initialize pool manager
-            pool_manager = CMEUnmatchedPool(trader_trades, exchange_trades)
+            pool_manager = EEXUnmatchedPool(trader_trades, exchange_trades)
             
-            # Run matching rules in sequence (only Rule 1 for CME)
+            # Run matching rules in sequence (only Rule 1 for EEX)
             all_matches = []
             processing_order = self.config_manager.get_processing_order()
             
@@ -104,7 +103,7 @@ class CMEMatchingEngine:
             return all_matches
             
         except Exception as e:
-            logger.error(f"Error in CME matching process: {e}")
+            logger.error(f"Error in EEX matching process: {e}")
             self.display.show_error(str(e))
             return []
     
@@ -120,7 +119,7 @@ class CMEMatchingEngine:
         return self.matchers.get(rule_number)
     
     def run_matching_from_dataframes(self, trader_df, exchange_df) -> tuple:
-        """Run CME matching process directly from DataFrames without CSV files.
+        """Run EEX matching process directly from DataFrames without CSV files.
         
         Args:
             trader_df: Pandas DataFrame containing trader data
@@ -131,14 +130,14 @@ class CMEMatchingEngine:
         """
         try:
             # Create trades from DataFrames
-            logger.info("Creating CME trades from DataFrames...")
-            trader_trades = self.trade_factory.from_dataframe(trader_df, CMETradeSource.TRADER)
-            exchange_trades = self.trade_factory.from_dataframe(exchange_df, CMETradeSource.EXCHANGE)
+            logger.info("Creating EEX trades from DataFrames...")
+            trader_trades = self.trade_factory.from_dataframe(trader_df, EEXTradeSource.TRADER)
+            exchange_trades = self.trade_factory.from_dataframe(exchange_df, EEXTradeSource.EXCHANGE)
             
             logger.info(f"Created {len(trader_trades)} trader trades and {len(exchange_trades)} exchange trades")
             
             # Initialize pool manager
-            pool_manager = CMEUnmatchedPool(trader_trades, exchange_trades)
+            pool_manager = EEXUnmatchedPool(trader_trades, exchange_trades)
             
             # Run matching rules in sequence
             all_matches = []
@@ -172,7 +171,7 @@ class CMEMatchingEngine:
             return all_matches, statistics
             
         except Exception as e:
-            logger.error(f"Error in CME matching from DataFrames: {e}")
+            logger.error(f"Error in EEX matching from DataFrames: {e}")
             raise
     
     def show_rules(self) -> None:
@@ -187,7 +186,7 @@ class CMEMatchingEngine:
 
 
 def setup_logging(log_level: str = "NONE") -> None:
-    """Set up logging configuration for CME matching.
+    """Set up logging configuration for EEX matching.
     
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, NONE)
@@ -211,8 +210,8 @@ def setup_logging(log_level: str = "NONE") -> None:
 
 
 def main() -> None:
-    """Main entry point for CME matching system."""
-    parser = argparse.ArgumentParser(description="CME Trade Matching System")
+    """Main entry point for EEX matching system."""
+    parser = argparse.ArgumentParser(description="EEX Trade Matching System")
     parser.add_argument(
         "--trader-file", 
         type=Path,
@@ -232,7 +231,7 @@ def main() -> None:
     parser.add_argument(
         "--no-unmatched",
         action="store_true",
-        help="Hide unmatched trades after processing (default: show unmatched)"
+        help="Hide unmatched trades after processing"
     )
     parser.add_argument(
         "--show-rules",
@@ -253,7 +252,7 @@ def main() -> None:
     
     try:
         # Initialize matching engine
-        engine = CMEMatchingEngine()
+        engine = EEXMatchingEngine()
         
         # Show rules if requested
         if args.show_rules:
@@ -277,10 +276,10 @@ def main() -> None:
         matches = engine.run_matching(
             trader_path, 
             exchange_path, 
-            show_unmatched=not args.no_unmatched  # Show unmatched by default like SGX/EEX
+            show_unmatched=not args.no_unmatched  # Show unmatched by default like SGX
         )
         
-        logger.info(f"CME matching completed. Total matches: {len(matches)}")
+        logger.info(f"EEX matching completed. Total matches: {len(matches)}")
         
     except KeyboardInterrupt:
         print("\nMatching process interrupted by user")

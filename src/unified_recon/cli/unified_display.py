@@ -10,6 +10,8 @@ from ..core.result_aggregator import UnifiedResult, SystemResult
 # Import existing display components and configs
 from src.ice_match.cli.display import MatchDisplayer
 from src.sgx_match.cli.sgx_display import SGXDisplay
+from src.cme_match.cli.cme_display import CMEDisplay
+from src.eex_match.cli.eex_display import EEXDisplay
 from src.ice_match.config.config_manager import ConfigManager
 
 
@@ -76,6 +78,10 @@ class UnifiedDisplay:
                 self._display_ice_group_result(result, show_details, show_unmatched)
             elif result.system_name == "sgx_match":
                 self._display_sgx_group_result(result, show_details, show_unmatched)
+            elif result.system_name == "cme_match":
+                self._display_cme_group_result(result, show_details, show_unmatched)
+            elif result.system_name == "eex_match":
+                self._display_eex_group_result(result, show_details, show_unmatched)
             else:
                 self.console.print(f"[red]Unknown system: {result.system_name}[/red]")
     
@@ -128,6 +134,54 @@ class UnifiedDisplay:
                     sgx_display._show_unmatched_trader_table(unmatched_trader)
                 if unmatched_exchange:
                     sgx_display._show_unmatched_exchange_table(unmatched_exchange)
+    
+    def _display_cme_group_result(self, result: SystemResult, show_details: bool, show_unmatched: bool) -> None:
+        """Display CME group results using existing CME display component."""
+        self.console.print(Panel(
+            f"📊 Matches: {result.matches_found} | 📈 Rate: {result.match_rate:.1f}% | ⏱️  Time: {result.processing_time:.2f}s",
+            title=f"🌽 Group {result.group_id} - CME Match Results",
+            border_style="yellow"
+        ))
+        
+        if show_details and result.detailed_results:
+            # Reuse CME display component
+            cme_display = CMEDisplay()
+            
+            # Display matches using existing CME logic
+            cme_display._show_detailed_matches(result.detailed_results)
+            
+            # Display unmatched trades if requested  
+            if show_unmatched and result.statistics:
+                unmatched_trader = result.statistics.get('unmatched_trader_trades', [])
+                unmatched_exchange = result.statistics.get('unmatched_exchange_trades', [])
+                if unmatched_trader:
+                    cme_display._show_unmatched_trader_trades(unmatched_trader)
+                if unmatched_exchange:
+                    cme_display._show_unmatched_exchange_trades(unmatched_exchange)
+    
+    def _display_eex_group_result(self, result: SystemResult, show_details: bool, show_unmatched: bool) -> None:
+        """Display EEX group results using existing EEX display component."""
+        self.console.print(Panel(
+            f"📊 Matches: {result.matches_found} | 📈 Rate: {result.match_rate:.1f}% | ⏱️  Time: {result.processing_time:.2f}s",
+            title=f"⚡ Group {result.group_id} - EEX Match Results",
+            border_style="magenta"
+        ))
+        
+        if show_details and result.detailed_results:
+            # Reuse EEX display component
+            eex_display = EEXDisplay()
+            
+            # Display matches using existing EEX logic
+            eex_display._show_detailed_matches(result.detailed_results)
+            
+            # Display unmatched trades if requested
+            if show_unmatched and result.statistics:
+                unmatched_trader = result.statistics.get('unmatched_trader_trades', [])
+                unmatched_exchange = result.statistics.get('unmatched_exchange_trades', [])
+                if unmatched_trader:
+                    eex_display._show_unmatched_trader_table(unmatched_trader)
+                if unmatched_exchange:
+                    eex_display._show_unmatched_exchange_table(unmatched_exchange)
     
     def display_unified_summary(self, unified_result: UnifiedResult) -> None:
         """Display unified summary."""

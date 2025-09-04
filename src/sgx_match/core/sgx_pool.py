@@ -1,9 +1,12 @@
 """Unmatched SGX trade pool manager for ensuring non-duplication."""
 
-from typing import List, Set, Dict, Tuple, Any
+from typing import List, Set, Dict, Tuple, Any, TYPE_CHECKING
 import logging
 
 from ..models import SGXTrade, SGXTradeSource
+
+if TYPE_CHECKING:
+    from ..models import SGXMatchResult
 
 logger = logging.getLogger(__name__)
 
@@ -72,49 +75,54 @@ class SGXUnmatchedPool:
         else:
             raise ValueError(f"Unknown trade source: {source}")
     
-    def mark_as_matched(self, trade_id: str, source: SGXTradeSource, 
-                       match_type: str = "unknown") -> bool:
-        """Mark a trade as matched and remove from pool.
+    
+    def record_match(self, match_result: "SGXMatchResult") -> bool:
+        """Atomically record a match and remove all involved trades from pools.
+        
+        This follows the ICE-style atomic pattern that prevents partial states.
         
         Args:
-            trade_id: Trade ID to mark as matched
-            source: Trade source (TRADER or EXCHANGE)
-            match_type: Type of match for audit trail
+            match_result: The match result containing all matched trades
             
         Returns:
-            True if trade was successfully marked, False if not found
+            True if all trades were successfully removed, False otherwise
         """
-        if source == SGXTradeSource.TRADER:
-            if trade_id in self._trader_pool:
+        # Collect all trades to remove
+        trades_to_remove = []
+        trades_to_remove.append((match_result.trader_trade.internal_trade_id, SGXTradeSource.TRADER))
+        if match_result.additional_trader_trades:
+            for trade in match_result.additional_trader_trades:
+                trades_to_remove.append((trade.internal_trade_id, SGXTradeSource.TRADER))
+        
+        trades_to_remove.append((match_result.exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE))
+        if match_result.additional_exchange_trades:
+            for trade in match_result.additional_exchange_trades:
+                trades_to_remove.append((trade.internal_trade_id, SGXTradeSource.EXCHANGE))
+        
+        # First verify all trades are available for matching
+        for trade_id, source in trades_to_remove:
+            if not self.is_unmatched(trade_id, source):
+                logger.warning(f"Trade {trade_id} ({source.value}) not available for atomic match")
+                return False
+        
+        # All trades verified, now remove them atomically
+        for trade_id, source in trades_to_remove:
+            if source == SGXTradeSource.TRADER:
                 del self._trader_pool[trade_id]
                 self._matched_trader_ids.add(trade_id)
-                logger.debug(f"Marked trader trade {trade_id} as matched ({match_type})")
-                return True
-            else:
-                logger.warning(f"Attempted to mark non-existent trader trade {trade_id} as matched")
-                return False
-                
-        elif source == SGXTradeSource.EXCHANGE:
-            if trade_id in self._exchange_pool:
+            else:  # EXCHANGE
                 del self._exchange_pool[trade_id]
                 self._matched_exchange_ids.add(trade_id)
-                logger.debug(f"Marked exchange trade {trade_id} as matched ({match_type})")
-                return True
-            else:
-                logger.warning(f"Attempted to mark non-existent exchange trade {trade_id} as matched")
-                return False
-        else:
-            raise ValueError(f"Unknown trade source: {source}")
-    
-    def record_match(self, trader_id: str, exchange_id: str, rule_type: str) -> None:
-        """Record a match in the audit trail.
         
-        Args:
-            trader_id: Trader trade ID
-            exchange_id: Exchange trade ID
-            rule_type: Type of matching rule used
-        """
-        self._match_history.append((trader_id, exchange_id, rule_type))
+        # Record in match history
+        self._match_history.append((
+            match_result.trader_trade.internal_trade_id,
+            match_result.exchange_trade.internal_trade_id,
+            match_result.match_type.value
+        ))
+        
+        logger.debug(f"Atomically recorded match {match_result.match_id}, removed {len(trades_to_remove)} trades")
+        return True
     
     def get_match_statistics(self) -> Dict[str, Any]:
         """Get matching statistics.

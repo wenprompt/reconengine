@@ -238,18 +238,31 @@ class ICETradeFactory:
 
         # Source-specific required fields
         if source == TradeSource.EXCHANGE:
-            required.append("tradetime")  # Exchange files require tradetime
+            required.extend(["tradetime", "unit"])  # Exchange files require tradetime
 
         return required
 
     def _get_optional_fields(self, source: TradeSource) -> List[str]:
         """Get optional fields for the given source type."""
-        optional = ["unit", "tradedate"]  # Common optional fields
+        optional = [
+            "tradedate",
+            "strike",
+            "put_call",
+        ]  # Common optional fields
 
         if source == TradeSource.TRADER:
-            optional.extend(["tradetime", "specialcomms", "spread"])
+            optional.extend(["tradetime", "specialcomms", "spread", "traderid", "unit"])
         else:  # Exchange
-            optional.extend(["dealid", "tradeid"])
+            optional.extend(
+                [
+                    "dealid",
+                    "tradeid",
+                    "productid",
+                    "productgroupid",
+                    "quantitylot",
+                    "traderid",
+                ]
+            )
 
         return optional
 
@@ -337,13 +350,15 @@ class ICETradeFactory:
 
             # Use internaltradeid from JSON mapping or fallback to T_{index}
             internal_trade_id_raw = self._safe_str(row.get("internaltradeid"))
-            internal_trade_id = internal_trade_id_raw if internal_trade_id_raw else f"T_{index}"
+            internal_trade_id = (
+                internal_trade_id_raw if internal_trade_id_raw else f"T_{index}"
+            )
 
             return Trade(
                 internal_trade_id=internal_trade_id,
                 source=TradeSource.TRADER,
                 product_name=product_name,
-                quantityunit=Decimal(quantity_str.replace(",", "")),
+                quantityunit=Decimal(self._clean_numeric_string(quantity_str)),
                 unit=unit,
                 price=Decimal(price_str),
                 contract_month=contract_month,
@@ -394,7 +409,9 @@ class ICETradeFactory:
 
             # Use internaltradeid from JSON mapping or fallback to E_{index}
             internal_trade_id_raw = self._safe_str(row.get("internaltradeid"))
-            internal_trade_id = internal_trade_id_raw if internal_trade_id_raw else f"E_{index}"
+            internal_trade_id = (
+                internal_trade_id_raw if internal_trade_id_raw else f"E_{index}"
+            )
 
             # Note: Exchange trades don't have spread or special_comms fields
             # Spread detection for exchange is handled differently (based on tradeid presence in matching rules)
@@ -403,7 +420,7 @@ class ICETradeFactory:
                 internal_trade_id=internal_trade_id,
                 source=TradeSource.EXCHANGE,
                 product_name=product_name,
-                quantityunit=Decimal(quantity_str.replace(",", "").replace('"', "")),
+                quantityunit=Decimal(self._clean_numeric_string(quantity_str)),
                 unit=self._safe_str(row.get("unit", "mt")).lower(),
                 price=Decimal(price_str),
                 contract_month=contract_month,
@@ -435,3 +452,15 @@ class ICETradeFactory:
             return int(float(str(value)))
         except (ValueError, TypeError):
             return None
+
+    def _clean_numeric_string(self, value: str) -> str:
+        """Clean numeric string by removing commas and quotes.
+
+        Handles formats like:
+        - "1,000" -> "1000"
+        - '"1,000"' -> "1000"
+        - "1000" -> "1000"
+        """
+        if not value:
+            return ""
+        return value.replace(",", "").replace('"', "").strip()

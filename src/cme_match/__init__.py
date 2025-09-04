@@ -3,8 +3,7 @@
 from .models import CMETrade, CMETradeSource, CMEMatchResult, CMEMatchType
 from .matchers.exact_matcher import ExactMatcher
 from .config import CMEConfigManager
-from .core import CMEUnmatchedPool
-from .loaders import CMECSVLoader
+from .core import CMEUnmatchedPool, CMETradeFactory
 from .normalizers import CMETradeNormalizer
 from .cli import CMEDisplay
 
@@ -17,7 +16,7 @@ __all__ = [
     "ExactMatcher",
     "CMEConfigManager",
     "CMEUnmatchedPool",
-    "CMECSVLoader",
+    "CMETradeFactory",
     "CMETradeNormalizer",
     "CMEDisplay",
 ]

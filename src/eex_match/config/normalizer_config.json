@@ -1,12 +1,26 @@
 {
   "product_mappings": {
-    "cape5tc": "cape5tc",
-    "pmx4tc": "pmx4tc",
-    "smx10tc": "smx10tc",
-    "c3": "c3",
+    "cape": "CAPE",
+    "cape5tc": "CAPE5TC",
+    "pmx4tc": "PMX4TC",
+    "smx10tc": "SMX10TC",
+    "c3": "C3",
     "c5": "C5"
   },
   "month_patterns": {
+    "(?i)^(\\d{2})-(jan)$": "Jan\\1",
+    "(?i)^(\\d{2})-(feb)$": "Feb\\1",
+    "(?i)^(\\d{2})-(mar)$": "Mar\\1",
+    "(?i)^(\\d{2})-(apr)$": "Apr\\1",
+    "(?i)^(\\d{2})-(may)$": "May\\1",
+    "(?i)^(\\d{2})-(jun)$": "Jun\\1",
+    "(?i)^(\\d{2})-(jul)$": "Jul\\1",
+    "(?i)^(\\d{2})-(aug)$": "Aug\\1",
+    "(?i)^(\\d{2})-(sep)$": "Sep\\1",
+    "(?i)^(\\d{2})-(sept)$": "Sep\\1",
+    "(?i)^(\\d{2})-(oct)$": "Oct\\1",
+    "(?i)^(\\d{2})-(nov)$": "Nov\\1",
+    "(?i)^(\\d{2})-(dec)$": "Dec\\1",
     "(?i)^jan[\\s\\-]?(\\d{2})$": "Jan\\1",
     "(?i)^feb[\\s\\-]?(\\d{2})$": "Feb\\1",
     "(?i)^mar[\\s\\-]?(\\d{2})$": "Mar\\1",
@@ -22,6 +36,8 @@
     "(?i)^dec[\\s\\-]?(\\d{2})$": "Dec\\1"
   },
   "buy_sell_mappings": {
+    "b": "B",
+    "s": "S",
     "buy": "B",
     "bought": "B",
     "sell": "S",

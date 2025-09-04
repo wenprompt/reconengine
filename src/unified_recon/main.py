@@ -147,6 +147,111 @@ def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) ->
         raise RuntimeError(f"SGX match system processing failed: {e}") from e
 
 
+def call_cme_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
+    """Call CME match system with filtered data.
+    
+    Args:
+        trader_df: Filtered trader DataFrame for group 3
+        exchange_df: Filtered exchange DataFrame for group 3
+        
+    Returns:
+        Dict with CME match results and statistics
+    """
+    # Import and call CME match system
+    try:
+        from ..cme_match.main import CMEMatchingEngine  # type: ignore
+        
+        # Set up CME system engine
+        engine = CMEMatchingEngine()
+        
+        # Load and process data through CME system using DataFrames directly
+        start_time = time.time()
+        
+        # Use CME engine to run matching process with DataFrames (no CSV files)
+        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
+        
+        processing_time = time.time() - start_time
+        
+        # Extract statistics from CME pool manager
+        total_matches = len(matches)
+        total_trader_trades = statistics['original_trader_count']
+        total_exchange_trades = statistics['original_exchange_count']
+        
+        # Calculate total trades matched (not just number of match records)
+        # Each match involves multiple trades (trader + exchange + additional trades)
+        total_trades_matched = 0
+        for match in matches:
+            # Count all trades involved in this match
+            trades_in_match = (
+                1 +  # trader_trade
+                1 +  # exchange_trade
+                len(getattr(match, 'additional_trader_trades', [])) +
+                len(getattr(match, 'additional_exchange_trades', []))
+            )
+            total_trades_matched += trades_in_match
+        
+        # Calculate match rate as: total trades matched / total trades in group
+        total_trades = total_trader_trades + total_exchange_trades
+        match_rate = (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
+        
+        return {
+            'matches_found': total_matches,
+            'match_rate': match_rate, 
+            'processing_time': processing_time,
+            'detailed_results': matches,
+            'unmatched_trader_trades': statistics.get('unmatched_trader_trades', []),
+            'unmatched_exchange_trades': statistics.get('unmatched_exchange_trades', [])
+        }
+        
+    except ImportError as e:
+        raise ImportError(f"Failed to import CME match system: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"CME match system processing failed: {e}") from e
+
+
+def call_eex_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
+    """Call EEX match system with filtered data.
+    
+    Args:
+        trader_df: Filtered trader DataFrame for group 5
+        exchange_df: Filtered exchange DataFrame for group 5
+        
+    Returns:
+        Dict with EEX match results and statistics
+    """
+    # Import and call EEX match system
+    try:
+        from ..eex_match.main import EEXMatchingEngine  # type: ignore
+        
+        # Set up EEX system engine
+        engine = EEXMatchingEngine()
+        
+        # Load and process data through EEX system using DataFrames directly
+        start_time = time.time()
+        
+        # Use EEX engine to run matching process with DataFrames (no CSV files)
+        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
+        
+        processing_time = time.time() - start_time
+        
+        # Get match rate from EEX statistics (overall match rate)
+        match_rate = statistics['match_rate']
+        
+        return {
+            'matches_found': len(matches),
+            'match_rate': match_rate,
+            'processing_time': processing_time,
+            'detailed_results': matches,
+            'unmatched_trader_trades': statistics.get('unmatched_trader_trades', []),
+            'unmatched_exchange_trades': statistics.get('unmatched_exchange_trades', [])
+        }
+        
+    except ImportError as e:
+        raise ImportError(f"Failed to import EEX match system: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"EEX match system processing failed: {e}") from e
+
+
 def main() -> int:
     """Main entry point for unified reconciliation system.
     
@@ -244,6 +349,16 @@ def main() -> int:
                     )
                 elif system_name == "sgx_match":
                     results = call_sgx_match_system(
+                        group_info['trader_data'],
+                        group_info['exchange_data']
+                    )
+                elif system_name == "cme_match":
+                    results = call_cme_match_system(
+                        group_info['trader_data'],
+                        group_info['exchange_data']
+                    )
+                elif system_name == "eex_match":
+                    results = call_eex_match_system(
                         group_info['trader_data'],
                         group_info['exchange_data']
                     )

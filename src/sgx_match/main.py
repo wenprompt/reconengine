@@ -95,14 +95,6 @@ class SGXMatchingEngine:
                 matches = matcher.find_matches(pool_manager)
                 all_matches.extend(matches)
                 
-                # Record matches in pool
-                for match in matches:
-                    pool_manager.record_match(
-                        match.trader_trade.internal_trade_id,
-                        match.exchange_trade.internal_trade_id,
-                        match.match_type.value
-                    )
-                
                 logger.info(f"Rule {rule_number} found {len(matches)} matches")
             
             # Display results
@@ -158,14 +150,6 @@ class SGXMatchingEngine:
                 
                 matches = matcher.find_matches(pool_manager)
                 all_matches.extend(matches)
-                
-                # Record matches in pool
-                for match in matches:
-                    pool_manager.record_match(
-                        match.trader_trade.internal_trade_id,
-                        match.exchange_trade.internal_trade_id,
-                        match.match_type.value
-                    )
             
             # Get statistics and unmatched trades
             statistics = pool_manager.get_match_statistics()
@@ -211,14 +195,6 @@ class SGXMatchingEngine:
                 
                 matches = matcher.find_matches(pool_manager)
                 all_matches.extend(matches)
-                
-                # Record matches in pool
-                for match in matches:
-                    pool_manager.record_match(
-                        match.trader_trade.internal_trade_id,
-                        match.exchange_trade.internal_trade_id,
-                        match.match_type.value
-                    )
             
             # Get statistics and unmatched trades
             statistics = pool_manager.get_match_statistics()
