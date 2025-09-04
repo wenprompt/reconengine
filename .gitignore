@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# types
+.mypy_cache/
+.ruff_cache/
 
 # serena
 .serena/
@@ -26,3 +29,4 @@ tradefiles/input/
 tradefiles/output/
 tradefiles/input_traders/
 tradefiles/output_traders/
+

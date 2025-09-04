@@ -10,6 +10,7 @@ import logging
 from ..core.group_router import UnifiedTradeRouter
 from ..core.result_aggregator import ResultAggregator
 from ..utils.dataframe_output import create_unified_dataframe
+from ..utils.data_validator import DataValidationError
 from .models import ReconciliationRequest
 
 logger = logging.getLogger(__name__)

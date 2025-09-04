@@ -1,13 +1,13 @@
 """FastAPI application for trade reconciliation."""
 
 import logging
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from typing import Dict, Any, List
 
 from .models import ReconciliationRequest
 from .service import ReconciliationService
+from ..utils.data_validator import DataValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ app = FastAPI(
     redoc_url="/redoc",  # ReDoc UI
 )
 
-# Add CORS middleware for web clients
+# Add CORS middleware for web clients  
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for development
@@ -75,10 +75,13 @@ async def reconcile_trades(request: ReconciliationRequest) -> List[Dict[str, Any
         result = await service.process_reconciliation(request)
         return result
     except ValueError as e:
-        logger.warning(f"Validation error: {e}")
+        logger.warning(f"Request validation error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except DataValidationError as e:
+        logger.warning(f"Data validation error: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except FileNotFoundError as e:
-        logger.error(f"File not found error: {e}")
+        logger.error(f"Configuration file not found: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Configuration file not found",
@@ -90,15 +93,12 @@ async def reconcile_trades(request: ReconciliationRequest) -> List[Dict[str, Any
             detail="Invalid configuration or missing required data",
         )
     except Exception as e:
-        # Log the error internally but don't expose details
-        logger.error(f"Reconciliation error: {e}", exc_info=True)
+        # Log the error internally but don't expose details for security
+        logger.error(f"Internal reconciliation error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during reconciliation",
         )
 
 
-# Custom exception handlers
-@app.exception_handler(ValueError)
-async def value_error_handler(_: Request, exc: ValueError):
-    return JSONResponse(status_code=400, content={"detail": str(exc)})
+# Custom exception handlers removed - handled in endpoint for better control
