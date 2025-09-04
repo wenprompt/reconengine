@@ -15,6 +15,10 @@ from ...sgx_match.core.trade_factory import SGXTradeFactory
 from ...sgx_match.normalizers import SGXTradeNormalizer
 from ...sgx_match.models import SGXTradeSource
 from ...sgx_match.config import SGXConfigManager
+from ...cme_match.core.trade_factory import CMETradeFactory
+from ...cme_match.normalizers import CMETradeNormalizer
+from ...cme_match.models import CMETradeSource
+from ...cme_match.config import CMEConfigManager
 
 from ..utils.data_validator import DataValidator, DataValidationError
 
@@ -164,6 +168,15 @@ class UnifiedTradeRouter:
                     
                     group_trader_trades = sgx_factory.from_json(group_data['trader_trades'], SGXTradeSource.TRADER)
                     group_exchange_trades = sgx_factory.from_json(group_data['exchange_trades'], SGXTradeSource.EXCHANGE)
+                    
+                elif system_name == "cme_match":
+                    # Use CME trade factory for sophisticated field handling
+                    cme_config_manager = CMEConfigManager()
+                    cme_normalizer = CMETradeNormalizer(cme_config_manager)
+                    cme_factory = CMETradeFactory(cme_normalizer)
+                    
+                    group_trader_trades = cme_factory.from_json(group_data['trader_trades'], CMETradeSource.TRADER)
+                    group_exchange_trades = cme_factory.from_json(group_data['exchange_trades'], CMETradeSource.EXCHANGE)
                     
                 else:
                     logger.warning(f"Skipping group {group_id}: unknown system '{system_name}'")

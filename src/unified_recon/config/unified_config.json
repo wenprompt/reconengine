@@ -2,6 +2,7 @@
   "exchange_group_mappings": {
     "1": "ice_match",
     "2": "sgx_match",
+    "3": "cme_match",
     "4": "ice_match"
   },
   "system_configs": {
@@ -12,6 +13,10 @@
     "sgx_match": {
       "module": "src.sgx_match.main",
       "description": "SGX MATCH"
+    },
+    "cme_match": {
+      "module": "src.cme_match.main",
+      "description": "CME MATCH"
     }
   },
   "data_settings": {

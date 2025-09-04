@@ -4,6 +4,7 @@ import re
 from typing import Any, Optional
 from decimal import Decimal, InvalidOperation
 import logging
+import pandas as pd
 
 from ..config import EEXConfigManager
 
@@ -112,8 +113,6 @@ class EEXTradeNormalizer:
         Returns:
             Normalized quantity as Decimal, or None if invalid or NaN
         """
-        import pandas as pd
-        
         # Check for NaN, None, or empty string
         if pd.isna(quantity) or quantity is None or quantity == "":
             return None
@@ -144,8 +143,6 @@ class EEXTradeNormalizer:
         Returns:
             Normalized price as Decimal, or None if invalid or NaN
         """
-        import pandas as pd
-        
         # Check for NaN, None, or empty string
         if pd.isna(price) or price is None or price == "":
             return None
@@ -176,8 +173,6 @@ class EEXTradeNormalizer:
         Returns:
             Normalized integer value, or None if invalid or NaN
         """
-        import pandas as pd
-        
         # Check for NaN, None, or empty string
         if pd.isna(value) or value is None or value == "":
             return None
@@ -203,8 +198,6 @@ class EEXTradeNormalizer:
         Returns:
             Normalized string value
         """
-        import pandas as pd
-        
         # Check for NaN or None
         if pd.isna(value) or value is None:
             return ""
