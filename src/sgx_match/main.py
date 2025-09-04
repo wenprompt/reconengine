@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 import argparse
 import sys
 
@@ -165,51 +165,6 @@ class SGXMatchingEngine:
         except Exception as e:
             logger.error(f"SGX DataFrame matching failed: {e}")
             raise RuntimeError(f"SGX DataFrame matching failed: {e}") from e
-    
-    def run_matching_minimal(self, trader_csv_path: Path, exchange_csv_path: Path) -> tuple[List[SGXMatchResult], Dict[str, Any]]:
-        """Run SGX matching process without display output for unified system. 
-        
-        Args:
-            trader_csv_path: Path to trader CSV file  
-            exchange_csv_path: Path to exchange CSV file
-            
-        Returns:
-            Tuple of (matches, statistics) for unified system integration
-        """
-        try:
-            # Load data
-            trader_trades = self.trade_factory.from_csv(trader_csv_path, SGXTradeSource.TRADER)
-            exchange_trades = self.trade_factory.from_csv(exchange_csv_path, SGXTradeSource.EXCHANGE)
-            
-            # Initialize pool manager
-            pool_manager = SGXUnmatchedPool(trader_trades, exchange_trades)
-            
-            # Run matching rules in sequence
-            all_matches = []
-            processing_order = self.config_manager.get_processing_order()
-            
-            for rule_number in processing_order:
-                matcher = self._get_matcher_for_rule(rule_number)
-                if not matcher:
-                    continue
-                
-                matches = matcher.find_matches(pool_manager)
-                all_matches.extend(matches)
-            
-            # Get statistics and unmatched trades
-            statistics = pool_manager.get_match_statistics()
-            unmatched_trader = pool_manager.get_unmatched_trader_trades()
-            unmatched_exchange = pool_manager.get_unmatched_exchange_trades()
-            
-            # Add unmatched trades to statistics for unified system
-            statistics['unmatched_trader_trades'] = unmatched_trader
-            statistics['unmatched_exchange_trades'] = unmatched_exchange
-            
-            return all_matches, statistics
-            
-        except Exception as e:
-            logger.error(f"SGX minimal matching failed: {e}")
-            raise RuntimeError(f"SGX matching failed: {e}") from e
     
     def _get_matcher_for_rule(self, rule_number: int):
         """Get matcher for specific rule number. 
