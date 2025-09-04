@@ -13,6 +13,9 @@ wheels/
 # serena
 .serena/
 
+# claude
+.claude/
+
 # data files (sensitive)
 src/unified_recon/data/
 src/ice_match/data/

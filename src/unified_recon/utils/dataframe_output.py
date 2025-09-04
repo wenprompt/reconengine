@@ -261,9 +261,9 @@ def save_dataframe_to_json(
     Returns:
         Path to saved JSON file
     """
-    # Default output directory
+    # Default output directory at root level (not under src/)
     if output_path is None:
-        output_path = Path("src/json_output")
+        output_path = Path("json_output")
 
     # Ensure directory exists
     output_path.mkdir(parents=True, exist_ok=True)
@@ -279,9 +279,9 @@ def save_dataframe_to_json(
     # Convert DataFrame to records format for JSON
     json_data = df.to_dict(orient="records")
 
-    # Save to JSON file with nice formatting
-    with open(file_path, "w") as f:
-        json.dump(json_data, f, indent=2, default=str)
+    # Save to JSON file with UTF-8 encoding and preserve Unicode characters
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(json_data, f, indent=2, default=str, ensure_ascii=False)
 
     return file_path
 
