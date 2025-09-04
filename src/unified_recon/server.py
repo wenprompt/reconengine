@@ -3,12 +3,6 @@
 
 import logging
 import uvicorn
-from pathlib import Path
-import sys
-
-# Add src to path for imports
-src_path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(src_path))
 
 
 def setup_logging():
