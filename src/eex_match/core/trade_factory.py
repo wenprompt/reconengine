@@ -352,10 +352,10 @@ class EEXTradeFactory:
             if not all([product_name, quantity_units, price, contract_month, buy_sell]):
                 return None
 
-            # Use internaltradeid from JSON mapping or fallback to T_{index}
+            # Use internaltradeid from JSON mapping or fallback to index
             internal_trade_id_raw = self._safe_str(row.get("internaltradeid"))
             internal_trade_id = (
-                internal_trade_id_raw if internal_trade_id_raw else f"T_{index}"
+                internal_trade_id_raw if internal_trade_id_raw else str(index)
             )
 
             return EEXTrade(
@@ -417,10 +417,10 @@ class EEXTradeFactory:
             if not all([product_name, quantity_units, price, contract_month, buy_sell]):
                 return None
 
-            # Use internaltradeid from JSON mapping or fallback to E_{index}
+            # Use internaltradeid from JSON mapping or fallback to index
             internal_trade_id_raw = self._safe_str(row.get("internaltradeid"))
             internal_trade_id = (
-                internal_trade_id_raw if internal_trade_id_raw else f"E_{index}"
+                internal_trade_id_raw if internal_trade_id_raw else str(index)
             )
 
             return EEXTrade(

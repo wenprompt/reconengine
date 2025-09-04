@@ -4,7 +4,8 @@
     "2": "sgx_match",
     "3": "cme_match",
     "4": "ice_match",
-    "5": "eex_match"
+    "5": "eex_match",
+    "12": "sgx_match"
   },
   "system_configs": {
     "ice_match": {

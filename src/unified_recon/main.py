@@ -12,6 +12,11 @@ from .core.group_router import UnifiedTradeRouter
 from .core.result_aggregator import ResultAggregator
 from .cli.unified_display import UnifiedDisplay
 from .utils.data_validator import DataValidationError
+from .utils.dataframe_output import (
+    create_unified_dataframe,
+    save_dataframe_to_json,
+    display_dataframe_summary
+)
 
 # Constants
 DEFAULT_TRADER_CSV = "sourceTraders.csv"
@@ -278,6 +283,11 @@ def main() -> int:
         help="Hide unmatched trades in output (default: show unmatched)"
     )
     parser.add_argument(
+        "--json-output",
+        action="store_true",
+        help="Save results to JSON file in json_output directory"
+    )
+    parser.add_argument(
         "--json-file",
         type=str,
         help="Path to JSON file for processing (alternative to CSV data-dir)"
@@ -394,6 +404,24 @@ def main() -> int:
         display.display_group_results(unified_results.system_results, show_details=True, show_unmatched=not args.no_unmatched)
         
         display.display_unified_summary(unified_results)
+        
+        # Create DataFrame output
+        try:
+            df = create_unified_dataframe(unified_results)
+            
+            # Display DataFrame summary
+            display_dataframe_summary(df)
+        except Exception as e:
+            logger.exception("Error creating DataFrame output")
+            display.display_error("DataFrame creation failed", str(e))
+            # Continue without DataFrame output
+            df = None
+        
+        # Save to JSON if requested
+        if args.json_output and df is not None:
+            json_path = save_dataframe_to_json(df)
+            display.display_success(f"Results saved to: {json_path}")
+        
         display.display_success(f"Unified reconciliation completed successfully! {unified_results.total_matches_found} total matches found.")
         
         return 0
