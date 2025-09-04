@@ -172,7 +172,7 @@ class ExactMatcher(BaseMatcher):
             MatchResult representing the exact match
         """
         # Generate unique match ID using centralized helper
-        match_id = self.generate_match_id(self.rule_number, "EXACT")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields that match exactly
         rule_specific_fields = [

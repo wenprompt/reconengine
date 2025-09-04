@@ -82,7 +82,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
                     matches.append(match)
                     logger.info(
                         f"Found aggregated complex crack match: {crack_trade.product_name} "
-                        f"{crack_trade.contract_month} {crack_trade.quantity}"
+                        f"{crack_trade.contract_month} {crack_trade.quantityunit}"
                     )
                 else:
                     logger.error(f"Failed to record aggregated complex crack match: {match.match_id}")
@@ -250,7 +250,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         """Create MatchResult for aggregated complex crack match."""
 
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "AGG_CRACK")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Primary exchange trade is the first base trade
         primary_base_trade = base_trades[0]

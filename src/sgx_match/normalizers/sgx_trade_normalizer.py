@@ -107,12 +107,15 @@ class SGXTradeNormalizer:
         """Normalize quantity to Decimal.
         
         Args:
-            quantity: Raw quantity value (could be string, int, float)
+            quantity: Raw quantity value (could be string, int, float, or NaN)
             
         Returns:
-            Normalized quantity as Decimal, or None if invalid
+            Normalized quantity as Decimal, or None if invalid or NaN
         """
-        if quantity is None or quantity == "":
+        import pandas as pd
+        
+        # Check for NaN, None, or empty string
+        if pd.isna(quantity) or quantity is None or quantity == "":
             return None
         
         try:
@@ -136,12 +139,15 @@ class SGXTradeNormalizer:
         """Normalize price to Decimal.
         
         Args:
-            price: Raw price value (could be string, int, float)
+            price: Raw price value (could be string, int, float, or NaN)
             
         Returns:
-            Normalized price as Decimal, or None if invalid
+            Normalized price as Decimal, or None if invalid or NaN
         """
-        if price is None or price == "":
+        import pandas as pd
+        
+        # Check for NaN, None, or empty string
+        if pd.isna(price) or price is None or price == "":
             return None
         
         try:
@@ -168,9 +174,12 @@ class SGXTradeNormalizer:
             value: Raw value to normalize to integer
             
         Returns:
-            Normalized integer value, or None if invalid
+            Normalized integer value, or None if invalid or NaN
         """
-        if value is None or value == "":
+        import pandas as pd
+        
+        # Check for NaN, None, or empty string
+        if pd.isna(value) or value is None or value == "":
             return None
         
         try:
@@ -197,7 +206,10 @@ class SGXTradeNormalizer:
         Returns:
             Normalized integer ID, or None if invalid
         """
-        if value is None or value == "":
+        import pandas as pd
+        
+        # Check for NaN, None, or empty string
+        if pd.isna(value) or value is None or value == "":
             return None
         
         try:
@@ -223,7 +235,10 @@ class SGXTradeNormalizer:
         Returns:
             Normalized string value
         """
-        if value is None:
+        import pandas as pd
+        
+        # Check for NaN or None
+        if pd.isna(value) or value is None:
             return ""
         
         normalized = str(value).strip()

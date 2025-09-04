@@ -118,8 +118,8 @@ class CMEDisplay:
         table.add_column("Quantity", justify="right", style="blue")
         table.add_column("Price", justify="right", style="magenta")
         table.add_column("B/S", justify="center")
-        table.add_column("Trader ID", style="dim")
-        table.add_column("Exchange ID", style="dim")
+        table.add_column("Trade ID (T)", style="dim")
+        table.add_column("Trade ID (E)", style="dim")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -173,7 +173,7 @@ class CMEDisplay:
                 trade.display_id,
                 trade.product_name,
                 trade.contract_month,
-                str(trade.quantity_lots),
+                str(trade.quantitylots),
                 str(trade.price),
                 trade.buy_sell,
             )
@@ -202,7 +202,7 @@ class CMEDisplay:
                 trade.display_id,
                 trade.product_name,
                 trade.contract_month,
-                str(trade.quantity_lots),
+                str(trade.quantitylots),
                 str(trade.price),
                 trade.buy_sell,
             )

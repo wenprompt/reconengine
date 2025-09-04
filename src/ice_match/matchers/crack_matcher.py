@@ -239,7 +239,7 @@ class CrackMatcher(BaseMatcher):
             MatchResult representing the crack match
         """
         # Generate unique match ID
-        match_id = self.generate_match_id(self.rule_number, "CRACK")
+        match_id = self.generate_match_id(self.rule_number)
 
         # Rule-specific fields that matched for cracks
         rule_specific_fields = ["product_name", "contract_month", "price", "buy_sell"]

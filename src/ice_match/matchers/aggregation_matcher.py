@@ -116,7 +116,7 @@ class AggregationMatcher(AggregationBaseMatcher):
         """
         try:
             # Generate unique match ID
-            match_id = self.generate_match_id(self.rule_number, "AGG")
+            match_id = self.generate_match_id(self.rule_number)
 
             # Rule-specific fields that match exactly (all except quantity)
             rule_specific_fields = [

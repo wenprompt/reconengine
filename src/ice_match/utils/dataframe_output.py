@@ -9,20 +9,8 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 
-from ..models import MatchResult, ReconStatus, AggregationType
+from ..models import MatchResult, ReconStatus
 from ..core import UnmatchedPoolManager
-
-
-def determine_aggregation_type(trader_count: int, exchange_count: int) -> AggregationType:
-    """Determine aggregation type based on trade counts."""
-    if trader_count == 1 and exchange_count == 1:
-        return AggregationType.ONE_TO_ONE
-    elif trader_count == 1 and exchange_count > 1:
-        return AggregationType.ONE_TO_MANY
-    elif trader_count > 1 and exchange_count == 1:
-        return AggregationType.MANY_TO_ONE
-    else:  # trader_count > 1 and exchange_count > 1
-        return AggregationType.MANY_TO_MANY
 
 
 def get_primary_product_name(match_result: MatchResult) -> str:
@@ -84,22 +72,14 @@ def create_reconciliation_dataframe(
     # Process matched trades
     for i, match in enumerate(matches, 1):
         # Collect all trader and exchange trade IDs
-        trader_ids = [match.trader_trade.trade_id]
-        trader_ids.extend([t.trade_id for t in match.additional_trader_trades])
+        trader_ids = [match.trader_trade.internal_trade_id]
+        trader_ids.extend([t.internal_trade_id for t in match.additional_trader_trades])
 
-        exchange_ids = [match.exchange_trade.trade_id]
-        exchange_ids.extend([t.trade_id for t in match.additional_exchange_trades])
+        exchange_ids = [match.exchange_trade.internal_trade_id]
+        exchange_ids.extend([t.internal_trade_id for t in match.additional_exchange_trades])
 
-        # Determine aggregation type
-        trader_count = len(trader_ids)
-        exchange_count = len(exchange_ids)
-        aggregation_type = determine_aggregation_type(trader_count, exchange_count)
-
-        # Determine recon status
-        if aggregation_type == AggregationType.ONE_TO_ONE:
-            recon_status = ReconStatus.MATCHED
-        else:
-            recon_status = ReconStatus.GROUP_MATCHED
+        # All matches are now MATCHED status
+        recon_status = ReconStatus.MATCHED
 
         record = {
             'reconid': f"RECON_{i:06d}",
@@ -113,8 +93,7 @@ def create_reconciliation_dataframe(
             'price': float(get_primary_price(match)),
             'contract_month': get_primary_contract_month(match),
             'product_name': get_primary_product_name(match),
-            'match_id': match.match_id,
-            'aggregation_type': aggregation_type.value
+            'match_id': match.match_id
         }
         records.append(record)
 
@@ -123,7 +102,7 @@ def create_reconciliation_dataframe(
     for i, trade in enumerate(unmatched_traders, len(matches) + 1):
         record = {
             'reconid': f"RECON_{i:06d}",
-            'source_traders_id': [trade.trade_id],
+            'source_traders_id': [trade.internal_trade_id],
             'source_exch_id': [],
             'reconStatus': ReconStatus.UNMATCHED_TRADERS.value,
             'recon_run_datetime': execution_time,
@@ -133,8 +112,7 @@ def create_reconciliation_dataframe(
             'price': float(trade.price),
             'contract_month': trade.contract_month,
             'product_name': trade.product_name,
-            'match_id': None,
-            'aggregation_type': None
+            'match_id': None
         }
         records.append(record)
 
@@ -144,7 +122,7 @@ def create_reconciliation_dataframe(
         record = {
             'reconid': f"RECON_{i:06d}",
             'source_traders_id': [],
-            'source_exch_id': [trade.trade_id],
+            'source_exch_id': [trade.internal_trade_id],
             'reconStatus': ReconStatus.UNMATCHED_EXCH.value,
             'recon_run_datetime': execution_time,
             'remarks': "ICE_unmatched_exchange",
@@ -153,8 +131,7 @@ def create_reconciliation_dataframe(
             'price': float(trade.price),
             'contract_month': trade.contract_month,
             'product_name': trade.product_name,
-            'match_id': None,
-            'aggregation_type': None
+            'match_id': None
         }
         records.append(record)
 
@@ -165,7 +142,7 @@ def create_reconciliation_dataframe(
     column_order = [
         'reconid', 'source_traders_id', 'source_exch_id', 'reconStatus',
         'recon_run_datetime', 'remarks', 'confidence_score', 'quantity', 'price',
-        'contract_month', 'product_name', 'match_id', 'aggregation_type'
+        'contract_month', 'product_name', 'match_id'
     ]
 
     return df[column_order] if not df.empty else pd.DataFrame(columns=column_order)
@@ -190,8 +167,8 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
 
     # Add columns with appropriate styling
     table.add_column("ReconID", style="green", width=12)
-    table.add_column("Trader IDs", style="blue", width=12)
-    table.add_column("Exchange IDs", style="purple", width=12)
+    table.add_column("Trade IDs (T)", style="blue", width=12)
+    table.add_column("Trade IDs (E)", style="purple", width=12)
     table.add_column("Status", style="bold", width=10)
     table.add_column("Remarks", style="magenta", width=15)
     table.add_column("Confidence", style="yellow", width=8, justify="right")
@@ -199,7 +176,7 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
     table.add_column("Price", style="bright_green", width=8, justify="right")
     table.add_column("Month", style="white", width=8)
     table.add_column("Product", style="green", width=15)
-    table.add_column("Aggregation", style="bright_yellow", width=8)
+    table.add_column("Match ID", style="bright_cyan", width=15)
 
     # Add rows with color coding based on status
     for _, row in df.iterrows():  # Show ALL rows including unmatched
@@ -215,20 +192,26 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
         status = row['reconStatus']
         if status == 'matched':
             status_text = Text(status, style="bold green")
-        elif status == 'group_matched':
-            status_text = Text(status, style="bold blue")
         elif status == 'unmatched_traders':
             status_text = Text(status, style="bold red")
-        else:  # unmatched_exch
+        elif status == 'unmatched_exch':
             status_text = Text(status, style="bold bright_yellow")
+        elif status == 'pending_exchange':
+            status_text = Text(status, style="bold cyan")
+        elif status == 'pending_approval':
+            status_text = Text(status, style="bold magenta")
+        else:
+            status_text = Text(status, style="white")
 
         # Format other fields
         confidence = f"{row['confidence_score']:.1f}%" if row['confidence_score'] > 0 else "N/A"
         quantity = f"{row['quantity']:,.0f}"
         price = f"{row['price']:,.2f}" if pd.notna(row['price']) else "N/A"
-        aggregation = str(row['aggregation_type']) if row['aggregation_type'] else "N/A"
         product = str(row['product_name'])[:13] + "..." if len(str(row['product_name'])) > 15 else str(row['product_name'])
         remarks = str(row['remarks'])[:13] + "..." if len(str(row['remarks'])) > 15 else str(row['remarks'])
+        match_id = str(row['match_id']) if pd.notna(row['match_id']) else "N/A"
+        if len(match_id) > 15:
+            match_id = match_id[:13] + "..."
 
         table.add_row(
             row['reconid'],
@@ -241,7 +224,7 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
             price,
             row['contract_month'],
             product,
-            aggregation
+            match_id
         )
 
     console.print(table)
@@ -255,15 +238,19 @@ def display_reconciliation_dataframe(df: pd.DataFrame) -> None:
 
     total = len(df)
     matched = len(df[df['reconStatus'] == 'matched'])
-    group_matched = len(df[df['reconStatus'] == 'group_matched'])
     unmatched_traders = len(df[df['reconStatus'] == 'unmatched_traders'])
     unmatched_exch = len(df[df['reconStatus'] == 'unmatched_exch'])
+    pending_exchange = len(df[df['reconStatus'] == 'pending_exchange'])
+    pending_approval = len(df[df['reconStatus'] == 'pending_approval'])
 
     summary_table.add_row("Total Records", str(total), "100.0%")
-    summary_table.add_row("✅ Matched", str(matched), f"{matched/total*100:.1f}%")
-    summary_table.add_row("🔗 Group Matched", str(group_matched), f"{group_matched/total*100:.1f}%")
-    summary_table.add_row("❌ Unmatched Traders", str(unmatched_traders), f"{unmatched_traders/total*100:.1f}%")
-    summary_table.add_row("❌ Unmatched Exchange", str(unmatched_exch), f"{unmatched_exch/total*100:.1f}%")
+    summary_table.add_row("✅ Matched", str(matched), f"{matched/total*100:.1f}%" if total > 0 else "0.0%")
+    summary_table.add_row("❌ Unmatched Traders", str(unmatched_traders), f"{unmatched_traders/total*100:.1f}%" if total > 0 else "0.0%")
+    summary_table.add_row("❌ Unmatched Exchange", str(unmatched_exch), f"{unmatched_exch/total*100:.1f}%" if total > 0 else "0.0%")
+    if pending_exchange > 0:
+        summary_table.add_row("⏳ Pending Exchange", str(pending_exchange), f"{pending_exchange/total*100:.1f}%")
+    if pending_approval > 0:
+        summary_table.add_row("📝 Pending Approval", str(pending_approval), f"{pending_approval/total*100:.1f}%")
 
     console.print(summary_table)
 

@@ -32,7 +32,7 @@ class CMETrade(BaseModel):
     
     # Trading details
     product_name: str = Field(..., description="Normalized product name")
-    quantity_lots: Decimal = Field(..., gt=0, description="Trade quantity in lots")
+    quantitylots: Decimal = Field(..., gt=0, description="Trade quantity in lots (matches CSV column)")
     unit: Optional[str] = Field(None, description="Quantity unit (MT, Bu, etc.)")
     price: Decimal = Field(..., description="Trade price")
     contract_month: str = Field(..., description="Contract month (e.g., Mar25)")
@@ -62,8 +62,6 @@ class CMETrade(BaseModel):
     product_id: Optional[str] = Field(None, description="Product identifier")
     product_group_id: Optional[int] = Field(None, description="Product group identifier")
     special_comms: Optional[str] = Field(None, description="Special comments")
-    remarks: Optional[str] = Field(None, description="Trading remarks")
-    broker: Optional[str] = Field(None, description="Broker name")
     
     # Exchange-specific fields
     deal_id: Optional[int] = Field(None, description="Deal identifier")
@@ -98,7 +96,7 @@ class CMETrade(BaseModel):
         return (
             self.product_name,
             self.contract_month,
-            self.quantity_lots,
+            self.quantitylots,
             self.price,
             self.buy_sell
         )
@@ -107,5 +105,5 @@ class CMETrade(BaseModel):
         """String representation for debugging."""
         return (
             f"CMETrade({self.display_id}: {self.product_name} "
-            f"{self.contract_month} {self.quantity_lots} @ {self.price} {self.buy_sell})"
+            f"{self.contract_month} {self.quantitylots} @ {self.price} {self.buy_sell})"
         )

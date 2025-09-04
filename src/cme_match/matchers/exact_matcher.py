@@ -2,7 +2,6 @@
 
 from typing import List, Dict
 import logging
-import uuid
 from collections import defaultdict
 
 from ..models import CMETrade, CMETradeSource, CMEMatchResult, CMEMatchType
@@ -11,9 +10,6 @@ from ..config import CMEConfigManager
 from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
-
-# Constants
-UUID_LENGTH = 8  # Length of UUID suffix for match IDs
 
 
 class ExactMatcher(BaseMatcher):
@@ -119,7 +115,7 @@ class ExactMatcher(BaseMatcher):
         rule_fields = [
             trade.product_name,
             trade.contract_month,
-            trade.quantity_lots,
+            trade.quantitylots,
             trade.price,
             trade.buy_sell
         ]
@@ -151,10 +147,10 @@ class ExactMatcher(BaseMatcher):
         Returns:
             CMEMatchResult representing this match
         """
-        match_id = f"{self.config_manager.get_match_id_prefix()}_{self.rule_number}_{uuid.uuid4().hex[:UUID_LENGTH]}"
+        match_id = self.generate_match_id(self.rule_number)
         
         # Fields that matched exactly (rule-specific + universal)
-        rule_fields = ["product_name", "contract_month", "quantity_lots", "price", "buy_sell"]
+        rule_fields = ["product_name", "contract_month", "quantitylots", "price", "buy_sell"]
         matched_fields = self.get_universal_matched_fields(rule_fields)
         
         return CMEMatchResult(

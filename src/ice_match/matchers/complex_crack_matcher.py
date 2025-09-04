@@ -78,7 +78,7 @@ class ComplexCrackMatcher(BaseMatcher):
                     self.matches_found.append(match)
                     logger.info(
                         f"Found complex crack match: {crack_trade.product_name} "
-                        f"{crack_trade.contract_month} {crack_trade.quantity}"
+                        f"{crack_trade.contract_month} {crack_trade.quantityunit}"
                     )
                 else:
                     logger.error(f"Failed to record complex crack match: {match.match_id}")
@@ -145,9 +145,7 @@ class ComplexCrackMatcher(BaseMatcher):
                     crack_trade, base_trade, brent_trade
                 ):
                     return MatchResult(
-                        match_id=self.generate_match_id(
-                            self.rule_number, "COMPLEX_CRACK"
-                        ),
+                        match_id=self.generate_match_id(self.rule_number),
                         match_type=MatchType.COMPLEX_CRACK,
                         confidence=self.confidence,  # Get confidence from config
                         trader_trade=crack_trade,

@@ -70,7 +70,7 @@ class CMEMatchResult(BaseModel):
     @property
     def matched_quantity(self) -> Decimal:
         """Get the matched quantity (from trader trade)."""
-        return self.trader_trade.quantity_lots
+        return self.trader_trade.quantitylots
     
     @property
     def matched_product(self) -> str:
@@ -90,7 +90,7 @@ class CMEMatchResult(BaseModel):
     @property
     def quantity_difference(self) -> Decimal:
         """Calculate the quantity difference between trader and exchange."""
-        return abs(self.trader_trade.quantity_lots - self.exchange_trade.quantity_lots)
+        return abs(self.trader_trade.quantitylots - self.exchange_trade.quantitylots)
     
     @property
     def is_exact_match(self) -> bool:

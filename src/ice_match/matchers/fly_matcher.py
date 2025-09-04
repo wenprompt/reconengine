@@ -220,7 +220,7 @@ class FlyMatcher(BaseMatcher):
                 if self._is_valid_fly_group(trades_in_group):
                     fly_groups.append(trades_in_group)
                     logger.debug(
-                        f"Found dealid fly group: {[t.trade_id for t in trades_in_group]} (dealid: {dealid_str})"
+                        f"Found dealid fly group: {[t.internal_trade_id for t in trades_in_group]} (dealid: {dealid_str})"
                     )
             elif len(trades_in_group) > 3:
                 # Multiple legs - try to find valid 3-trade combinations
@@ -235,7 +235,7 @@ class FlyMatcher(BaseMatcher):
                             if self._is_valid_fly_group(potential_group):
                                 fly_groups.append(potential_group)
                                 logger.debug(
-                                    f"Found dealid fly group: {[t.trade_id for t in potential_group]} (dealid: {dealid_str})"
+                                    f"Found dealid fly group: {[t.internal_trade_id for t in potential_group]} (dealid: {dealid_str})"
                                 )
 
         return fly_groups
@@ -420,7 +420,7 @@ class FlyMatcher(BaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
         return MatchResult(
-            match_id=self.generate_match_id(self.rule_number, "FLY"),
+            match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.FLY,
             confidence=self.confidence,
             trader_trade=trader_trades[0],  # Primary trade (earliest month)

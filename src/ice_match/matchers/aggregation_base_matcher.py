@@ -113,7 +113,7 @@ class AggregationBaseMatcher(BaseMatcher):
                 continue
 
             logger.debug(
-                f"Processing group with {len(group_trades)} trades: {[t.trade_id for t in group_trades]}"
+                f"Processing group with {len(group_trades)} trades: {[t.internal_trade_id for t in group_trades]}"
             )
 
             # Calculate total quantity for this group
@@ -127,7 +127,7 @@ class AggregationBaseMatcher(BaseMatcher):
             if match_signature in one_index:
                 candidate_trades = one_index[match_signature]
                 logger.debug(
-                    f"  Found {len(candidate_trades)} candidate trades: {[t.trade_id for t in candidate_trades]}"
+                    f"  Found {len(candidate_trades)} candidate trades: {[t.internal_trade_id for t in candidate_trades]}"
                 )
 
                 # Find first unmatched candidate
@@ -139,12 +139,12 @@ class AggregationBaseMatcher(BaseMatcher):
                         ):
                             aggregations.append((group_trades, candidate_trade))
                             logger.debug(
-                                f"✅ Found many-to-one aggregation: {len(group_trades)} trades → 1 trade ({candidate_trade.trade_id})"
+                                f"✅ Found many-to-one aggregation: {len(group_trades)} trades → 1 trade ({candidate_trade.internal_trade_id})"
                             )
                             break
                         else:
                             logger.debug(
-                                f"❌ Aggregation validation failed for {candidate_trade.trade_id}"
+                                f"❌ Aggregation validation failed for {candidate_trade.internal_trade_id}"
                             )
             else:
                 logger.debug(f"  No match found for signature: {match_signature}")

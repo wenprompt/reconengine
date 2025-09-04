@@ -2,7 +2,6 @@
 
 from typing import List, Dict
 import logging
-import uuid
 from collections import defaultdict
 
 from ..models import SGXTrade, SGXTradeSource, SGXMatchResult, SGXMatchType
@@ -11,9 +10,6 @@ from ..config import SGXConfigManager
 from .base_matcher import BaseMatcher
 
 logger = logging.getLogger(__name__)
-
-# Constants
-UUID_LENGTH = 8  # Length of UUID suffix for match IDs
 
 
 class ExactMatcher(BaseMatcher):
@@ -70,15 +66,15 @@ class ExactMatcher(BaseMatcher):
             
             for exchange_trade in matching_exchange_trades:
                 # Verify both trades are still unmatched
-                if (pool_manager.is_unmatched(trader_trade.trade_id, SGXTradeSource.TRADER) and
-                    pool_manager.is_unmatched(exchange_trade.trade_id, SGXTradeSource.EXCHANGE)):
+                if (pool_manager.is_unmatched(trader_trade.internal_trade_id, SGXTradeSource.TRADER) and
+                    pool_manager.is_unmatched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE)):
                     
                     match_result = self._create_match_result(trader_trade, exchange_trade)
                     matches.append(match_result)
                     
                     # Mark trades as matched
-                    pool_manager.mark_as_matched(trader_trade.trade_id, SGXTradeSource.TRADER)
-                    pool_manager.mark_as_matched(exchange_trade.trade_id, SGXTradeSource.EXCHANGE)
+                    pool_manager.mark_as_matched(trader_trade.internal_trade_id, SGXTradeSource.TRADER)
+                    pool_manager.mark_as_matched(exchange_trade.internal_trade_id, SGXTradeSource.EXCHANGE)
                     
                     logger.debug(f"Created exact match: {trader_trade.display_id} ↔ {exchange_trade.display_id}")
                     
@@ -119,7 +115,7 @@ class ExactMatcher(BaseMatcher):
         rule_fields = [
             trade.product_name,
             trade.contract_month,
-            trade.quantity_units,
+            trade.quantityunit,
             trade.price,
             trade.buy_sell
         ]
@@ -151,10 +147,10 @@ class ExactMatcher(BaseMatcher):
         Returns:
             SGXMatchResult representing this match
         """
-        match_id = f"{self.config_manager.get_match_id_prefix()}_{self.rule_number}_{uuid.uuid4().hex[:UUID_LENGTH]}"
+        match_id = self.generate_match_id(self.rule_number)
         
         # Fields that matched exactly (rule-specific + universal)
-        rule_fields = ["product_name", "contract_month", "quantity_units", "price", "buy_sell"]
+        rule_fields = ["product_name", "contract_month", "quantityunit", "price", "buy_sell"]
         matched_fields = self.get_universal_matched_fields(rule_fields)
         
         return SGXMatchResult(

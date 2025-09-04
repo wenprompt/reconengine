@@ -112,8 +112,8 @@ class MatchDisplayer:
 
         match_table = Table(title=title, box=box.ROUNDED, width=140)
         match_table.add_column("Match ID", style="cyan", no_wrap=True, width=14)
-        match_table.add_column("Trader ID", style="green", no_wrap=True, width=18)
-        match_table.add_column("Exchange ID", style="blue", no_wrap=True, width=18)
+        match_table.add_column("Trade ID (T)", style="green", no_wrap=True, width=18)
+        match_table.add_column("Trade ID (E)", style="blue", no_wrap=True, width=18)
         match_table.add_column("Product", style="white", width=14)
         match_table.add_column("Qty (MT)", justify="right", style="white", width=10)
         match_table.add_column("Price", justify="right", style="white", width=8)
@@ -129,10 +129,10 @@ class MatchDisplayer:
                 all_exchange_trades = match.all_exchange_trades
 
                 # Format trader IDs (show all trades)
-                trader_ids = " + ".join([trade.trade_id for trade in all_trader_trades])
+                trader_ids = " + ".join([trade.internal_trade_id for trade in all_trader_trades])
 
                 # Format exchange IDs (show all trades)
-                exchange_ids = " + ".join([trade.trade_id for trade in all_exchange_trades])
+                exchange_ids = " + ".join([trade.internal_trade_id for trade in all_exchange_trades])
 
                 # Format contract months (show all legs)
                 trader_months = sorted(set(trade.contract_month for trade in all_trader_trades))
@@ -148,8 +148,8 @@ class MatchDisplayer:
 
             else:
                 # For single-leg matches, show single trade
-                trader_ids = match.trader_trade.trade_id
-                exchange_ids = match.exchange_trade.trade_id
+                trader_ids = match.trader_trade.internal_trade_id
+                exchange_ids = match.exchange_trade.internal_trade_id
                 contract_display = match.trader_trade.contract_month
                 sides = f"{match.trader_trade.buy_sell}↔{match.exchange_trade.buy_sell}"
                 primary_trade = match.trader_trade
@@ -272,9 +272,9 @@ class MatchDisplayer:
                 side_str = f"[red]{side_str}[/red]"
 
             trade_table.add_row(
-                trade.trade_id,
+                trade.internal_trade_id,
                 trade.product_name,
-                f"{trade.quantity:,.0f}",
+                f"{trade.quantityunit:,.0f}",
                 trade.unit.upper(),
                 f"{trade.price:,.2f}",
                 trade.contract_month,

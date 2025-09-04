@@ -1,5 +1,9 @@
-"""SGX Match Loaders Module"""
+"""SGX Match Loaders Module
 
-from .sgx_csv_loader import SGXCSVLoader
+This module is kept for potential future loader implementations.
+Currently, all CSV loading is handled by SGXTradeFactory in the core module.
+"""
 
-__all__ = ["SGXCSVLoader"]
+from typing import List
+
+__all__: List[str] = []

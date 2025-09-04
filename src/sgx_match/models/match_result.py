@@ -72,7 +72,7 @@ class SGXMatchResult(BaseModel):
     @property
     def matched_quantity(self) -> Decimal:
         """Get the matched quantity (from trader trade)."""
-        return self.trader_trade.quantity_units
+        return self.trader_trade.quantityunit
     
     @property
     def matched_product(self) -> str:
@@ -92,7 +92,7 @@ class SGXMatchResult(BaseModel):
     @property
     def quantity_difference(self) -> Decimal:
         """Calculate the quantity difference between trader and exchange."""
-        return abs(self.trader_trade.quantity_units - self.exchange_trade.quantity_units)
+        return abs(self.trader_trade.quantityunit - self.exchange_trade.quantityunit)
     
     @property
     def is_exact_match(self) -> bool:

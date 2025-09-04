@@ -1,7 +1,6 @@
 """Trade data model for ice trade matching system."""
 
 from decimal import Decimal
-from datetime import datetime
 from enum import Enum
 from typing import Optional, ClassVar
 from pydantic import BaseModel, Field, ConfigDict
@@ -29,12 +28,12 @@ class Trade(BaseModel):
     )
 
     # Core identification
-    trade_id: str = Field(..., description="Unique identifier for this trade")
+    internal_trade_id: str = Field(..., description="Unique identifier for this trade")
     source: TradeSource = Field(..., description="Whether from trader or exchange")
 
     # Trading details
     product_name: str = Field(..., description="Normalized product name")
-    quantity: Decimal = Field(..., gt=0, description="Trade quantity in MT")
+    quantityunit: Decimal = Field(..., gt=0, description="Trade quantity (matches CSV column)")
     unit: str = Field(..., description="Quantity unit (mt or bbl)")
     price: Decimal = Field(..., description="Trade price (can be negative for crack spreads)")
     contract_month: str = Field(..., description="Normalized contract month")
@@ -46,12 +45,12 @@ class Trade(BaseModel):
     exch_clearing_acct_id: Optional[int] = Field(None, description="Clearing account identifier")
 
     # Metadata
-    trade_date: Optional[datetime] = Field(None, description="Trade date")
-    trade_time: Optional[datetime] = Field(None, description="Trade time")
+    trade_date: Optional[str] = Field(default=None, description="Trade date")
+    trade_time: Optional[str] = Field(default=None, description="Trade time")
 
     # Special fields
-    special_comms: Optional[str] = Field(None, description="Special comments")
-    spread: Optional[str] = Field(None, description="Spread information")
+    special_comms: Optional[str] = Field(default=None, description="Special commissions")
+    spread: Optional[str] = Field(default=None, description="Spread information")
 
     # Raw data for audit trail
     raw_data: dict = Field(default_factory=dict, description="Original raw data")
@@ -63,14 +62,14 @@ class Trade(BaseModel):
 
     def __str__(self) -> str:
         """Human-readable string representation."""
-        return (f"Trade({self.trade_id}: {self.product_name} "
-                f"{self.quantity}{self.unit} @ {self.price} "
+        return (f"Trade({self.internal_trade_id}: {self.product_name} "
+                f"{self.quantityunit}{self.unit} @ {self.price} "
                 f"{self.contract_month} {self.buy_sell})")
 
     def __repr__(self) -> str:
         """Developer string representation."""
-        return (f"Trade(id={self.trade_id}, source={self.source.value}, "
-                f"product={self.product_name}, qty={self.quantity}, "
+        return (f"Trade(id={self.internal_trade_id}, source={self.source.value}, "
+                f"product={self.product_name}, qty={self.quantityunit}, "
                 f"price={self.price}, month={self.contract_month}, "
                 f"side={self.buy_sell})")
 
@@ -88,15 +87,15 @@ class Trade(BaseModel):
     def quantity_mt(self) -> Decimal:
         """Get quantity in MT, converting from BBL if necessary."""
         if self.unit.lower() == "bbl":
-            return self.quantity / self._bbl_to_mt_ratio  # Use configured ratio
-        return self.quantity
+            return self.quantityunit / self._bbl_to_mt_ratio  # Use configured ratio
+        return self.quantityunit
 
     @property
     def quantity_bbl(self) -> Decimal:
         """Get quantity in BBL, converting from MT if necessary."""
         if self.unit.lower() == "mt":
-            return self.quantity * self._bbl_to_mt_ratio  # Use configured ratio
-        return self.quantity
+            return self.quantityunit * self._bbl_to_mt_ratio  # Use configured ratio
+        return self.quantityunit
 
     @property
     def matching_signature(self) -> tuple[str, Decimal, Decimal, str, str]:

@@ -6,7 +6,6 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, Any
-import tempfile
 import pandas as pd
 
 from .core.group_router import UnifiedTradeRouter
@@ -43,24 +42,16 @@ def setup_logging(log_level: str = "NONE") -> None:
     )
 
 
-def call_ice_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, temp_data_dir: Path) -> Dict[str, Any]:
+def call_ice_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
     """Call ICE match system with filtered data.
     
     Args:
         trader_df: Filtered trader DataFrame for group 1
         exchange_df: Filtered exchange DataFrame for group 1
-        temp_data_dir: Temporary directory to write CSV files
         
     Returns:
         Dict with ICE match results and statistics
     """
-    # Write filtered data to temporary CSV files
-    trader_csv = temp_data_dir / DEFAULT_TRADER_CSV
-    exchange_csv = temp_data_dir / DEFAULT_EXCHANGE_CSV
-    
-    trader_df.to_csv(trader_csv, index=False)
-    exchange_df.to_csv(exchange_csv, index=False)
-    
     # Import and call ICE match system
     try:
         from ..ice_match.main import ICEMatchingEngine  # type: ignore
@@ -68,11 +59,11 @@ def call_ice_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, te
         # Set up ICE system engine
         engine = ICEMatchingEngine()
         
-        # Load and process data through ICE system
+        # Load and process data through ICE system using DataFrames directly
         start_time = time.time()
         
-        # Use ICE engine to run minimal matching process (no display, optimized for unified system)
-        matches, statistics = engine.run_matching_minimal(trader_csv, exchange_csv)
+        # Use ICE engine to run matching process with DataFrames (no CSV files)
+        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
         
         processing_time = time.time() - start_time
         
@@ -94,24 +85,16 @@ def call_ice_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, te
         raise RuntimeError(f"ICE match system processing failed: {e}") from e
 
 
-def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, temp_data_dir: Path) -> Dict[str, Any]:
+def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
     """Call SGX match system with filtered data.
     
     Args:
         trader_df: Filtered trader DataFrame for group 2
         exchange_df: Filtered exchange DataFrame for group 2
-        temp_data_dir: Temporary directory to write CSV files
         
     Returns:
         Dict with SGX match results and statistics
     """
-    # Write filtered data to temporary CSV files
-    trader_csv = temp_data_dir / DEFAULT_TRADER_CSV
-    exchange_csv = temp_data_dir / DEFAULT_EXCHANGE_CSV
-    
-    trader_df.to_csv(trader_csv, index=False)
-    exchange_df.to_csv(exchange_csv, index=False)
-    
     # Import and call SGX match system
     try:
         from ..sgx_match.main import SGXMatchingEngine  # type: ignore
@@ -119,11 +102,11 @@ def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame, te
         # Set up SGX system engine
         engine = SGXMatchingEngine()
         
-        # Load and process data through SGX system
+        # Load and process data through SGX system using DataFrames directly
         start_time = time.time()
         
-        # Use SGX engine to run minimal matching process (no display, optimized for unified system)
-        matches, statistics = engine.run_matching_minimal(trader_csv, exchange_csv)
+        # Use SGX engine to run matching process with DataFrames (no CSV files)
+        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
         
         processing_time = time.time() - start_time
         
@@ -189,6 +172,11 @@ def main() -> int:
         action="store_true",
         help="Hide unmatched trades in output (default: show unmatched)"
     )
+    parser.add_argument(
+        "--json-file",
+        type=str,
+        help="Path to JSON file for processing (alternative to CSV data-dir)"
+    )
     
     args = parser.parse_args()
     
@@ -208,9 +196,15 @@ def main() -> int:
         # Display startup information
         display.display_startup_info(router.config)
         
-        # Load and validate data
-        data_dir = Path(args.data_dir) if args.data_dir else None
-        trader_df, exchange_df = router.load_and_validate_data(data_dir)
+        # Load and validate data (JSON or CSV)
+        if args.json_file:
+            # JSON input mode
+            json_path = Path(args.json_file)
+            trader_df, exchange_df = router.load_and_validate_json_data(json_path)
+        else:
+            # CSV input mode (default)
+            data_dir = Path(args.data_dir) if args.data_dir else None
+            trader_df, exchange_df = router.load_and_validate_data(data_dir)
         
         # Group trades by exchange group
         grouped_trades = router.group_trades_by_exchange_group(trader_df, exchange_df)
@@ -235,53 +229,48 @@ def main() -> int:
             return 1
         
         # Process each group through its matching system
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_data_dir = Path(temp_dir)
+        for group_id in processable_groups:
+            group_info = grouped_trades[group_id]
+            system_name = group_info['system']
             
-            for group_id in processable_groups:
-                group_info = grouped_trades[group_id]
-                system_name = group_info['system']
-                
-                logger.info(f"Processing group {group_id} with {system_name} system...")
-                
-                try:
-                    # Route data to appropriate system
-                    if system_name == "ice_match":
-                        results = call_ice_match_system(
-                            group_info['trader_data'], 
-                            group_info['exchange_data'],
-                            temp_data_dir
-                        )
-                    elif system_name == "sgx_match":
-                        results = call_sgx_match_system(
-                            group_info['trader_data'],
-                            group_info['exchange_data'], 
-                            temp_data_dir
-                        )
-                    else:
-                        logger.warning(f"Unknown system: {system_name}")
-                        continue
-                    
-                    # Add results to aggregator
-                    result_aggregator.add_system_result(
-                        group_id=group_id,
-                        system_name=system_name,
-                        matches_found=results['matches_found'],
-                        trader_count=group_info['trader_count'],
-                        exchange_count=group_info['exchange_count'],
-                        system_config=group_info['system_config'],
-                        processing_time=results.get('processing_time'),
-                        detailed_results=results.get('detailed_results'),
-                        statistics=results,
-                        match_rate=results['match_rate']  # Use ICE system's overall match rate
+            logger.info(f"Processing group {group_id} with {system_name} system...")
+            
+            try:
+                # Route data to appropriate system
+                if system_name == "ice_match":
+                    results = call_ice_match_system(
+                        group_info['trader_data'], 
+                        group_info['exchange_data']
                     )
-                    
-                    logger.info(f"Group {group_id} completed: {results['matches_found']} matches ({results['match_rate']:.1f}%)")
-                    
-                except Exception as e:
-                    logger.error(f"Failed to process group {group_id}: {e}")
-                    display.display_error(f"Failed to process group {group_id}", str(e))
+                elif system_name == "sgx_match":
+                    results = call_sgx_match_system(
+                        group_info['trader_data'],
+                        group_info['exchange_data']
+                    )
+                else:
+                    logger.warning(f"Unknown system: {system_name}")
                     continue
+                
+                # Add results to aggregator
+                result_aggregator.add_system_result(
+                    group_id=group_id,
+                    system_name=system_name,
+                    matches_found=results['matches_found'],
+                    trader_count=group_info['trader_count'],
+                    exchange_count=group_info['exchange_count'],
+                    system_config=group_info['system_config'],
+                    processing_time=results.get('processing_time'),
+                    detailed_results=results.get('detailed_results'),
+                    statistics=results,
+                    match_rate=results['match_rate']  # Use ICE system's overall match rate
+                )
+                
+                logger.info(f"Group {group_id} completed: {results['matches_found']} matches ({results['match_rate']:.1f}%)")
+                
+            except Exception as e:
+                logger.error(f"Failed to process group {group_id}: {e}")
+                display.display_error(f"Failed to process group {group_id}", str(e))
+                continue
         
         # Display results
         unified_results = result_aggregator.get_aggregated_results()
