@@ -68,6 +68,27 @@ The unified reconciliation system acts as a centralized data router and aggregat
 - **DataFrame Output**: Creates standardized output with matchId, traderTradeIds, exchangeTradeIds, status, remarks, confidence columns
 - **Rich Display**: Beautiful terminal output with detailed breakdowns and DataFrame tables
 
+### FastAPI Web Service Summary
+
+The project now includes a production-ready REST API built with FastAPI and uvicorn:
+
+- **REST API Endpoints**: POST `/reconcile` for processing trade reconciliation, GET `/health` for system status
+- **JSON Request/Response**: Accepts JSON payloads like `ice_sample.json` and returns structured reconciliation results
+- **Async Processing**: Non-blocking request handling with `asyncio.to_thread()` for CPU-intensive operations
+- **Integration**: Seamlessly integrates with existing Trade Factories and matching systems
+- **Auto Documentation**: Swagger UI at `/docs` and ReDoc at `/redoc` for interactive API documentation
+- **CORS Support**: Cross-origin resource sharing enabled for web client integration
+- **Error Handling**: Comprehensive HTTP status codes with secure error logging
+- **Development Features**: Hot-reload server for development with access logging
+
+**API Architecture:**
+
+- `src/unified_recon/api/app.py` - FastAPI application with endpoints and middleware
+- `src/unified_recon/api/service.py` - Service layer integrating with existing infrastructure
+- `src/unified_recon/api/models.py` - Pydantic request/response models
+- `src/unified_recon/server.py` - Uvicorn server entry point
+- `test_api.py` - API test script with real data validation
+
 ### Key Features
 
 - **Universal Data Normalization**: TradeNormalizer standardizes product names, contract months, buy/sell indicators, and unit conversions
@@ -104,6 +125,7 @@ src/{exchange}_match/
 ```
 
 **Module-Specific Differences:**
+
 - **ICE**: Has 13 matchers, `utils/` folder with conversion helpers, uses csv_loader
 - **SGX**: Has 3 matchers, includes options support in trade model
 - **CME**: Single matcher, focuses on quantity_lots field
@@ -209,6 +231,10 @@ uv run ruff check --fix .
 # Type checking
 uv run python -m mypy src/
 
+# FastAPI Web Service (Production-Ready)
+uv run python -m src.unified_recon.server  # Start REST API server on port 7777
+python test_api.py                          # Test the API endpoints
+
 # Centralized data routing with master data processing
 uv run python -m src.unified_recon.main  # Shows all matches+unmatches
 uv run python -m src.unified_recon.main --log-level DEBUG # Enable debug logging
@@ -223,13 +249,26 @@ uv run python -m src.sgx_match.main
 uv run python -m src.cme_match.main
 uv run python -m src.eex_match.main
 
-# Common options
+# Common CLI options
 --help
 --log-level DEBUG
 --no-unmatched
 --show-rules
 --json-file path/to/file.json
 --json-output
+```
+
+**API Usage:**
+
+```bash
+# Start the API server
+uv run python -m src.unified_recon.server
+
+
+# Manual API call
+curl -X POST http://localhost:7777/reconcile \
+  -H "Content-Type: application/json" \
+  -d @src/json_input/ice_sample.json
 ```
 
 ## 📋 Style & Conventions
@@ -342,6 +381,7 @@ _See `src/eex_match/docs/rules.md` for detailed rule specifications._
 ## 🏗️ Pydantic v2 Data Validation
 
 All modules use Pydantic v2 models with:
+
 - **Immutable Models**: `frozen=True` for thread safety
 - **Type Validation**: Strict field validation with type hints
 - **Universal Fields**: `broker_group_id` and `exch_clearing_acct_id` validated across all rules
@@ -350,6 +390,7 @@ All modules use Pydantic v2 models with:
 ## 🌐 Universal Fields Architecture
 
 Universal fields (`brokergroupid` and `exchclearingacctid`) are validated across ALL matching rules via:
+
 - **JSON Configuration**: Field mappings in `normalizer_config.json`
 - **BaseMatcher Class**: Provides universal field validation to all matchers
 - **Automatic Inheritance**: All matchers inherit universal validation without code changes
@@ -390,4 +431,3 @@ All matching modules (ICE, SGX, CME) demonstrate the established architectural p
 - **Context Managers**: Resource management for database transactions and file operations
 
 ---
-

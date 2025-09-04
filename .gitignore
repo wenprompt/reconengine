@@ -9,9 +9,15 @@ wheels/
 # Virtual environments
 .venv
 
+# types
+.mypy_cache/
+.ruff_cache/
 
 # serena
 .serena/
+
+# claude
+.claude/
 
 # data files (sensitive)
 src/unified_recon/data/
@@ -23,3 +29,4 @@ tradefiles/input/
 tradefiles/output/
 tradefiles/input_traders/
 tradefiles/output_traders/
+

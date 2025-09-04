@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+"""Uvicorn server for the reconciliation API."""
+
+import logging
+import uvicorn
+from pathlib import Path
+import sys
+
+# Add src to path for imports
+src_path = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(src_path))
+
+
+def setup_logging():
+    """Configure logging for the API server."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # Set specific log levels
+    logging.getLogger("uvicorn").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+    logging.getLogger("src.unified_recon").setLevel(logging.DEBUG)
+
+
+def main():
+    """Run the FastAPI application with uvicorn."""
+    setup_logging()
+    
+    logger = logging.getLogger(__name__)
+    logger.info("Starting Trade Reconciliation API server...")
+    
+    uvicorn.run(
+        "src.unified_recon.api.app:app",
+        host="0.0.0.0",  # Bind to all interfaces
+        port=7777,
+        reload=True,  # Enable hot-reload for development
+        log_level="info",
+        access_log=True,
+        reload_dirs=["src"]  # Only watch src directory for changes
+    )
+
+
+if __name__ == "__main__":
+    main()
