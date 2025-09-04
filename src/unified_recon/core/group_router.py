@@ -192,7 +192,7 @@ class UnifiedTradeRouter:
                     group_exchange_trades = eex_factory.from_json(group_data['exchange_trades'], EEXTradeSource.EXCHANGE)
                     
                 else:
-                    logger.warning(f"Skipping group {group_id}: unknown system '{system_name}'")
+                    logger.warning(f"Skipping group {group_id}: System '{system_name}' not supported. Available systems: ICE, SGX, CME, EEX")
                     continue
                 
                 all_trader_trades.extend(group_trader_trades)

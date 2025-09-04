@@ -265,11 +265,11 @@ def main() -> None:
         
         # Check files exist
         if not trader_path.exists():
-            print(f"Error: Trader file not found: {trader_path}")
+            logger.error(f"Trader data file not found at '{trader_path}'. Please check the file path and try again.")
             sys.exit(1)
         
         if not exchange_path.exists():
-            print(f"Error: Exchange file not found: {exchange_path}")
+            logger.error(f"Exchange data file not found at '{exchange_path}'. Please check the file path and try again.")
             sys.exit(1)
         
         # Run matching process
@@ -282,11 +282,10 @@ def main() -> None:
         logger.info(f"EEX matching completed. Total matches: {len(matches)}")
         
     except KeyboardInterrupt:
-        print("\nMatching process interrupted by user")
+        logger.info("Matching process interrupted by user")
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
-        print(f"Error: {e}")
+        logger.error(f"Fatal error during matching process: {e}. Please check the input data and try again.")
         sys.exit(1)
 
 

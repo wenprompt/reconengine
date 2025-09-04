@@ -80,7 +80,7 @@ class TradeNormalizer:
             return first_char
 
         # Final fallback for unmapped values
-        logger.warning(f"Unknown buy/sell indicator: '{buy_sell}', no mapping found")
+        logger.warning(f"Invalid trade direction '{buy_sell}'. Expected values: Buy, Sell, B, or S. Using original value.")
         return buy_sell.strip().upper()
 
     def convert_quantity_to_mt(self, quantity: Decimal, unit: str) -> Decimal:

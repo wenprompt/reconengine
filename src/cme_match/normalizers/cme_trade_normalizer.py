@@ -132,7 +132,7 @@ class CMETradeNormalizer:
             return normalized
             
         except (ValueError, TypeError, InvalidOperation) as e:
-            logger.error(f"Failed to normalize quantity '{quantity}': {e}")
+            logger.error(f"Unable to process quantity value '{quantity}': {e}. Check data format and try again.")
             return None
     
     def normalize_price(self, price: Any) -> Optional[Decimal]:
@@ -164,7 +164,7 @@ class CMETradeNormalizer:
             return normalized
             
         except (ValueError, TypeError, InvalidOperation) as e:
-            logger.error(f"Failed to normalize price '{price}': {e}")
+            logger.error(f"Unable to process price value '{price}': {e}. Check data format and try again.")
             return None
     
     def normalize_integer_field(self, value: Any) -> Optional[int]:
@@ -191,7 +191,7 @@ class CMETradeNormalizer:
             return normalized
             
         except (ValueError, TypeError) as e:
-            logger.error(f"Failed to normalize integer '{value}': {e}")
+            logger.error(f"Unable to process numeric value '{value}': {e}. Check data format and try again.")
             return None
     
     def normalize_string_field(self, value: Any) -> str:
