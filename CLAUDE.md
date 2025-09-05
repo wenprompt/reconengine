@@ -231,10 +231,6 @@ uv run ruff check --fix .
 # Type checking
 uv run python -m mypy src/
 
-# FastAPI Web Service (Production-Ready)
-uv run python -m src.unified_recon.server  # Start REST API server on port 7777
-python test_api.py                          # Test the API endpoints
-
 # Centralized data routing with master data processing
 uv run python -m src.unified_recon.main  # Shows all matches+unmatches
 uv run python -m src.unified_recon.main --log-level DEBUG # Enable debug logging
@@ -262,7 +258,7 @@ uv run python -m src.eex_match.main
 
 ```bash
 # Start the API server
-uv run python -m src.unified_recon.server
+uv run python -m src.unified_recon.server # Start REST API server on port 7777
 
 
 # Manual API call

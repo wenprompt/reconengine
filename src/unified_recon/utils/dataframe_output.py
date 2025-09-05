@@ -29,11 +29,7 @@ def create_unified_dataframe(unified_result: Any) -> pd.DataFrame:
             # Get system name without _match suffix
             system_name = system_result.system_name.upper().replace("_MATCH", "")
 
-            # Check if detailed_results exists
-            if not system_result.detailed_results:
-                continue
-
-            # Process matched trades
+            # Process matched trades (even if detailed_results is empty, we still need to process unmatched)
             if isinstance(system_result.detailed_results, dict):
                 matches = system_result.detailed_results.get("matches", [])
             elif isinstance(system_result.detailed_results, list):

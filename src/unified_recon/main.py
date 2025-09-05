@@ -15,8 +15,14 @@ from .utils.data_validator import DataValidationError
 from .utils.dataframe_output import (
     create_unified_dataframe,
     save_dataframe_to_json,
-    display_dataframe_summary
+    display_dataframe_summary,
 )
+
+# Import all matching engines at the top
+from ..ice_match.main import ICEMatchingEngine
+from ..sgx_match.main import SGXMatchingEngine
+from ..cme_match.main import CMEMatchingEngine
+from ..eex_match.main import EEXMatchingEngine
 
 # Constants
 DEFAULT_TRADER_CSV = "sourceTraders.csv"
@@ -26,7 +32,7 @@ DEFAULT_CONFIG_FILE = "unified_config.json"
 
 def setup_logging(log_level: str = "NONE") -> None:
     """Set up logging configuration for unified reconciliation.
-    
+
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, NONE)
     """
@@ -34,7 +40,7 @@ def setup_logging(log_level: str = "NONE") -> None:
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
-    
+
     if log_level.upper() == "NONE":
         return
 
@@ -42,215 +48,233 @@ def setup_logging(log_level: str = "NONE") -> None:
     level = getattr(logging, log_level.upper(), logging.INFO)
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler(sys.stdout)]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
 
-def call_ice_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
+def call_ice_match_system(
+    trader_df: pd.DataFrame, exchange_df: pd.DataFrame
+) -> Dict[str, Any]:
     """Call ICE match system with filtered data.
-    
+
     Args:
         trader_df: Filtered trader DataFrame for group 1
         exchange_df: Filtered exchange DataFrame for group 1
-        
+
     Returns:
         Dict with ICE match results and statistics
     """
-    # Import and call ICE match system
+    # Call ICE match system
     try:
-        from ..ice_match.main import ICEMatchingEngine  # type: ignore
-        
         # Set up ICE system engine
         engine = ICEMatchingEngine()
-        
+
         # Load and process data through ICE system using DataFrames directly
         start_time = time.time()
-        
+
         # Use ICE engine to run matching process with DataFrames (no CSV files)
-        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
-        
+        matches, statistics = engine.run_matching_from_dataframes(
+            trader_df, exchange_df
+        )
+
         processing_time = time.time() - start_time
-        
+
         # Get match rate from ICE statistics (overall match rate)
-        match_rate = statistics['match_rate']
-        
+        match_rate = statistics["match_rate"]
+
         return {
-            'matches_found': statistics['matches_found'],
-            'match_rate': match_rate,
-            'processing_time': processing_time,
-            'detailed_results': matches,
-            'unmatched_trader_trades': statistics['unmatched_trader_trades'],
-            'unmatched_exchange_trades': statistics['unmatched_exchange_trades']
+            "matches_found": statistics["matches_found"],
+            "match_rate": match_rate,
+            "processing_time": processing_time,
+            "detailed_results": matches,
+            "unmatched_trader_trades": statistics["unmatched_trader_trades"],
+            "unmatched_exchange_trades": statistics["unmatched_exchange_trades"],
         }
-        
+
     except ImportError as e:
         raise ImportError(f"Failed to import ICE match system: {e}") from e
     except Exception as e:
         raise RuntimeError(f"ICE match system processing failed: {e}") from e
 
 
-def call_sgx_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
+def call_sgx_match_system(
+    trader_df: pd.DataFrame, exchange_df: pd.DataFrame
+) -> Dict[str, Any]:
     """Call SGX match system with filtered data.
-    
+
     Args:
         trader_df: Filtered trader DataFrame for group 2
         exchange_df: Filtered exchange DataFrame for group 2
-        
+
     Returns:
         Dict with SGX match results and statistics
     """
-    # Import and call SGX match system
+    # Call SGX match system
     try:
-        from ..sgx_match.main import SGXMatchingEngine  # type: ignore
-        
         # Set up SGX system engine
         engine = SGXMatchingEngine()
-        
+
         # Load and process data through SGX system using DataFrames directly
         start_time = time.time()
-        
+
         # Use SGX engine to run matching process with DataFrames (no CSV files)
-        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
-        
+        matches, statistics = engine.run_matching_from_dataframes(
+            trader_df, exchange_df
+        )
+
         processing_time = time.time() - start_time
-        
+
         # Extract statistics from SGX pool manager
         total_matches = len(matches)
-        total_trader_trades = statistics['original_trader_count']
-        total_exchange_trades = statistics['original_exchange_count']
-        
+        total_trader_trades = statistics["original_trader_count"]
+        total_exchange_trades = statistics["original_exchange_count"]
+
         # Calculate total trades matched (not just number of match records)
         # Each match involves multiple trades (trader + exchange + additional trades)
         total_trades_matched = 0
         for match in matches:
             # Count all trades involved in this match
             trades_in_match = (
-                1 +  # trader_trade
-                1 +  # exchange_trade
-                len(getattr(match, 'additional_trader_trades', [])) +
-                len(getattr(match, 'additional_exchange_trades', []))
+                1  # trader_trade
+                + 1  # exchange_trade
+                + len(getattr(match, "additional_trader_trades", []))
+                + len(getattr(match, "additional_exchange_trades", []))
             )
             total_trades_matched += trades_in_match
-        
+
         # Calculate match rate as: total trades matched / total trades in group
         total_trades = total_trader_trades + total_exchange_trades
-        match_rate = (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
-        
+        match_rate = (
+            (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
+        )
+
         return {
-            'matches_found': total_matches,
-            'match_rate': match_rate, 
-            'processing_time': processing_time,
-            'detailed_results': matches,
-            'unmatched_trader_trades': statistics.get('unmatched_trader_trades', []),
-            'unmatched_exchange_trades': statistics.get('unmatched_exchange_trades', [])
+            "matches_found": total_matches,
+            "match_rate": match_rate,
+            "processing_time": processing_time,
+            "detailed_results": matches,
+            "unmatched_trader_trades": statistics.get("unmatched_trader_trades", []),
+            "unmatched_exchange_trades": statistics.get(
+                "unmatched_exchange_trades", []
+            ),
         }
-        
+
     except ImportError as e:
         raise ImportError(f"Failed to import SGX match system: {e}") from e
     except Exception as e:
         raise RuntimeError(f"SGX match system processing failed: {e}") from e
 
 
-def call_cme_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
+def call_cme_match_system(
+    trader_df: pd.DataFrame, exchange_df: pd.DataFrame
+) -> Dict[str, Any]:
     """Call CME match system with filtered data.
-    
+
     Args:
         trader_df: Filtered trader DataFrame for group 3
         exchange_df: Filtered exchange DataFrame for group 3
-        
+
     Returns:
         Dict with CME match results and statistics
     """
-    # Import and call CME match system
+    # Call CME match system
     try:
-        from ..cme_match.main import CMEMatchingEngine  # type: ignore
-        
         # Set up CME system engine
         engine = CMEMatchingEngine()
-        
+
         # Load and process data through CME system using DataFrames directly
         start_time = time.time()
-        
+
         # Use CME engine to run matching process with DataFrames (no CSV files)
-        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
-        
+        matches, statistics = engine.run_matching_from_dataframes(
+            trader_df, exchange_df
+        )
+
         processing_time = time.time() - start_time
-        
+
         # Extract statistics from CME pool manager
         total_matches = len(matches)
-        total_trader_trades = statistics['original_trader_count']
-        total_exchange_trades = statistics['original_exchange_count']
-        
+        total_trader_trades = statistics["original_trader_count"]
+        total_exchange_trades = statistics["original_exchange_count"]
+
         # Calculate total trades matched (not just number of match records)
         # Each match involves multiple trades (trader + exchange + additional trades)
         total_trades_matched = 0
         for match in matches:
             # Count all trades involved in this match
             trades_in_match = (
-                1 +  # trader_trade
-                1 +  # exchange_trade
-                len(getattr(match, 'additional_trader_trades', [])) +
-                len(getattr(match, 'additional_exchange_trades', []))
+                1  # trader_trade
+                + 1  # exchange_trade
+                + len(getattr(match, "additional_trader_trades", []))
+                + len(getattr(match, "additional_exchange_trades", []))
             )
             total_trades_matched += trades_in_match
-        
+
         # Calculate match rate as: total trades matched / total trades in group
         total_trades = total_trader_trades + total_exchange_trades
-        match_rate = (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
-        
+        match_rate = (
+            (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
+        )
+
         return {
-            'matches_found': total_matches,
-            'match_rate': match_rate, 
-            'processing_time': processing_time,
-            'detailed_results': matches,
-            'unmatched_trader_trades': statistics.get('unmatched_trader_trades', []),
-            'unmatched_exchange_trades': statistics.get('unmatched_exchange_trades', [])
+            "matches_found": total_matches,
+            "match_rate": match_rate,
+            "processing_time": processing_time,
+            "detailed_results": matches,
+            "unmatched_trader_trades": statistics.get("unmatched_trader_trades", []),
+            "unmatched_exchange_trades": statistics.get(
+                "unmatched_exchange_trades", []
+            ),
         }
-        
+
     except ImportError as e:
         raise ImportError(f"Failed to import CME match system: {e}") from e
     except Exception as e:
         raise RuntimeError(f"CME match system processing failed: {e}") from e
 
 
-def call_eex_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) -> Dict[str, Any]:
+def call_eex_match_system(
+    trader_df: pd.DataFrame, exchange_df: pd.DataFrame
+) -> Dict[str, Any]:
     """Call EEX match system with filtered data.
-    
+
     Args:
         trader_df: Filtered trader DataFrame for group 5
         exchange_df: Filtered exchange DataFrame for group 5
-        
+
     Returns:
         Dict with EEX match results and statistics
     """
-    # Import and call EEX match system
+    # Call EEX match system
     try:
-        from ..eex_match.main import EEXMatchingEngine  # type: ignore
-        
         # Set up EEX system engine
         engine = EEXMatchingEngine()
-        
+
         # Load and process data through EEX system using DataFrames directly
         start_time = time.time()
-        
+
         # Use EEX engine to run matching process with DataFrames (no CSV files)
-        matches, statistics = engine.run_matching_from_dataframes(trader_df, exchange_df)
-        
+        matches, statistics = engine.run_matching_from_dataframes(
+            trader_df, exchange_df
+        )
+
         processing_time = time.time() - start_time
-        
+
         # Get match rate from EEX statistics (overall match rate)
-        match_rate = statistics['match_rate']
-        
+        match_rate = statistics["match_rate"]
+
         return {
-            'matches_found': len(matches),
-            'match_rate': match_rate,
-            'processing_time': processing_time,
-            'detailed_results': matches,
-            'unmatched_trader_trades': statistics.get('unmatched_trader_trades', []),
-            'unmatched_exchange_trades': statistics.get('unmatched_exchange_trades', [])
+            "matches_found": len(matches),
+            "match_rate": match_rate,
+            "processing_time": processing_time,
+            "detailed_results": matches,
+            "unmatched_trader_trades": statistics.get("unmatched_trader_trades", []),
+            "unmatched_exchange_trades": statistics.get(
+                "unmatched_exchange_trades", []
+            ),
         }
-        
+
     except ImportError as e:
         raise ImportError(f"Failed to import EEX match system: {e}") from e
     except Exception as e:
@@ -259,7 +283,7 @@ def call_eex_match_system(trader_df: pd.DataFrame, exchange_df: pd.DataFrame) ->
 
 def main() -> int:
     """Main entry point for unified reconciliation system.
-    
+
     Returns:
         Exit code (0 for success, 1 for error)
     """
@@ -267,50 +291,48 @@ def main() -> int:
         description="Unified Reconciliation System - Routes trades to appropriate matching systems"
     )
     parser.add_argument(
-        "--data-dir", 
-        type=str, 
-        help="Custom data directory (default: uses config)"
+        "--data-dir", type=str, help="Custom data directory (default: uses config)"
     )
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "NONE"],
         default="NONE",
-        help="Set logging level"
+        help="Set logging level",
     )
     parser.add_argument(
         "--no-unmatched",
         action="store_true",
-        help="Hide unmatched trades in output (default: show unmatched)"
+        help="Hide unmatched trades in output (default: show unmatched)",
     )
     parser.add_argument(
         "--json-output",
         action="store_true",
-        help="Save results to JSON file in json_output directory"
+        help="Save results to JSON file in json_output directory",
     )
     parser.add_argument(
         "--json-file",
         type=str,
-        help="Path to JSON file for processing (alternative to CSV data-dir)"
+        help="Path to JSON file for processing (alternative to CSV data-dir)",
     )
-    
+
     args = parser.parse_args()
-    
+
     # Set up logging
     setup_logging(args.log_level)
     logger = logging.getLogger(__name__)
-    
+
     # Initialize components
     display = UnifiedDisplay()
     result_aggregator = ResultAggregator()
-    
+
     try:
         # Load configuration and initialize router
         config_path = Path(__file__).parent / "config" / DEFAULT_CONFIG_FILE
         router = UnifiedTradeRouter(config_path)
-        
+
         # Display startup information
         display.display_startup_info(router.config)
-        
+
         # Load and validate data (JSON or CSV)
         if args.json_file:
             # JSON input mode
@@ -320,95 +342,103 @@ def main() -> int:
             # CSV input mode (default)
             data_dir = Path(args.data_dir) if args.data_dir else None
             trader_df, exchange_df = router.load_and_validate_data(data_dir)
-        
+
         # Group trades by exchange group
         grouped_trades = router.group_trades_by_exchange_group(trader_df, exchange_df)
-        
+
         # Display data loading info
         group_distribution = {}
         for group_id, group_info in grouped_trades.items():
             system_config = group_info.get("system_config", {})
             group_distribution[str(group_id)] = {
-                'trader': group_info['trader_count'],
-                'exchange': group_info['exchange_count'],
-                'system_name': system_config.get('description', group_info['system'])
+                "trader": group_info["trader_count"],
+                "exchange": group_info["exchange_count"],
+                "system_name": system_config.get("description", group_info["system"]),
             }
-        
-        display.display_data_loading_info(len(trader_df), len(exchange_df), group_distribution)
-        
+
+        display.display_data_loading_info(
+            len(trader_df), len(exchange_df), group_distribution
+        )
+
         # Get processable groups
         processable_groups = router.get_processable_groups(grouped_trades)
-        
+
         if not processable_groups:
             display.display_warning("No processable exchange groups found!")
             return 1
-        
+
         # Process each group through its matching system
         for group_id in processable_groups:
             group_info = grouped_trades[group_id]
-            system_name = group_info['system']
-            
+            system_name = group_info["system"]
+
             logger.info(f"Processing group {group_id} with {system_name} system...")
-            
+
             try:
                 # Route data to appropriate system
                 if system_name == "ice_match":
                     results = call_ice_match_system(
-                        group_info['trader_data'], 
-                        group_info['exchange_data']
+                        group_info["trader_data"], group_info["exchange_data"]
                     )
                 elif system_name == "sgx_match":
                     results = call_sgx_match_system(
-                        group_info['trader_data'],
-                        group_info['exchange_data']
+                        group_info["trader_data"], group_info["exchange_data"]
                     )
                 elif system_name == "cme_match":
                     results = call_cme_match_system(
-                        group_info['trader_data'],
-                        group_info['exchange_data']
+                        group_info["trader_data"], group_info["exchange_data"]
                     )
                 elif system_name == "eex_match":
                     results = call_eex_match_system(
-                        group_info['trader_data'],
-                        group_info['exchange_data']
+                        group_info["trader_data"], group_info["exchange_data"]
                     )
                 else:
                     logger.warning(f"Unknown system: {system_name}")
                     continue
-                
+
                 # Add results to aggregator
                 result_aggregator.add_system_result(
                     group_id=group_id,
                     system_name=system_name,
-                    matches_found=results['matches_found'],
-                    trader_count=group_info['trader_count'],
-                    exchange_count=group_info['exchange_count'],
-                    system_config=group_info['system_config'],
-                    processing_time=results.get('processing_time'),
-                    detailed_results=results.get('detailed_results'),
+                    matches_found=results["matches_found"],
+                    trader_count=group_info["trader_count"],
+                    exchange_count=group_info["exchange_count"],
+                    system_config=group_info["system_config"],
+                    processing_time=results.get("processing_time"),
+                    detailed_results=results.get("detailed_results"),
                     statistics=results,
-                    match_rate=results['match_rate']  # Use ICE system's overall match rate
+                    match_rate=results[
+                        "match_rate"
+                    ],  # Use ICE system's overall match rate
                 )
-                
-                logger.info(f"Group {group_id} completed: {results['matches_found']} matches ({results['match_rate']:.1f}%)")
-                
+
+                logger.info(
+                    f"Group {group_id} completed: {results['matches_found']} matches ({results['match_rate']:.1f}%)"
+                )
+
             except Exception as e:
-                logger.error(f"Unable to process exchange group {group_id}: {e}. Continuing with remaining groups.")
+                logger.error(
+                    f"Unable to process exchange group {group_id}: {e}. Continuing with remaining groups."
+                )
                 display.display_error(f"Failed to process group {group_id}", str(e))
                 continue
-        
+
         # Display results
         unified_results = result_aggregator.get_aggregated_results()
-        
+
         # Always show detailed results (like ICE and SGX systems do by default)
-        display.display_group_results(unified_results.system_results, show_details=True, show_unmatched=not args.no_unmatched)
-        
+        display.display_group_results(
+            unified_results.system_results,
+            show_details=True,
+            show_unmatched=not args.no_unmatched,
+        )
+
         display.display_unified_summary(unified_results)
-        
+
         # Create DataFrame output
         try:
             df = create_unified_dataframe(unified_results)
-            
+
             # Display DataFrame summary
             display_dataframe_summary(df)
         except Exception as e:
@@ -416,16 +446,18 @@ def main() -> int:
             display.display_error("DataFrame creation failed", str(e))
             # Continue without DataFrame output
             df = None
-        
+
         # Save to JSON if requested
         if args.json_output and df is not None:
             json_path = save_dataframe_to_json(df)
             display.display_success(f"Results saved to: {json_path}")
-        
-        display.display_success(f"Unified reconciliation completed successfully! {unified_results.total_matches_found} total matches found.")
-        
+
+        display.display_success(
+            f"Unified reconciliation completed successfully! {unified_results.total_matches_found} total matches found."
+        )
+
         return 0
-        
+
     except DataValidationError as e:
         display.display_error("Data validation failed", str(e))
         return 1

@@ -132,7 +132,10 @@ class ExactMatcher(BaseMatcher):
             trade.contract_month,
             trade.quantityunit,
             trade.price,
-            trade.buy_sell
+            trade.buy_sell,
+            # Include options fields to ensure options match only with options
+            trade.strike,  # Will be None for futures
+            trade.put_call  # Will be None for futures
         ]
         
         # Add universal fields using base class method

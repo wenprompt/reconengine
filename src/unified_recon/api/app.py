@@ -20,7 +20,7 @@ app = FastAPI(
     redoc_url="/redoc",  # ReDoc UI
 )
 
-# Add CORS middleware for web clients  
+# Add CORS middleware for web clients
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for development
