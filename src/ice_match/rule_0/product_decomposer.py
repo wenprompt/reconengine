@@ -3,7 +3,9 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Optional
+from typing import List
+
+from src.ice_match.utils.trade_helpers import extract_base_product
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +48,12 @@ class ProductDecomposer:
         """
         product_lower = product_name.lower().strip()
         
-        # Check for crack products
-        if "crack" in product_lower:
-            return self._decompose_crack(product_lower, quantity, unit, buy_sell)
+        # Check for crack products using shared extractor for correctness
+        if extract_base_product(product_name) is not None:
+            return self._decompose_crack(product_name, quantity, unit, buy_sell)
         
         # Check for spread products (hyphenated)
-        if "-" in product_lower and "crack" not in product_lower:
+        if "-" in product_lower:
             return self._decompose_spread(product_lower, quantity, unit, buy_sell)
         
         # Return original product if no decomposition needed
@@ -67,7 +69,7 @@ class ProductDecomposer:
         product_name: str, 
         quantity: Decimal, 
         unit: str,
-        buy_sell: str
+        _buy_sell: str
     ) -> List[DecomposedProduct]:
         """Decompose a crack product into base product and brent swap.
         
@@ -75,8 +77,8 @@ class ProductDecomposer:
         - If buying crack: buying base product, selling brent swap
         - If selling crack: selling base product, buying brent swap
         """
-        # Simply extract base product by removing "crack" from the name
-        base_product = self._extract_base_from_crack(product_name)
+        # Use shared helper to extract base product
+        base_product = extract_base_product(product_name)
         
         if not base_product:
             # If we can't extract, return as-is
@@ -116,7 +118,7 @@ class ProductDecomposer:
         product_name: str, 
         quantity: Decimal, 
         unit: str,
-        buy_sell: str
+        _buy_sell: str
     ) -> List[DecomposedProduct]:
         """Decompose a spread product into its components.
         
@@ -161,18 +163,6 @@ class ProductDecomposer:
         
         return components
     
-    def _extract_base_from_crack(self, crack_name: str) -> Optional[str]:
-        """Extract base product name from crack product name.
-        
-        Examples:
-            "380cst crack" -> "380cst"
-            "marine 0.5% crack" -> "marine 0.5%"
-        """
-        # Remove "crack" and clean up
-        base = crack_name.replace("crack", "").strip()
-        if base and base != crack_name:
-            return base
-        return None
     
     def get_decomposition_summary(self, product_name: str) -> str:
         """Get a summary of how a product would be decomposed.
@@ -187,7 +177,7 @@ class ProductDecomposer:
         
         if "crack" in product_lower:
             # For cracks: base product same direction, brent swap opposite
-            base = self._extract_base_from_crack(product_lower)
+            base = extract_base_product(product_lower)
             if base:
                 return f"{product_name} → {base} (same direction) - brent swap (opposite direction)"
         

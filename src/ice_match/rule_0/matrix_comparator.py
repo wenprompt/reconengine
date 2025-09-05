@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.ice_match.rule_0.position_matrix import PositionMatrix
 
@@ -44,22 +44,25 @@ class PositionComparison:
     @property
     def percentage_diff(self) -> Optional[float]:
         """Calculate percentage difference if both positions exist."""
-        if self.trader_mt == 0 or self.exchange_mt == 0:
-            return None
+        if self.trader_mt == 0 and self.exchange_mt == 0:
+            return 0.0
+        if self.trader_mt == 0:
+            return None  # Cannot calculate percentage when base is zero
         return abs(float((self.difference_mt / self.trader_mt) * 100))
 
 
 class MatrixComparator:
     """Compares position matrices between trader and exchange data."""
     
-    def __init__(self, tolerance_mt: Decimal = Decimal("0.01")):
+    def __init__(self, tolerance_mt: Decimal = Decimal("0.01"), brent_conversion_ratio: Decimal = Decimal("7.0")):
         """Initialize the comparator.
         
         Args:
             tolerance_mt: Tolerance for quantity matching in MT
+            brent_conversion_ratio: MT to BBL conversion ratio for brent products
         """
         self.tolerance_mt = tolerance_mt
-        self.tolerance_bbl = tolerance_mt * Decimal("6.35")  # Approximate BBL tolerance
+        self.tolerance_bbl = tolerance_mt * brent_conversion_ratio  # BBL tolerance based on conversion ratio
     
     def compare_matrices(
         self, 
@@ -78,7 +81,7 @@ class MatrixComparator:
         comparisons = []
         
         # Get all unique (contract_month, product) combinations
-        all_positions: set[Tuple[str, str]] = set()
+        all_positions: Set[Tuple[str, str]] = set()
         all_positions.update(trader_matrix.positions.keys())
         all_positions.update(exchange_matrix.positions.keys())
         
@@ -127,11 +130,11 @@ class MatrixComparator:
         
         # Determine status based on product type
         if product.lower() == "brent swap":
-            status = self._determine_status(
+            status = self._determine_status_bbl(
                 trader_bbl, exchange_bbl, diff_bbl
             )
         else:
-            status = self._determine_status(
+            status = self._determine_status_mt(
                 trader_mt, exchange_mt, diff_mt
             )
         
@@ -149,13 +152,13 @@ class MatrixComparator:
             exchange_trades=exchange_pos.trade_count if exchange_pos else 0
         )
     
-    def _determine_status(
+    def _determine_status_mt(
         self,
         trader_mt: Decimal,
         exchange_mt: Decimal,
         diff_mt: Decimal
     ) -> MatchStatus:
-        """Determine the match status based on quantities.
+        """Determine the match status based on MT quantities.
         
         Args:
             trader_mt: Trader quantity in MT
@@ -175,8 +178,40 @@ class MatrixComparator:
         if exchange_mt == 0:
             return MatchStatus.MISSING_IN_EXCHANGE
         
-        # Check if within tolerance
+        # Check if within MT tolerance
         if abs(diff_mt) <= self.tolerance_mt:
+            return MatchStatus.MATCHED
+        
+        return MatchStatus.QUANTITY_MISMATCH
+    
+    def _determine_status_bbl(
+        self,
+        trader_bbl: Decimal,
+        exchange_bbl: Decimal,
+        diff_bbl: Decimal
+    ) -> MatchStatus:
+        """Determine the match status based on BBL quantities.
+        
+        Args:
+            trader_bbl: Trader quantity in BBL
+            exchange_bbl: Exchange quantity in BBL
+            diff_bbl: Difference in BBL
+            
+        Returns:
+            Match status
+        """
+        # Both zero
+        if trader_bbl == 0 and exchange_bbl == 0:
+            return MatchStatus.ZERO_POSITION
+        
+        # Missing in one side
+        if trader_bbl == 0:
+            return MatchStatus.MISSING_IN_TRADER
+        if exchange_bbl == 0:
+            return MatchStatus.MISSING_IN_EXCHANGE
+        
+        # Check if within BBL tolerance
+        if abs(diff_bbl) <= self.tolerance_bbl:
             return MatchStatus.MATCHED
         
         return MatchStatus.QUANTITY_MISMATCH

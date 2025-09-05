@@ -124,22 +124,23 @@ class PositionMatrixBuilder:
             config_path: Path to config file
             
         Returns:
-            Dictionary of product to conversion ratio
+            Dictionary of product to conversion ratio (keys are lowercased)
         """
         if config_path is None:
-            config_path = Path("src/ice_match/config/normalizer_config.json")
+            # Robust path: src/ice_match/rule_0/position_matrix.py -> up to src/ice_match
+            config_path = Path(__file__).resolve().parents[1] / "config" / "normalizer_config.json"
         
         try:
             with open(config_path, 'r') as f:
                 config = json.load(f)
                 ratios = config.get("product_conversion_ratios", {})
-                # Convert to Decimal
+                # Convert to Decimal with lowercased keys for case-insensitive lookup
                 return {
-                    product: Decimal(str(ratio))
+                    product.lower(): Decimal(str(ratio))
                     for product, ratio in ratios.items()
                 }
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {config_path}: {e}. Using defaults.")
+            logger.warning(f"Could not load config from {config_path}: {e}. Using fallback default 7.0")
             return {"default": Decimal("7.0")}
     
     def _get_conversion_ratio(self, product_name: str) -> Decimal:
@@ -156,13 +157,6 @@ class PositionMatrixBuilder:
         # Check for exact match
         if product_lower in self.conversion_ratios:
             return self.conversion_ratios[product_lower]
-        
-        # For decomposed crack products, use the crack's ratio
-        if "crack" in product_lower:
-            # Look for the crack product ratio
-            for key, ratio in self.conversion_ratios.items():
-                if key in product_lower or product_lower in key:
-                    return ratio
         
         # Default ratio
         return self.conversion_ratios.get("default", Decimal("7.0"))
@@ -286,7 +280,7 @@ class PositionMatrixBuilder:
             # For crack trades:
             # Base product follows crack direction
             # Brent swap has opposite direction
-            if "brent" in component.base_product.lower():
+            if component.base_product.lower() == "brent swap":
                 # Brent swap: opposite of crack direction
                 if trade.buy_sell == "B":
                     # Buying crack = selling brent
@@ -307,8 +301,7 @@ class PositionMatrixBuilder:
             if len(parts) == 2:
                 # Determine if this is the first or second product
                 is_second_product = (
-                    component.base_product.lower() in parts[1].lower() or
-                    parts[1].strip().lower() in component.base_product.lower()
+                    component.base_product.lower() == parts[1].strip().lower()
                 )
                 
                 if is_second_product:
@@ -353,12 +346,33 @@ class PositionMatrixBuilder:
         
         for matrix in matrices:
             for (month, product), position in matrix.positions.items():
-                merged.add_position(
-                    product=product,
-                    contract_month=month,
-                    quantity_mt=position.quantity_mt,
-                    quantity_bbl=position.quantity_bbl,
-                    is_synthetic=position.is_synthetic
-                )
+                key = (month, product)
+                
+                if key not in merged.positions:
+                    # First time seeing this position - copy it directly
+                    merged.positions[key] = Position(
+                        product=product,
+                        contract_month=month,
+                        quantity_mt=position.quantity_mt,
+                        quantity_bbl=position.quantity_bbl,
+                        trade_count=position.trade_count,
+                        is_synthetic=position.is_synthetic
+                    )
+                    merged.contract_months.add(month)
+                    merged.products.add(product)
+                else:
+                    # Merge with existing position
+                    existing = merged.positions[key]
+                    if position.quantity_mt is not None:
+                        if existing.quantity_mt is None:
+                            existing.quantity_mt = position.quantity_mt
+                        else:
+                            existing.quantity_mt += position.quantity_mt
+                    if position.quantity_bbl is not None:
+                        if existing.quantity_bbl is None:
+                            existing.quantity_bbl = position.quantity_bbl
+                        else:
+                            existing.quantity_bbl += position.quantity_bbl
+                    existing.trade_count += position.trade_count
         
         return merged
