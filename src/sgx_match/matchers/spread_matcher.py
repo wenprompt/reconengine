@@ -380,6 +380,10 @@ class SpreadMatcher(MultiLegBaseMatcher):
         spread_price: Decimal,
     ) -> bool:
         """Validate that trader spread pair matches the exchange spread pattern."""
+        # CRITICAL: Ensure options match only with options, futures only with futures
+        if not self.validate_options_compatibility(trader1, exchange1, trader2, exchange2):
+            return False
+        
         # Must be same product
         if (
             trader1.product_name != exchange1.product_name

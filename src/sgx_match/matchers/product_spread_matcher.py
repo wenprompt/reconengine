@@ -256,6 +256,11 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         trader_trade1, trader_trade2 = trader_trades
         exchange_trade1, exchange_trade2 = exchange_trades
 
+        # CRITICAL: Ensure options match only with options, futures only with futures
+        if not self.validate_options_compatibility(trader_trade1, trader_trade2, exchange_trade1, exchange_trade2):
+            logger.debug("Product spread validation failed: options/futures mismatch")
+            return False
+
         # Validate exchange trades form a valid product spread pair
         if not self._validate_exchange_product_spread_pair(exchange_trade1, exchange_trade2):
             logger.debug("Product spread validation failed: invalid exchange product spread pair")
@@ -601,6 +606,11 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             True if valid hyphenated spread match, False otherwise
         """
         try:
+            # CRITICAL: Ensure options match only with options, futures only with futures
+            if not self.validate_options_compatibility(exchange_trade, first_trader_trade, second_trader_trade):
+                logger.debug("❌ Hyphenated spread validation failed: options/futures mismatch")
+                return False
+            
             # Check that trader trades have opposite B/S directions
             if first_trader_trade.buy_sell == second_trader_trade.buy_sell:
                 logger.debug(f"❌ Trader trades must have opposite B/S directions: {first_trader_trade.buy_sell}/{second_trader_trade.buy_sell}")

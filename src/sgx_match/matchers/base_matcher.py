@@ -79,6 +79,34 @@ class BaseMatcher(ABC):
                 return False
         return True
     
+    def validate_options_compatibility(self, *trades: SGXTrade) -> bool:
+        """Check if all trades have compatible option characteristics.
+        
+        All trades must be either:
+        - All futures (strike=None, put_call=None)
+        - All options with identical strike and put_call values
+        
+        This prevents incorrect matching between options and futures trades.
+        
+        Args:
+            *trades: Variable number of SGXTrade objects to validate
+            
+        Returns:
+            True if all trades have compatible option characteristics, False otherwise
+        """
+        if not trades:
+            return True
+        
+        # Use first trade as reference
+        first_trade = trades[0]
+        
+        # Check all other trades match the first trade's option characteristics
+        for trade in trades[1:]:
+            if trade.strike != first_trade.strike or trade.put_call != first_trade.put_call:
+                return False
+        
+        return True
+    
     def _get_trade_field_value(self, trade: SGXTrade, config_field_name: str) -> Any:
         """Get trade field value by config field name.
         

@@ -21,10 +21,14 @@ class ExactMatcher(BaseMatcher):
     - quantityunit
     - price
     - buy_sell (opposite)
+    - strike (for options - ensures options match only with options)
+    - put_call (for options - ensures correct option type matching)
     - broker_group_id (universal)
     - exch_clearing_acct_id (universal)
     
     This is the only matching rule for EEX trades.
+    Options trades match only with other options having the same strike/put_call.
+    Futures trades (strike=None, put_call=None) match only with other futures.
     """
     
     def __init__(self, config_manager: EEXConfigManager):
@@ -136,7 +140,10 @@ class ExactMatcher(BaseMatcher):
             trade.contract_month,
             trade.quantityunit,
             trade.price,
-            opposite_buy_sell  # Use opposite for matching
+            opposite_buy_sell,  # Use opposite for matching
+            # Include options fields to ensure options match only with options
+            trade.strike,  # Will be None for futures
+            trade.put_call  # Will be None for futures
         ]
         
         # Add universal fields using base class method
@@ -194,8 +201,10 @@ class ExactMatcher(BaseMatcher):
                 "quantityunit", 
                 "price",
                 "buy_sell (opposite)",
+                "strike (for options)",
+                "put_call (for options)",
                 "broker_group_id",
                 "exch_clearing_acct_id"
             ],
-            "notes": "The only matching rule for EEX trades"
+            "notes": "Options match only with options, futures only with futures"
         }
