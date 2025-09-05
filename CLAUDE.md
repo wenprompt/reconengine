@@ -265,6 +265,10 @@ uv run python -m src.unified_recon.server # Start REST API server on port 7777
 curl -X POST http://localhost:7777/reconcile \
   -H "Content-Type: application/json" \
   -d @src/json_input/ice_sample.json
+
+# BETA ICE RULE 0 IMPLEMENTATION
+uv run python -m src.ice_match.rule_0.main
+
 ```
 
 ## 📋 Style & Conventions

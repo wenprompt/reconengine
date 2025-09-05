@@ -31,9 +31,13 @@
   },
   "product_conversion_ratios": {
     "marine 0.5% crack": 6.35,
+    "marine 0.5%": 6.35,
     "380cst crack": 6.35,
+    "380cst": 6.35,
     "naphtha japan crack": 8.9,
+    "naphtha japan": 8.9,
     "naphtha nwe crack": 8.9,
+    "naphtha nwe": 8.9,
     "default": 7.0
   },
   "traders_product_unit_defaults": {

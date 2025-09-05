@@ -20,12 +20,13 @@ class TradeNormalizer:
     def __init__(self, config_manager: ConfigManager):
         """Initialize the normalizer."""
         self.config_manager = config_manager
-        self.BBL_TO_MT_RATIO = config_manager.get_conversion_ratio()
 
         # Load mappings from the central configuration manager
         self.product_mappings = self.config_manager.get_product_mappings()
         self.month_patterns = self.config_manager.get_month_patterns()
         self.product_conversion_ratios = self.config_manager.get_product_conversion_ratios()
+        # Get default conversion ratio from product_conversion_ratios
+        self.BBL_TO_MT_RATIO = Decimal(str(self.product_conversion_ratios["default"]))
         self.traders_product_unit_defaults = self.config_manager.get_traders_product_unit_defaults()
         self.buy_sell_mappings = self.config_manager.get_buy_sell_mappings()
 

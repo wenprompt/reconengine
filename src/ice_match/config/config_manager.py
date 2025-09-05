@@ -19,11 +19,6 @@ class MatchingConfig(BaseModel):
         validate_assignment=True,  # Immutable configuration
     )
 
-    # Unit conversion
-    bbl_to_mt_ratio: Decimal = Field(
-        default=Decimal("6.35"), description="Default conversion ratio from BBL to MT"
-    )
-
     # Quantity tolerances (for future rules)
     quantity_tolerance_percentage: Decimal = Field(
         default=Decimal("5.0"),
@@ -185,13 +180,6 @@ class ConfigManager:
         """
         return self._config.quantity_tolerance_percentage
 
-    def get_conversion_ratio(self) -> Decimal:
-        """Get BBL to MT conversion ratio.
-
-        Returns:
-            Conversion ratio (default 6.35)
-        """
-        return self._config.bbl_to_mt_ratio
 
     def get_universal_tolerance_bbl(self) -> Decimal:
         """Get universal BBL tolerance used by all matching rules.
@@ -335,7 +323,6 @@ class ConfigManager:
             Dictionary with key configuration values
         """
         return {
-            "conversion_ratio": float(self._config.bbl_to_mt_ratio),
             "quantity_tolerance": f"{self._config.quantity_tolerance_percentage}%",
             "rule_count": len(self._config.rule_confidence_levels),
             "processing_order": self._config.rule_processing_order,

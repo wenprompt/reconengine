@@ -120,8 +120,10 @@ class ICEMatchingEngine:
             self.displayer.show_header()
             self.displayer.show_configuration()
 
-            # Set conversion ratio for all Trade instances
-            Trade.set_conversion_ratio(self.config_manager.get_conversion_ratio())
+            # Set default conversion ratio from config
+            conversion_ratios = self.config_manager.get_product_conversion_ratios()
+            default_ratio = Decimal(str(conversion_ratios["default"]))
+            Trade.set_conversion_ratio(default_ratio)
 
             # Step 1: Load data
             self.logger.info("Loading trade data...")
@@ -340,8 +342,10 @@ class ICEMatchingEngine:
         execution_datetime = datetime.now()
         
         try:
-            # Set conversion ratio for all Trade instances
-            Trade.set_conversion_ratio(self.config_manager.get_conversion_ratio())
+            # Set default conversion ratio from config
+            conversion_ratios = self.config_manager.get_product_conversion_ratios()
+            default_ratio = Decimal(str(conversion_ratios["default"]))
+            Trade.set_conversion_ratio(default_ratio)
             
             # Create trades directly from DataFrames using trade factory
             trader_trades = self.trade_factory.from_dataframe(trader_df, TradeSource.TRADER)
