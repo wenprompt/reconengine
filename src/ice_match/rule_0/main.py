@@ -1,7 +1,6 @@
 """Main entry point for Rule 0: Position Decomposition Analyzer."""
 
 import argparse
-import json
 import logging
 import sys
 from decimal import Decimal
@@ -51,13 +50,18 @@ class Rule0Analyzer:
         self.trade_factory = ICETradeFactory(self.normalizer)
         self.matrix_builder = PositionMatrixBuilder(config_path)
         
-        # Get brent conversion ratio from config for comparator
-        brent_ratio = self._get_brent_conversion_ratio(config_path)
-        self.comparator = MatrixComparator(brent_conversion_ratio=brent_ratio)
+        # Get conversion ratios from config for comparator
+        conversion_ratios = self.config_manager.get_product_conversion_ratios()
+        
+        # Get the default ratio from config
+        default_ratio = Decimal(str(conversion_ratios["default"]))
+        
+        # For the comparator, we use the default ratio for BBL tolerance calculation
+        self.comparator = MatrixComparator(default_ratio)
         self.display = PositionDisplay()
         
-        # Set default conversion ratio for Trade model (not used in Rule 0)
-        Trade.set_conversion_ratio(brent_ratio)
+        # Set default conversion ratio for Trade model (not used in Rule 0 but needed for compatibility)
+        Trade.set_conversion_ratio(default_ratio)
     
     def run(
         self,
@@ -108,38 +112,6 @@ class Rule0Analyzer:
             console.print(f"[red]Error: {str(e)}[/red]")
             logger.exception("Unexpected error in Rule 0 analysis")
             sys.exit(1)
-    
-    def _get_brent_conversion_ratio(self, config_path: Optional[Path] = None) -> Decimal:
-        """Get brent conversion ratio from config.
-        
-        Args:
-            config_path: Path to config file
-            
-        Returns:
-            Conversion ratio for brent products
-        """
-        if config_path is None:
-            # Robust path: src/ice_match/rule_0/main.py -> up to src/ice_match
-            config_path = Path(__file__).resolve().parents[1] / "config" / "normalizer_config.json"
-        
-        try:
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-                ratios = config.get("product_conversion_ratios", {})
-                # Lowercase keys for case-insensitive lookup
-                ratios_lower = {k.lower(): v for k, v in ratios.items()}
-                # Look for marine 0.5% or 380cst ratio (both typically use the same ratio)
-                for key in ["marine 0.5%", "380cst", "marine 0.5% crack", "380cst crack"]:
-                    if key.lower() in ratios_lower:
-                        return Decimal(str(ratios_lower[key.lower()]))
-                # Use default from config if specific product not found
-                if "default" in ratios_lower:
-                    return Decimal(str(ratios_lower["default"]))
-                # Final fallback if config is malformed
-                return Decimal("7.0")
-        except (FileNotFoundError, json.JSONDecodeError):
-            logger.warning(f"Could not load config from {config_path}. Using fallback ratio 7.0")
-            return Decimal("7.0")
     
     def _load_trades(self, filepath: Path, source: TradeSource) -> List[Trade]:
         """Load trades from CSV file.

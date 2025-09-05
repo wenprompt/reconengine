@@ -140,8 +140,8 @@ class PositionMatrixBuilder:
                     for product, ratio in ratios.items()
                 }
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {config_path}: {e}. Using fallback default 7.0")
-            return {"default": Decimal("7.0")}
+            logger.error(f"Could not load config from {config_path}: {e}")
+            raise
     
     def _get_conversion_ratio(self, product_name: str) -> Decimal:
         """Get the conversion ratio for a specific product.
@@ -158,8 +158,8 @@ class PositionMatrixBuilder:
         if product_lower in self.conversion_ratios:
             return self.conversion_ratios[product_lower]
         
-        # Default ratio
-        return self.conversion_ratios.get("default", Decimal("7.0"))
+        # Default ratio from config
+        return self.conversion_ratios["default"]
     
     def build_matrix(self, trades: List[Trade]) -> PositionMatrix:
         """Build a position matrix from a list of trades.

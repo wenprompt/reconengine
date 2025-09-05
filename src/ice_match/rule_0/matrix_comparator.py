@@ -54,7 +54,7 @@ class PositionComparison:
 class MatrixComparator:
     """Compares position matrices between trader and exchange data."""
     
-    def __init__(self, tolerance_mt: Decimal = Decimal("0.01"), brent_conversion_ratio: Decimal = Decimal("7.0")):
+    def __init__(self, brent_conversion_ratio: Decimal, tolerance_mt: Decimal = Decimal("0.01")):
         """Initialize the comparator.
         
         Args:
