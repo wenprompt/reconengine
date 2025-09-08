@@ -29,5 +29,30 @@
     "default_data_dir": "src/unified_recon/data",
     "exchange_file": "sourceExchange.csv",
     "trader_file": "sourceTraders.csv"
+  },
+  "field_mappings_comment": "Maps CSV field names to their JSON equivalents. Most fields are identical when lowercased (e.g., productName->productname) except exchclearingacctid",
+  "field_mappings": {
+    "exchclearingacctid": ["exchclearingacctid", "exchangeclearingaccountid"]
+  },
+  "rule_0_config": {
+    "ice_match": {
+      "decomposition_patterns": {
+        "crack": "brent swap",
+        "spread": "-"
+      },
+      "normalizer_config": "src/ice_match/config/normalizer_config.json"
+    },
+    "sgx_match": {
+      "decomposition_patterns": {
+        "spread": "-"
+      },
+      "normalizer_config": "src/sgx_match/config/normalizer_config.json"
+    },
+    "cme_match": {
+      "normalizer_config": "src/cme_match/config/normalizer_config.json"
+    },
+    "eex_match": {
+      "normalizer_config": "src/eex_match/config/normalizer_config.json"
+    }
   }
 }
