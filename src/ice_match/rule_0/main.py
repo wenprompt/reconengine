@@ -65,12 +65,14 @@ class Rule0Analyzer:
     
     def run(
         self,
-        contract_month: Optional[str] = None
+        contract_month: Optional[str] = None,
+        show_details: bool = False
     ) -> None:
         """Run the position analysis.
         
         Args:
             contract_month: Optional filter for specific month
+            show_details: Whether to show detailed trade breakdown
         """
         console = Console()
         
@@ -104,6 +106,10 @@ class Rule0Analyzer:
             
             # Display position matrix
             self.display.show_position_matrix(comparisons, contract_month)
+            
+            # Show detailed trade breakdown if requested
+            if show_details:
+                self.display.show_position_details(trader_matrix, exchange_matrix)
             
         except FileNotFoundError as e:
             console.print(f"[red]Error: File not found - {e}[/red]")
@@ -184,6 +190,11 @@ Examples:
         default="WARNING",
         help="Set the logging level (default: WARNING - no logs shown)"
     )
+    parser.add_argument(
+        "--show-details",
+        action="store_true",
+        help="Show detailed trade breakdown for each position"
+    )
     
     args = parser.parse_args()
     
@@ -199,7 +210,8 @@ Examples:
     )
     
     analyzer.run(
-        contract_month=args.contract_month
+        contract_month=args.contract_month,
+        show_details=args.show_details
     )
 
 
