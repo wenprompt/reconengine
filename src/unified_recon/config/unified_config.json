@@ -49,6 +49,8 @@
       "normalizer_config": "src/sgx_match/config/normalizer_config.json"
     },
     "cme_match": {
+      "quantity_field": "quantitylot",
+      "default_unit": "LOTS",
       "normalizer_config": "src/cme_match/config/normalizer_config.json"
     },
     "eex_match": {

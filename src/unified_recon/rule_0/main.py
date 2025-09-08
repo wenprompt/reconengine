@@ -109,16 +109,19 @@ def get_default_data_paths(exchange: str) -> tuple[Path, Path]:
     return base_path / trader_file, base_path / exchange_file
 
 
-def get_tolerance(exchange: str, config: Dict[str, Any]) -> Decimal:
-    """Get tolerance value for the exchange.
+def get_tolerances(exchange: str, config: Dict[str, Any]) -> tuple[Decimal, Dict[str, float]]:
+    """Get tolerance values for the exchange.
     
     Args:
         exchange: Exchange name
         config: Exchange config
         
     Returns:
-        Tolerance value for comparisons
+        Tuple of (default_tolerance for comparisons, tolerance_dict for matching)
     """
+    tolerance_dict: Dict[str, float] = {}
+    default_tolerance = Decimal("0.01")
+    
     # Load normalizer config if available
     if "normalizer_config" in config:
         config_path = Path(config["normalizer_config"])
@@ -127,16 +130,31 @@ def get_tolerance(exchange: str, config: Dict[str, Any]) -> Decimal:
                 normalizer_config = json.load(f)
                 tolerances = normalizer_config.get("universal_tolerances", {})
                 
-                # For ICE, use different tolerances for MT vs BBL
-                if exchange == "ice_match":
-                    # We'll use MT tolerance as default
-                    return Decimal(str(tolerances.get("tolerance_mt", 150)))
-                else:
-                    # For other exchanges, use a sensible default
-                    return Decimal("0.01")
+                if tolerances:
+                    # Load all tolerance values from config
+                    tolerance_dict = {}
+                    
+                    # Add any tolerance values found in config
+                    for key, value in tolerances.items():
+                        if key.startswith("tolerance"):
+                            tolerance_dict[key] = value
+                    
+                    # Determine default tolerance for position comparisons
+                    if 'tolerance_default' in tolerances:
+                        default_tolerance = Decimal(str(tolerances['tolerance_default']))
+                    elif 'tolerance' in tolerances:
+                        default_tolerance = Decimal(str(tolerances['tolerance']))
+                    elif 'tolerance_mt' in tolerances:
+                        # Use MT tolerance as fallback default
+                        default_tolerance = Decimal(str(tolerances['tolerance_mt']))
+                    else:
+                        # Use first tolerance value found
+                        for key, value in tolerances.items():
+                            if key.startswith("tolerance") and not key.endswith("description"):
+                                default_tolerance = Decimal(str(value))
+                                break
     
-    # Default tolerance
-    return Decimal("0.01")
+    return default_tolerance, tolerance_dict
 
 
 def process_exchange(exchange_name: str, trader_trades: List[Dict[str, Any]], 
@@ -163,8 +181,8 @@ def process_exchange(exchange_name: str, trader_trades: List[Dict[str, Any]],
         exchange_matrix = builder.build_matrix(exchange_trades, source="exchange")
         
         # Compare matrices
-        tolerance = get_tolerance(exchange_name, config)
-        comparator = UnifiedMatrixComparator(exchange_name, tolerance)
+        default_tolerance, tolerance_dict = get_tolerances(exchange_name, config)
+        comparator = UnifiedMatrixComparator(exchange_name, default_tolerance)
         comparisons = comparator.compare_matrices(trader_matrix, exchange_matrix)
         
         # Get summary statistics
@@ -172,7 +190,7 @@ def process_exchange(exchange_name: str, trader_trades: List[Dict[str, Any]],
         
         # Display results
         display_name = exchange_name.replace("_match", "").upper()
-        display = UnifiedDisplay(display_name)
+        display = UnifiedDisplay(display_name, tolerance_dict)
         display.show_header()
         display.show_summary(stats)
         display.show_comparison_by_product(comparisons)
@@ -193,9 +211,17 @@ def main():
         description="Unified Rule 0: Position Decomposition Analyzer"
     )
     
+    # Load config first to get available exchanges
+    config_path = Path(__file__).resolve().parents[1] / "config" / "unified_config.json"
+    with open(config_path, 'r') as f:
+        unified_config = json.load(f)
+    
+    # Get available exchange choices from config
+    available_exchanges = [key.replace("_match", "") for key in unified_config.get("rule_0_config", {}).keys()]
+    
     parser.add_argument(
         "--exchange",
-        choices=["ice", "sgx", "cme", "eex"],
+        choices=available_exchanges,
         help="Optional: Specific exchange to analyze. If not provided, analyzes all exchanges found in data"
     )
     
@@ -232,13 +258,13 @@ def main():
     # Set logging level
     logging.getLogger().setLevel(getattr(logging, args.log_level))
     
-    # Map exchange argument to config key
-    exchange_map = {
-        "ice": "ice_match",
-        "sgx": "sgx_match",
-        "cme": "cme_match",
-        "eex": "eex_match"
-    }
+    # Config already loaded above for argparse
+    # Dynamically create exchange mapping from config
+    exchange_map = {}
+    for exchange_key in unified_config.get("rule_0_config", {}).keys():
+        # Remove "_match" suffix for CLI name
+        cli_name = exchange_key.replace("_match", "")
+        exchange_map[cli_name] = exchange_key
     
     try:
         # Load trade data first
@@ -268,10 +294,7 @@ def main():
             logger.info(f"Loaded {len(trader_trades)} trader trades from {trader_path}")
             logger.info(f"Loaded {len(exchange_trades)} exchange trades from {exchange_path}")
         
-        # Load exchange group mappings
-        config_path = Path(__file__).resolve().parents[1] / "config" / "unified_config.json"
-        with open(config_path, 'r') as f:
-            unified_config = json.load(f)
+        # Config already loaded above
         
         # Helper function to get exchange group
         def get_exchange_group(trade):
@@ -320,7 +343,9 @@ def main():
             exchange_exchange_trades = [t for t in exchange_trades if get_exchange_group(t) in exchange_groups]
             
             if not exchange_trader_trades and not exchange_exchange_trades:
-                logger.info(f"No trades found for {exchange_name}")
+                logger.warning(f"No trades found for {exchange_name} (exchange groups: {exchange_groups})")
+                print(f"\nNo trades found for {exchange_name.replace('_match', '').upper()} exchange.")
+                print(f"The data file contains trades for exchange groups: {sorted(set(get_exchange_group(t) for t in trader_trades + exchange_trades if get_exchange_group(t) > 0))}")
                 continue
             
             logger.info(f"Processing {exchange_name}: {len(exchange_trader_trades)} trader trades, {len(exchange_exchange_trades)} exchange trades")

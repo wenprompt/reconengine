@@ -114,6 +114,10 @@ class UnifiedPositionMatrixBuilder:
         self.config = config
         self.field_mappings = field_mappings or {}
         
+        # Get exchange-specific settings
+        self.quantity_field = config.get("quantity_field", "quantityunit")
+        self.default_unit = config.get("default_unit", "")
+        
         # Load decomposer with patterns if available
         decomposition_patterns = config.get("decomposition_patterns")
         self.decomposer = UnifiedDecomposer(decomposition_patterns)
@@ -154,31 +158,28 @@ class UnifiedPositionMatrixBuilder:
             original_unit: Unit from the data
             source: 'trader' or 'exchange' to identify data source
         """
-        if source == "trader":
-            # Trader files generally don't have unit field
-            if self.exchange == "ice_match" and self.unit_defaults:
-                # ICE has explicit unit defaults in config for traders
-                # Check if product has specific unit default
-                product_lower = product.lower()
-                if product_lower in self.unit_defaults:
-                    return self.unit_defaults[product_lower].upper()
-                # Use default unit if specified
-                elif "default" in self.unit_defaults:
-                    return self.unit_defaults["default"].upper()
-                else:
-                    return "MT"  # Fallback
-            else:
-                # Other exchanges: no unit for trader data
+        # First check if we have a unit from the data
+        if original_unit:
+            unit = str(original_unit).upper()
+            # If unit is empty string or pandas NaN, leave it empty
+            if unit in ["", "NAN"]:
                 return ""
-        else:
-            # Exchange files have unit field - use it
-            if original_unit:
-                unit = str(original_unit).upper()
-                # Handle invalid units
-                if unit in ["NAN", "NONE", "2", ""]:
-                    return ""
+            else:
                 return unit
-            return ""
+        
+        # If no valid unit from data, check config ONLY for ICE trader files
+        if source == "trader" and self.exchange == "ice_match" and self.unit_defaults:
+            # ICE has explicit unit defaults in config for traders
+            # Check if product has specific unit default
+            product_lower = product.lower()
+            if product_lower in self.unit_defaults:
+                return self.unit_defaults[product_lower].upper()
+            # Use default unit if specified
+            elif "default" in self.unit_defaults:
+                return self.unit_defaults["default"].upper()
+        
+        # No unit from data or config - return empty
+        return ""
     
     def build_matrix(self, trades: List[Dict[str, Any]], source: str = "trader") -> PositionMatrix:
         """Build a position matrix from a list of trades.
@@ -223,7 +224,7 @@ class UnifiedPositionMatrixBuilder:
         # Create a lowercase mapping of all keys for case-insensitive lookup
         # Cache this if not already done
         if not hasattr(self, '_trade_keys_cache'):
-            self._trade_keys_cache = {}
+            self._trade_keys_cache: Dict[int, Dict[str, str]] = {}
         
         trade_id = id(trade)
         if trade_id not in self._trade_keys_cache:
@@ -271,7 +272,7 @@ class UnifiedPositionMatrixBuilder:
         return product_name, contract_month, buy_sell
     
     def _extract_quantity_and_unit(self, trade: Dict[str, Any]) -> Tuple[Decimal, str]:
-        """Extract quantity and unit based on exchange.
+        """Extract quantity and unit based on exchange configuration.
         
         Args:
             trade: Trade dictionary
@@ -279,27 +280,25 @@ class UnifiedPositionMatrixBuilder:
         Returns:
             Tuple of (quantity, original_unit)
         """
-        if self.exchange == "cme_match":
-            qty_value = self._get_trade_field(trade, "quantitylot", 0)
-            # Handle empty or invalid values
-            try:
-                quantity = Decimal(str(qty_value)) if qty_value and str(qty_value).strip() else Decimal("0")
-            except (ValueError, TypeError, DecimalException):
-                quantity = Decimal("0")
-            original_unit = "LOTS"
+        # Get quantity using configured field name
+        qty_value = self._get_trade_field(trade, self.quantity_field, 0)
+        
+        # Handle empty or invalid values, and remove commas
+        try:
+            qty_str = str(qty_value).replace(",", "") if qty_value else "0"
+            quantity = Decimal(qty_str) if qty_str.strip() else Decimal("0")
+        except (ValueError, TypeError, DecimalException):
+            quantity = Decimal("0")
+        
+        # Get unit - use default from config if specified, otherwise from trade
+        if self.default_unit:
+            original_unit = self.default_unit
         else:
-            # ICE, SGX, EEX use quantityunit
-            qty_value = self._get_trade_field(trade, "quantityunit", 0)
-            # Handle empty or invalid values, and remove commas
-            try:
-                qty_str = str(qty_value).replace(",", "") if qty_value else "0"
-                quantity = Decimal(qty_str) if qty_str.strip() else Decimal("0")
-            except (ValueError, TypeError, DecimalException):
-                quantity = Decimal("0")
-            original_unit = str(trade.get("unit", "MT"))
-            # Fix invalid unit values
-            if original_unit in ["2", "NAN", "NONE", ""]:
-                original_unit = "MT"
+            # Get unit from trade, leave empty if missing
+            original_unit = str(trade.get("unit", ""))
+            # Only handle pandas NaN, leave everything else as-is
+            if original_unit.upper() == "NAN":
+                original_unit = ""
         
         return quantity, original_unit
     
@@ -367,27 +366,54 @@ class UnifiedPositionMatrixBuilder:
         for component in decomposed:
             # Determine quantity and unit based on exchange
             final_quantity = component.quantity
-            unit = self._determine_unit(component.base_product, original_unit, source)
+            
+            # For decomposed components (cracks/spreads), inherit the unit from the original trade
+            # Don't use product-specific defaults for synthetic components
+            if component.is_synthetic or ("crack" in product_name.lower() or "-" in product_name):
+                # Inherit unit from original trade for all decomposed components
+                unit = self._determine_unit(product_name, original_unit, source)
+            else:
+                # For non-decomposed trades, use normal unit determination
+                unit = self._determine_unit(component.base_product, original_unit, source)
             
             # For ICE: Apply conversion if needed
-            if self.exchange == "ice_match" and source == "exchange":
-                # Exchange data has units that may need conversion
-                if "brent" in component.base_product.lower():
-                    # All brent products should be in BBL
-                    if original_unit.upper() == "MT":
-                        ratio = self._get_conversion_ratio(product_name)
+            if self.exchange == "ice_match" and unit:  # Only apply conversion if we have a unit
+                # Check if this product should be displayed in BBL based on config
+                product_lower = component.base_product.lower()
+                target_unit_from_config = self.unit_defaults.get(product_lower, self.unit_defaults.get("default", "mt")).upper()
+                
+                if target_unit_from_config == "BBL":
+                    # Product should be displayed in BBL (based on config)
+                    if unit == "MT":
+                        # The decomposed component is in MT (from a crack that was in MT)
+                        # Convert MT to BBL using product-specific ratio
+                        # For cracks, use the base product name (without "crack") to get the ratio
+                        ratio_product = product_name.replace(" crack", "").replace(" Crack", "") if "crack" in product_name.lower() else product_name
+                        ratio = self._get_conversion_ratio(ratio_product)
                         final_quantity = component.quantity * ratio
                         unit = "BBL"  # Override unit for display
-                    else:
+                    elif unit == "BBL":
+                        # Already in BBL (from a crack that was in BBL), keep as is
                         unit = "BBL"
+                    else:
+                        # No unit specified, use target unit from config
+                        unit = target_unit_from_config
                 else:
-                    # All non-brent products should be in MT
-                    if original_unit.upper() == "BBL":
-                        ratio = self._get_conversion_ratio(product_name)
+                    # Product should be displayed in MT (based on config)
+                    if unit == "BBL":
+                        # The decomposed component is in BBL (from a crack that was in BBL)
+                        # Convert BBL to MT using product-specific ratio
+                        # For cracks, use the base product name (without "crack") to get the ratio
+                        ratio_product = product_name.replace(" crack", "").replace(" Crack", "") if "crack" in product_name.lower() else product_name
+                        ratio = self._get_conversion_ratio(ratio_product)
                         final_quantity = component.quantity / ratio
                         unit = "MT"  # Override unit for display
-                    else:
+                    elif unit == "MT":
+                        # Already in MT, keep as is
                         unit = "MT"
+                    else:
+                        # No unit specified, use target unit from config
+                        unit = target_unit_from_config
             
             # Apply buy/sell direction
             final_quantity = self._apply_direction(

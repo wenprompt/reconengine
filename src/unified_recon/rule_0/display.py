@@ -1,6 +1,6 @@
 """Rich terminal display for unified Rule 0."""
 
-from typing import List, Dict, Any, Set, Tuple
+from typing import List, Dict, Any, Set, Tuple, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -15,10 +15,16 @@ console = Console()
 class UnifiedDisplay:
     """Display handler for unified Rule 0 results."""
     
-    def __init__(self, exchange: str):
-        """Initialize display for specific exchange."""
+    def __init__(self, exchange: str, tolerances: Optional[Dict[str, float]] = None):
+        """Initialize display for specific exchange.
+        
+        Args:
+            exchange: Exchange name
+            tolerances: Optional tolerance values for matching (tolerance_mt, tolerance_bbl)
+        """
         self.exchange = exchange
         self.console = console
+        self.tolerances = tolerances or {}
     
     def _determine_trade_type(self, original_product: str, spread_flag: str) -> str:
         """Determine trade type based on product and flags.
@@ -42,6 +48,84 @@ class UnifiedDisplay:
             return "S"
         else:
             return ""
+    
+    def _match_trades(self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]]) -> None:
+        """Match trader and exchange trades based on quantity, broker, and clearing account.
+        
+        Uses a best-match algorithm that finds the closest quantity match within tolerance.
+        
+        Args:
+            trader_trades: List of trader trade details
+            exchange_trades: List of exchange trade details
+        """
+        # Reset match status for all trades
+        for trade in trader_trades + exchange_trades:
+            trade['matched'] = False
+            trade['match_id'] = ""
+        
+        # Try to match each trader trade with the best exchange trade
+        for t_trade in trader_trades:
+            best_match = None
+            best_difference = float('inf')
+            
+            # Get trader quantity (with sign for direction)
+            t_qty = t_trade.get('quantity', 0)
+            t_unit = t_trade.get('unit', '').upper()
+            
+            # Determine tolerance based on unit
+            tolerance = 0.0  # Default to exact match
+            if self.tolerances:
+                # Check for unit-specific tolerances first
+                if t_unit == "BBL" and 'tolerance_bbl' in self.tolerances:
+                    tolerance = self.tolerances.get('tolerance_bbl', 0)
+                elif t_unit == "MT" and 'tolerance_mt' in self.tolerances:
+                    tolerance = self.tolerances.get('tolerance_mt', 0)
+                elif t_unit == "LOTS" and 'tolerance_lots' in self.tolerances:
+                    tolerance = self.tolerances.get('tolerance_lots', 0)
+                elif 'tolerance_default' in self.tolerances:
+                    # Use default tolerance if no unit-specific one found
+                    tolerance = self.tolerances.get('tolerance_default', 0)
+                elif 'tolerance' in self.tolerances:
+                    # Fallback to generic tolerance
+                    tolerance = self.tolerances.get('tolerance', 0)
+            
+            # Find best matching exchange trade
+            for e_trade in exchange_trades:
+                # Skip if exchange trade already matched
+                if e_trade.get('matched', False):
+                    continue
+                
+                # Get exchange quantity (with sign for direction)
+                e_qty = e_trade.get('quantity', 0)
+                
+                # Check basic matching criteria:
+                # 1. Same sign (both positive or both negative - same direction)
+                # 2. Broker group ID must match
+                # 3. Clearing account ID must match
+                if ((t_qty * e_qty > 0) and  # Same sign check
+                    t_trade.get('broker_group_id', '') == e_trade.get('broker_group_id', '') and
+                    t_trade.get('exch_clearing_acct_id', '') == e_trade.get('exch_clearing_acct_id', '')):
+                    
+                    # Calculate quantity difference
+                    qty_difference = abs(abs(t_qty) - abs(e_qty))
+                    
+                    # Check if within tolerance and better than current best
+                    if qty_difference <= tolerance and qty_difference < best_difference:
+                        best_match = e_trade
+                        best_difference = qty_difference
+            
+            # Apply best match if found
+            if best_match:
+                # Generate match ID
+                t_id = t_trade.get('internal_trade_id', 'NA')
+                e_id = best_match.get('internal_trade_id', 'NA')
+                match_id = f"M_{t_id}_{e_id}"
+                
+                # Mark both trades as matched
+                t_trade['matched'] = True
+                t_trade['match_id'] = match_id
+                best_match['matched'] = True
+                best_match['match_id'] = match_id
     
     def show_header(self) -> None:
         """Display the header."""
@@ -164,65 +248,82 @@ class UnifiedDisplay:
             )
             
             table.add_column("Contract", style="cyan", width=10)
-            table.add_column("Side", style="yellow", width=8)
-            table.add_column("Trade ID", style="white", width=12)
-            table.add_column("Quantity", justify="right", width=15)
+            table.add_column("Source", style="yellow", width=8)
+            table.add_column("Internal ID", style="white", width=15)
+            table.add_column("Qty", justify="right", width=15)
             table.add_column("Price", justify="right", width=10)
             table.add_column("Broker", justify="center", width=8)
-            table.add_column("Clearing", justify="center", width=10)
+            table.add_column("ClearingAcct", justify="center", width=12)
             table.add_column("Type", style="dim", width=10)
+            table.add_column("Match", style="green", width=20)
             
             sorted_months = sorted(months)
             for i, month in enumerate(sorted_months):
-                # Add trader trades
+                # Collect trades for this month
+                trader_trades = []
+                exchange_trades = []
+                
+                # Get trader trades
                 trader_pos = trader_matrix.get_position(month, product)
                 if trader_pos and trader_pos.trade_details:
-                    for detail in trader_pos.trade_details:
-                        qty_str = f"{detail['quantity']:+,.2f}"
-                        if detail.get('unit'):
-                            qty_str += f" {detail['unit']}"
-                        
-                        # Determine trade type based on rules
-                        trade_type = self._determine_trade_type(
-                            detail.get('original_product', ''),
-                            detail.get('spread_flag', '')
-                        )
-                        
-                        table.add_row(
-                            month,
-                            "1",  # 1 for TRADER
-                            detail.get('internal_trade_id', 'N/A'),
-                            qty_str,
-                            f"{detail.get('price', 0):g}",  # Format float, removing trailing zeros
-                            detail.get('broker_group_id', ''),
-                            detail.get('exch_clearing_acct_id', ''),
-                            trade_type
-                        )
+                    trader_trades = list(trader_pos.trade_details)  # Create a copy
                 
-                # Add exchange trades
+                # Get exchange trades
                 exchange_pos = exchange_matrix.get_position(month, product)
                 if exchange_pos and exchange_pos.trade_details:
-                    for detail in exchange_pos.trade_details:
-                        qty_str = f"{detail['quantity']:+,.2f}"
-                        if detail.get('unit'):
-                            qty_str += f" {detail['unit']}"
-                        
-                        # Determine trade type based on rules
-                        trade_type = self._determine_trade_type(
-                            detail.get('original_product', ''),
-                            detail.get('spread_flag', '')
-                        )
-                        
-                        table.add_row(
-                            month,
-                            "2",  # 2 for EXCHANGE
-                            detail.get('internal_trade_id', 'N/A'),
-                            qty_str,
-                            f"{detail.get('price', 0):g}",  # Format float, removing trailing zeros
-                            detail.get('broker_group_id', ''),
-                            detail.get('exch_clearing_acct_id', ''),
-                            trade_type
-                        )
+                    exchange_trades = list(exchange_pos.trade_details)  # Create a copy
+                
+                # Perform matching if there are trades on both sides
+                if trader_trades and exchange_trades:
+                    self._match_trades(trader_trades, exchange_trades)
+                
+                # Display trader trades
+                for detail in trader_trades:
+                    qty_str = f"{detail['quantity']:+,.2f}"
+                    if detail.get('unit'):
+                        qty_str += f" {detail['unit']}"
+                    
+                    # Determine trade type based on rules
+                    trade_type = self._determine_trade_type(
+                        detail.get('original_product', ''),
+                        detail.get('spread_flag', '')
+                    )
+                    
+                    table.add_row(
+                        month,
+                        "1",  # 1 for TRADER
+                        detail.get('internal_trade_id', 'N/A'),
+                        qty_str,
+                        f"{detail.get('price', 0):g}",  # Format float, removing trailing zeros
+                        detail.get('broker_group_id', ''),
+                        detail.get('exch_clearing_acct_id', ''),
+                        trade_type,
+                        detail.get('match_id', '')  # Add match ID
+                    )
+                
+                # Display exchange trades
+                for detail in exchange_trades:
+                    qty_str = f"{detail['quantity']:+,.2f}"
+                    if detail.get('unit'):
+                        qty_str += f" {detail['unit']}"
+                    
+                    # Determine trade type based on rules
+                    trade_type = self._determine_trade_type(
+                        detail.get('original_product', ''),
+                        detail.get('spread_flag', '')
+                    )
+                    
+                    table.add_row(
+                        month,
+                        "2",  # 2 for EXCHANGE
+                        detail.get('internal_trade_id', 'N/A'),
+                        qty_str,
+                        f"{detail.get('price', 0):g}",  # Format float, removing trailing zeros
+                        detail.get('broker_group_id', ''),
+                        detail.get('exch_clearing_acct_id', ''),
+                        trade_type,
+                        detail.get('match_id', '')  # Add match ID
+                    )
                 
                 # Add separator after each month except the last one
                 # Only add if this month had trades
