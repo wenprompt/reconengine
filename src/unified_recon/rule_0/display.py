@@ -195,42 +195,63 @@ class UnifiedDisplay:
             return ""
 
     def _match_trades(
-        self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]]
+        self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]],
+        external_match_ids: Optional[Dict[str, str]] = None
     ) -> None:
         """Match trader and exchange trades based on quantity, broker, and clearing account.
 
         Uses a best-match algorithm that finds the closest quantity match within tolerance.
+        If external_match_ids are provided, uses those instead of generating new ones.
 
         Args:
             trader_trades: List of trader trade details
             exchange_trades: List of exchange trade details
+            external_match_ids: Optional mapping of "T_<id>" or "E_<id>" to match IDs
         """
         # Reset match status for all trades
         for trade in trader_trades + exchange_trades:
             trade["matched"] = False
             trade["match_id"] = ""
 
-        # Try to match each trader trade with the best exchange trade
-        for t_trade in trader_trades:
-            # Get tolerance for this trade's unit
-            t_unit = t_trade.get("unit", "")
-            tolerance = self._get_tolerance_for_unit(t_unit)
+        # If external match IDs provided, use them first
+        if external_match_ids:
+            # Apply external match IDs to trades
+            for t_trade in trader_trades:
+                t_id = str(t_trade.get("internal_trade_id", ""))
+                external_match_id = external_match_ids.get(f"T_{t_id}")
+                if external_match_id:
+                    t_trade["matched"] = True
+                    t_trade["match_id"] = external_match_id
+            
+            for e_trade in exchange_trades:
+                e_id = str(e_trade.get("internal_trade_id", ""))
+                external_match_id = external_match_ids.get(f"E_{e_id}")
+                if external_match_id:
+                    e_trade["matched"] = True
+                    e_trade["match_id"] = external_match_id
+        else:
+            # Fall back to position-based matching (original logic)
+            # Try to match each trader trade with the best exchange trade
+            for t_trade in trader_trades:
+                # Get tolerance for this trade's unit
+                t_unit = t_trade.get("unit", "")
+                tolerance = self._get_tolerance_for_unit(t_unit)
 
-            # Find best matching exchange trade
-            best_match = self._find_best_match(t_trade, exchange_trades, tolerance)
+                # Find best matching exchange trade
+                best_match = self._find_best_match(t_trade, exchange_trades, tolerance)
 
-            # Apply best match if found
-            if best_match:
-                # Generate match ID
-                t_id = t_trade.get("internal_trade_id", "NA")
-                e_id = best_match.get("internal_trade_id", "NA")
-                match_id = f"M_{t_id}_{e_id}"
+                # Apply best match if found
+                if best_match:
+                    # Generate match ID
+                    t_id = t_trade.get("internal_trade_id", "NA")
+                    e_id = best_match.get("internal_trade_id", "NA")
+                    match_id = f"M_{t_id}_{e_id}"
 
-                # Mark both trades as matched
-                t_trade["matched"] = True
-                t_trade["match_id"] = match_id
-                best_match["matched"] = True
-                best_match["match_id"] = match_id
+                    # Mark both trades as matched
+                    t_trade["matched"] = True
+                    t_trade["match_id"] = match_id
+                    best_match["matched"] = True
+                    best_match["match_id"] = match_id
 
     def show_header(self) -> None:
         """Display the header."""
@@ -370,9 +391,16 @@ class UnifiedDisplay:
             self.console.print()  # Add spacing between products
 
     def show_position_details(
-        self, trader_matrix: PositionMatrix, exchange_matrix: PositionMatrix
+        self, trader_matrix: PositionMatrix, exchange_matrix: PositionMatrix,
+        external_match_ids: Optional[Dict[str, str]] = None
     ) -> None:
-        """Show detailed trade breakdown for each position."""
+        """Show detailed trade breakdown for each position.
+        
+        Args:
+            trader_matrix: Trader position matrix
+            exchange_matrix: Exchange position matrix
+            external_match_ids: Optional mapping of "T_<id>" or "E_<id>" to match IDs
+        """
         # Group positions by product
         all_positions: Set[Tuple[str, str]] = set()
         all_positions.update(trader_matrix.positions.keys())
@@ -420,7 +448,7 @@ class UnifiedDisplay:
 
                 # Perform matching if there are trades on both sides
                 if trader_trades and exchange_trades:
-                    self._match_trades(trader_trades, exchange_trades)
+                    self._match_trades(trader_trades, exchange_trades, external_match_ids)
 
                 # Helper function to add trade rows
                 def add_trade_row(detail: Dict[str, Any], source_code: str) -> None:

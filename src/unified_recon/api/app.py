@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any, List
 
 from .models import ReconciliationRequest, Rule0Request, Rule0Response
-from .service import ReconciliationService, Rule0Service
+from .service import ReconciliationService, Rule0Service, PosMatchService
 from ..utils.data_validator import DataValidationError
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,7 @@ app.add_middleware(
 # Initialize services
 service = ReconciliationService()
 rule0_service = Rule0Service()
+posmatch_service = PosMatchService()
 
 
 @app.get("/", tags=["Health"])
@@ -148,6 +149,56 @@ async def analyze_positions(request: Rule0Request) -> Rule0Response:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during Rule 0 analysis",
+        )
+
+
+@app.post(
+    "/posmatch",
+    response_model=Rule0Response,
+    status_code=status.HTTP_200_OK,
+    tags=["Position Match"],
+)
+async def analyze_positions_with_match(request: Rule0Request) -> Rule0Response:
+    """
+    Process position check with reconciliation match IDs.
+
+    Similar to /poscheck but uses actual reconciliation match IDs from the matching engines
+    instead of simple position-based matching. This provides:
+    
+    - Real match IDs from ICE/SGX/CME/EEX matching rules
+    - Position decomposition and aggregation
+    - Integration of reconciliation results with position analysis
+    
+    The match IDs in the output correspond to actual matched trades from the reconciliation
+    engine, providing full traceability between position analysis and trade matching.
+    """
+    try:
+        result = await posmatch_service.process_posmatch_analysis(request)
+        return result
+    except ValueError as e:
+        logger.warning(f"Request validation error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except DataValidationError as e:
+        logger.warning(f"Data validation error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except FileNotFoundError as e:
+        logger.error(f"Configuration file not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Configuration file not found",
+        )
+    except KeyError as e:
+        logger.error(f"Configuration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invalid configuration or missing required data",
+        )
+    except Exception as e:
+        # Log the error internally but don't expose details for security
+        logger.error(f"Internal position match analysis error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during position match analysis",
         )
 
 
