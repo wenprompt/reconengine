@@ -58,19 +58,25 @@ class Rule0Analyzer:
         
         # For the comparator, we use the default ratio for BBL tolerance calculation
         self.comparator = MatrixComparator(default_ratio)
-        self.display = PositionDisplay()
+        
+        # Get products that use BBL from config
+        unit_defaults = self.config_manager.get_traders_product_unit_defaults()
+        bbl_products = [prod for prod, unit in unit_defaults.items() if unit.lower() == "bbl" and prod != "default"]
+        self.display = PositionDisplay(bbl_products=bbl_products)
         
         # Set default conversion ratio for Trade model (not used in Rule 0 but needed for compatibility)
         Trade.set_conversion_ratio(default_ratio)
     
     def run(
         self,
-        contract_month: Optional[str] = None
+        contract_month: Optional[str] = None,
+        show_details: bool = False
     ) -> None:
         """Run the position analysis.
         
         Args:
             contract_month: Optional filter for specific month
+            show_details: Whether to show detailed trade breakdown
         """
         console = Console()
         
@@ -104,6 +110,10 @@ class Rule0Analyzer:
             
             # Display position matrix
             self.display.show_position_matrix(comparisons, contract_month)
+            
+            # Show detailed trade breakdown if requested
+            if show_details:
+                self.display.show_position_details(trader_matrix, exchange_matrix)
             
         except FileNotFoundError as e:
             console.print(f"[red]Error: File not found - {e}[/red]")
@@ -184,6 +194,11 @@ Examples:
         default="WARNING",
         help="Set the logging level (default: WARNING - no logs shown)"
     )
+    parser.add_argument(
+        "--show-details",
+        action="store_true",
+        help="Show detailed trade breakdown for each position"
+    )
     
     args = parser.parse_args()
     
@@ -199,7 +214,8 @@ Examples:
     )
     
     analyzer.run(
-        contract_month=args.contract_month
+        contract_month=args.contract_month,
+        show_details=args.show_details
     )
 
 

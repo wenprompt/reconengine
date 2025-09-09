@@ -68,26 +68,40 @@ The unified reconciliation system acts as a centralized data router and aggregat
 - **DataFrame Output**: Creates standardized output with matchId, traderTradeIds, exchangeTradeIds, status, remarks, confidence columns
 - **Rich Display**: Beautiful terminal output with detailed breakdowns and DataFrame tables
 
+### Rule 0 Position Analysis Summary
+
+The unified Rule 0 system provides position decomposition analysis across all exchanges:
+
+- **Multi-Exchange Support**: Supports ICE, SGX, CME, and EEX exchanges from unified configuration
+- **Product Decomposition**: Breaks down crack products into base components (e.g., crack → brent swap)
+- **Position Aggregation**: Aggregates positions by contract month and product across trader/exchange data
+- **Status Classification**: Identifies MATCHED, MISMATCH, MISSING_TRADER, and MISSING_EXCHANGE positions
+- **JSON Output**: Structured output format compatible with API integration
+- **CLI Interface**: Rich terminal display with detailed position breakdowns and statistics
+- **Configuration-Driven**: Exchange support determined dynamically from `rule_0_config` section
+
 ### FastAPI Web Service Summary
 
-The project now includes a production-ready REST API built with FastAPI and uvicorn:
+The project includes a production-ready REST API built with FastAPI and uvicorn:
 
-- **REST API Endpoints**: POST `/reconcile` for processing trade reconciliation, GET `/health` for system status
-- **JSON Request/Response**: Accepts JSON payloads like `ice_sample.json` and returns structured reconciliation results
+- **REST API Endpoints**:
+  - POST `/reconcile` - Trade reconciliation processing
+  - POST `/poscheck` - Rule 0 position analysis
+  - GET `/health` - System status
+- **JSON Request/Response**: Accepts JSON payloads like `ice_sample.json` and returns structured results
 - **Async Processing**: Non-blocking request handling with `asyncio.to_thread()` for CPU-intensive operations
-- **Integration**: Seamlessly integrates with existing Trade Factories and matching systems
+- **Dynamic Exchange Support**: All exchanges (ICE, SGX, CME, EEX) supported via configuration
 - **Auto Documentation**: Swagger UI at `/docs` and ReDoc at `/redoc` for interactive API documentation
 - **CORS Support**: Cross-origin resource sharing enabled for web client integration
 - **Error Handling**: Comprehensive HTTP status codes with secure error logging
-- **Development Features**: Hot-reload server for development with access logging
+- **Environment Configuration**: Configurable host/port via API_HOST, API_PORT, API_RELOAD env vars
 
 **API Architecture:**
 
 - `src/unified_recon/api/app.py` - FastAPI application with endpoints and middleware
 - `src/unified_recon/api/service.py` - Service layer integrating with existing infrastructure
 - `src/unified_recon/api/models.py` - Pydantic request/response models
-- `src/unified_recon/server.py` - Uvicorn server entry point
-- `test_api.py` - API test script with real data validation
+- `src/unified_recon/server.py` - Uvicorn server entry point with environment configuration
 
 ### Key Features
 
@@ -96,6 +110,7 @@ The project now includes a production-ready REST API built with FastAPI and uvic
 - **Sequential Rule Processing**: Implements rules in priority order (exact matches first) with non-duplication
 - **Rich CLI Interface**: Beautiful terminal output with progress indicators and detailed results
 - **Product-Specific Unit Conversion**: MT→BBL conversion with product-specific ratios (6.35, 8.9, 7.0 default)
+- **Rule 0 Position Analysis**: Unified position decomposition analyzer supporting all exchanges (ICE, SGX, CME, EEX)
 - **Pydantic v2 Data Models**: Strict validation and type safety for all trade data
 - **Complete Type Safety**: Full mypy compliance with pandas-stubs integration
 
@@ -131,6 +146,7 @@ src/{exchange}_match/
 - **CME**: Single matcher, focuses on quantity_lots field
 - **EEX**: Single matcher, CAPE freight derivatives focus
 - **Unified**: No matchers, has `group_router.py` and `result_aggregator.py` for routing
+- **Rule 0**: Position analysis system with `position_matrix.py`, `matrix_comparator.py`, and `json_output.py`
 
 ### Architecture Principles
 
@@ -252,22 +268,36 @@ uv run python -m src.eex_match.main
 --show-rules
 --json-file path/to/file.json
 --json-output
+
+# UNIFIED RULE 0 IMPLEMENTATION
+uv run python -m src.unified_recon.rule_0.main  # Position analysis CLI
+uv run python -m src.unified_recon.rule_0.main --json-file src/json_input/ice_sample.json
+uv run python -m src.unified_recon.rule_0.main --json-file src/json_input/ice_sample.json --json-output
+
+# BETA ICE-SPECIFIC RULE 0 (deprecated)
+uv run python -m src.ice_match.rule_0.main
 ```
 
 **API Usage:**
 
 ```bash
-# Start the API server
-uv run python -m src.unified_recon.server # Start REST API server on port 7777
+# Start the API server (configurable via environment variables)
+uv run python -m src.unified_recon.server  # Default: port 7777
+API_PORT=8000 uv run python -m src.unified_recon.server  # Custom port
 
-
-# Manual API call
+# Trade reconciliation API
 curl -X POST http://localhost:7777/reconcile \
   -H "Content-Type: application/json" \
   -d @src/json_input/ice_sample.json
 
-# BETA ICE RULE 0 IMPLEMENTATION
-uv run python -m src.ice_match.rule_0.main
+# Position analysis API (Rule 0)
+curl -X POST http://localhost:7777/poscheck \
+  -H "Content-Type: application/json" \
+  -d @src/json_input/ice_sample.json
+
+# Health check
+curl http://localhost:7777/health
+
 
 ```
 

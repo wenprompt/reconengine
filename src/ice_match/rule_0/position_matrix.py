@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 
@@ -25,6 +25,7 @@ class Position:
     quantity_bbl: Optional[Decimal] = None  # None for non-brent products
     trade_count: int = 0
     is_synthetic: bool = False  # True if derived from decomposition
+    trade_details: List[Dict[str, Any]] = field(default_factory=list)  # Track individual trade contributions
     
     @property
     def is_brent_swap(self) -> bool:
@@ -48,9 +49,19 @@ class PositionMatrix:
         contract_month: str, 
         quantity_mt: Optional[Decimal],
         quantity_bbl: Optional[Decimal],
-        is_synthetic: bool = False
+        is_synthetic: bool = False,
+        trade_detail: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Add or update a position in the matrix."""
+        """Add or update a position in the matrix.
+        
+        Args:
+            product: Product name
+            contract_month: Contract month
+            quantity_mt: Quantity in MT
+            quantity_bbl: Quantity in BBL
+            is_synthetic: Whether this is from decomposition
+            trade_detail: Optional dict with trade information for tracking
+        """
         key = (contract_month, product)
         
         if key not in self.positions:
@@ -79,6 +90,10 @@ class PositionMatrix:
                 position.quantity_mt += quantity_mt
         
         position.trade_count += 1
+        
+        # Store trade detail if provided
+        if trade_detail is not None:
+            position.trade_details.append(trade_detail)
         
     def get_position(self, contract_month: str, product: str) -> Optional[Position]:
         """Get a position for a specific contract month and product."""
@@ -247,13 +262,24 @@ class PositionMatrixBuilder:
                     if quantity_bbl is not None:
                         quantity_bbl = -quantity_bbl
             
+            # Create trade detail for tracking
+            trade_detail = {
+                "internal_trade_id": trade.internal_trade_id,
+                "source": trade.source,
+                "quantity_mt": quantity_mt,
+                "quantity_bbl": quantity_bbl,
+                "is_synthetic": component.is_synthetic,
+                "original_product": trade.product_name if component.is_synthetic else None
+            }
+            
             # Add to matrix
             matrix.add_position(
                 product=component.base_product,
                 contract_month=trade.contract_month,
                 quantity_mt=quantity_mt,
                 quantity_bbl=quantity_bbl,
-                is_synthetic=component.is_synthetic
+                is_synthetic=component.is_synthetic,
+                trade_detail=trade_detail
             )
     
     def _apply_synthetic_direction(
@@ -356,7 +382,8 @@ class PositionMatrixBuilder:
                         quantity_mt=position.quantity_mt,
                         quantity_bbl=position.quantity_bbl,
                         trade_count=position.trade_count,
-                        is_synthetic=position.is_synthetic
+                        is_synthetic=position.is_synthetic,
+                        trade_details=position.trade_details.copy()  # Copy trade details
                     )
                     merged.contract_months.add(month)
                     merged.products.add(product)
@@ -374,5 +401,7 @@ class PositionMatrixBuilder:
                         else:
                             existing.quantity_bbl += position.quantity_bbl
                     existing.trade_count += position.trade_count
+                    # Merge trade details
+                    existing.trade_details.extend(position.trade_details)
         
         return merged

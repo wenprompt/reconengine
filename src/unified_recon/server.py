@@ -2,6 +2,7 @@
 """Uvicorn server for the reconciliation API."""
 
 import logging
+import os
 import uvicorn
 
 
@@ -24,13 +25,19 @@ def main():
     setup_logging()
 
     logger = logging.getLogger(__name__)
-    logger.info("Starting Trade Reconciliation API server...")
-
+    
+    # Get configuration from environment variables with defaults
+    host = os.getenv("API_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT", "7777"))
+    reload = os.getenv("API_RELOAD", "true").lower() == "true"
+    
+    logger.info(f"Starting Trade Reconciliation API server on {host}:{port}...")
+    
     uvicorn.run(
         "src.unified_recon.api.app:app",
-        host="0.0.0.0",  # Bind to all interfaces
-        port=7777,
-        reload=True,  # Enable hot-reload for development
+        host=host,
+        port=port,
+        reload=reload,  # Enable hot-reload for development
         log_level="info",
         access_log=True,
         reload_dirs=["src"],  # Only watch src directory for changes

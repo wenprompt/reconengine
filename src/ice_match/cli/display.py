@@ -1,5 +1,6 @@
 """Rich CLI display for ice trade matching results."""
 
+from decimal import Decimal
 from typing import List, Dict, Optional
 
 from rich.console import Console
@@ -13,8 +14,6 @@ from rich import box
 from ..models import MatchResult, Trade
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
-
-console = Console()
 
 
 class MatchDisplayer:
@@ -32,6 +31,57 @@ class MatchDisplayer:
         """
         self.config_manager = config_manager
         self.console = Console()
+    
+    def _format_confidence(self, confidence: Decimal) -> str:
+        """Format confidence percentage with color based on value.
+        
+        Args:
+            confidence: Confidence percentage (0-100)
+            
+        Returns:
+            Formatted confidence string with color
+        """
+        confidence_str = f"{confidence}%"
+        if confidence >= 90:
+            return f"[green]{confidence_str}[/green]"
+        elif confidence >= 70:
+            return f"[yellow]{confidence_str}[/yellow]"
+        else:
+            return f"[red]{confidence_str}[/red]"
+    
+    def _format_side(self, buy_sell: str) -> str:
+        """Format buy/sell side with appropriate color.
+        
+        Args:
+            buy_sell: "B" for buy or "S" for sell
+            
+        Returns:
+            Formatted side string with color
+        """
+        if buy_sell == "B":
+            return f"[green]{buy_sell}[/green]"
+        else:
+            return f"[red]{buy_sell}[/red]"
+    
+    def _format_match_rate(self, rate_str: str) -> str:
+        """Format match rate percentage with color based on value.
+        
+        Args:
+            rate_str: Match rate string with % sign
+            
+        Returns:
+            Formatted rate string with color
+        """
+        if "%" not in rate_str:
+            return rate_str
+        
+        rate_value = float(rate_str.replace("%", ""))
+        if rate_value >= 80:
+            return f"[green]{rate_str}[/green]"
+        elif rate_value >= 60:
+            return f"[yellow]{rate_str}[/yellow]"
+        else:
+            return f"[red]{rate_str}[/red]"
 
     def show_header(self):
         """Display application header."""
@@ -154,14 +204,8 @@ class MatchDisplayer:
                 sides = f"{match.trader_trade.buy_sell}↔{match.exchange_trade.buy_sell}"
                 primary_trade = match.trader_trade
 
-            # Color confidence based on value
-            confidence_str = f"{match.confidence}%"
-            if match.confidence >= 90:
-                confidence_str = f"[green]{confidence_str}[/green]"
-            elif match.confidence >= 70:
-                confidence_str = f"[yellow]{confidence_str}[/yellow]"
-            else:
-                confidence_str = f"[red]{confidence_str}[/red]"
+            # Format confidence using helper method
+            confidence_str = self._format_confidence(match.confidence)
 
             match_table.add_row(
                 match.match_id,
@@ -264,12 +308,8 @@ class MatchDisplayer:
         trade_table.add_column("Broker", justify="right", style="white")
 
         for trade in trades:
-            # Color side
-            side_str = trade.buy_sell
-            if trade.buy_sell == "B":
-                side_str = f"[green]{side_str}[/green]"
-            else:
-                side_str = f"[red]{side_str}[/red]"
+            # Format side using helper method
+            side_str = self._format_side(trade.buy_sell)
 
             trade_table.add_row(
                 trade.internal_trade_id,
@@ -315,16 +355,8 @@ class MatchDisplayer:
         stats_table.add_row("└─ Exchange Trades", str(stats["unmatched"]["exchange"]))
         stats_table.add_row("", "")  # Spacer
 
-        # Color match rates based on value
-        overall_rate = stats["match_rates"]["overall"]
-        if "%" in overall_rate:
-            rate_value = float(overall_rate.replace("%", ""))
-            if rate_value >= 80:
-                overall_rate = f"[green]{overall_rate}[/green]"
-            elif rate_value >= 60:
-                overall_rate = f"[yellow]{overall_rate}[/yellow]"
-            else:
-                overall_rate = f"[red]{overall_rate}[/red]"
+        # Format match rate using helper method
+        overall_rate = self._format_match_rate(stats["match_rates"]["overall"])
 
         stats_table.add_row("Overall Match Rate", overall_rate)
         stats_table.add_row("├─ Trader Match Rate", stats["match_rates"]["trader"])
