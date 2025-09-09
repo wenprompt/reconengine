@@ -437,8 +437,15 @@ def process_exchanges(
         )
         
         if stats and args.json_output:
-            # Group by each exchange group ID
-            for group_id in exchange_groups:
+            # Only create results for exchange groups that actually have data
+            active_groups = set()
+            for t in exchange_trader_trades + exchange_exchange_trades:
+                group_id = get_exchange_group(t)
+                if group_id in exchange_groups:
+                    active_groups.add(group_id)
+            
+            # Group by each active exchange group ID
+            for group_id in active_groups:
                 group_str = str(group_id)
                 exchange_results[group_str] = {
                     'trader_matrix': stats['trader_matrix'],

@@ -5,8 +5,8 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any, List
 
-from .models import ReconciliationRequest
-from .service import ReconciliationService
+from .models import ReconciliationRequest, Rule0Request, Rule0Response
+from .service import ReconciliationService, Rule0Service
 from ..utils.data_validator import DataValidationError
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize service
+# Initialize services
 service = ReconciliationService()
+rule0_service = Rule0Service()
 
 
 @app.get("/", tags=["Health"])
@@ -98,6 +99,55 @@ async def reconcile_trades(request: ReconciliationRequest) -> List[Dict[str, Any
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during reconciliation",
+        )
+
+
+@app.post(
+    "/poscheck",
+    response_model=Rule0Response,
+    status_code=status.HTTP_200_OK,
+    tags=["Position Check"],
+)
+async def analyze_positions(request: Rule0Request) -> Rule0Response:
+    """
+    Process position check (Rule 0) decomposition analysis.
+
+    Accepts trader and exchange trades, decomposes complex products (cracks, spreads),
+    and returns position analysis with matched/mismatched positions in JSON format.
+
+    This endpoint analyzes positions by:
+    - Decomposing crack products into base components
+    - Aggregating positions by contract month and product
+    - Comparing trader vs exchange positions
+    - Identifying matches, mismatches, and missing positions
+    """
+    try:
+        result = await rule0_service.process_rule0_analysis(request)
+        return result
+    except ValueError as e:
+        logger.warning(f"Request validation error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except DataValidationError as e:
+        logger.warning(f"Data validation error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except FileNotFoundError as e:
+        logger.error(f"Configuration file not found: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Configuration file not found",
+        )
+    except KeyError as e:
+        logger.error(f"Configuration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invalid configuration or missing required data",
+        )
+    except Exception as e:
+        # Log the error internally but don't expose details for security
+        logger.error(f"Internal Rule 0 analysis error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during Rule 0 analysis",
         )
 
 
