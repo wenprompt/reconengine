@@ -25,10 +25,10 @@ logger = logging.getLogger(__name__)
 class ReconciliationService:
     """Service layer that integrates with existing reconciliation infrastructure."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Use relative path from current file location
         config_path = Path(__file__).parent.parent / "config" / "unified_config.json"
-        self.router = UnifiedTradeRouter(config_path)
+        self.router: UnifiedTradeRouter = UnifiedTradeRouter(config_path)
 
     async def process_reconciliation(
         self, request: ReconciliationRequest
@@ -144,13 +144,13 @@ class ReconciliationService:
 class Rule0Service:
     """Service layer for Rule 0 position analysis."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Use relative path from current file location
         config_path = Path(__file__).parent.parent / "config" / "unified_config.json"
-        self.router = UnifiedTradeRouter(config_path)
-        self.config = load_unified_config()
+        self.router: UnifiedTradeRouter = UnifiedTradeRouter(config_path)
+        self.config: Dict[str, Any] = load_unified_config()
         # Get supported exchanges from config
-        self.supported_exchanges = list(self.config.get("rule_0_config", {}).keys())
+        self.supported_exchanges: List[str] = list(self.config.get("rule_0_config", {}).keys())
 
     async def process_rule0_analysis(self, request: Rule0Request) -> Rule0Response:
         """
