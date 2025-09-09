@@ -30,6 +30,9 @@
     "exchange_file": "sourceExchange.csv",
     "trader_file": "sourceTraders.csv"
   },
+  "output_settings": {
+    "json_output_dir": "json_output"
+  },
   "field_mappings_comment": "Maps CSV field names to their JSON equivalents. Most fields are identical when lowercased (e.g., productName->productname) except exchclearingacctid",
   "field_mappings": {
     "exchclearingacctid": ["exchclearingacctid", "exchangeclearingaccountid"]

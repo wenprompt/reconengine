@@ -83,6 +83,11 @@ def call_ice_match_system(
         # Get match rate from ICE statistics (overall match rate)
         match_rate = statistics["match_rate"]
 
+    except ImportError as e:
+        raise ImportError(f"Failed to import ICE match system: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"ICE match system processing failed: {e}") from e
+    else:
         return {
             "matches_found": statistics["matches_found"],
             "match_rate": match_rate,
@@ -91,11 +96,6 @@ def call_ice_match_system(
             "unmatched_trader_trades": statistics["unmatched_trader_trades"],
             "unmatched_exchange_trades": statistics["unmatched_exchange_trades"],
         }
-
-    except ImportError as e:
-        raise ImportError(f"Failed to import ICE match system: {e}") from e
-    except Exception as e:
-        raise RuntimeError(f"ICE match system processing failed: {e}") from e
 
 
 def call_sgx_match_system(
@@ -149,6 +149,11 @@ def call_sgx_match_system(
             (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
         )
 
+    except ImportError as e:
+        raise ImportError(f"Failed to import SGX match system: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"SGX match system processing failed: {e}") from e
+    else:
         return {
             "matches_found": total_matches,
             "match_rate": match_rate,
@@ -159,11 +164,6 @@ def call_sgx_match_system(
                 "unmatched_exchange_trades", []
             ),
         }
-
-    except ImportError as e:
-        raise ImportError(f"Failed to import SGX match system: {e}") from e
-    except Exception as e:
-        raise RuntimeError(f"SGX match system processing failed: {e}") from e
 
 
 def call_cme_match_system(
@@ -217,6 +217,11 @@ def call_cme_match_system(
             (total_trades_matched / total_trades * 100) if total_trades > 0 else 0.0
         )
 
+    except ImportError as e:
+        raise ImportError(f"Failed to import CME match system: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"CME match system processing failed: {e}") from e
+    else:
         return {
             "matches_found": total_matches,
             "match_rate": match_rate,
@@ -227,11 +232,6 @@ def call_cme_match_system(
                 "unmatched_exchange_trades", []
             ),
         }
-
-    except ImportError as e:
-        raise ImportError(f"Failed to import CME match system: {e}") from e
-    except Exception as e:
-        raise RuntimeError(f"CME match system processing failed: {e}") from e
 
 
 def call_eex_match_system(
@@ -264,6 +264,11 @@ def call_eex_match_system(
         # Get match rate from EEX statistics (overall match rate)
         match_rate = statistics["match_rate"]
 
+    except ImportError as e:
+        raise ImportError(f"Failed to import EEX match system: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"EEX match system processing failed: {e}") from e
+    else:
         return {
             "matches_found": len(matches),
             "match_rate": match_rate,
@@ -274,11 +279,6 @@ def call_eex_match_system(
                 "unmatched_exchange_trades", []
             ),
         }
-
-    except ImportError as e:
-        raise ImportError(f"Failed to import EEX match system: {e}") from e
-    except Exception as e:
-        raise RuntimeError(f"EEX match system processing failed: {e}") from e
 
 
 def main() -> int:
@@ -416,11 +416,11 @@ def main() -> int:
                     f"Group {group_id} completed: {results['matches_found']} matches ({results['match_rate']:.1f}%)"
                 )
 
-            except Exception as e:
-                logger.error(
-                    f"Unable to process exchange group {group_id}: {e}. Continuing with remaining groups."
+            except Exception:
+                logger.exception(
+                    f"Unable to process exchange group {group_id}. Continuing with remaining groups."
                 )
-                display.display_error(f"Failed to process group {group_id}", str(e))
+                display.display_error(f"Failed to process group {group_id}", "See logs for details")
                 continue
 
         # Display results
@@ -441,9 +441,9 @@ def main() -> int:
 
             # Display DataFrame summary
             display_dataframe_summary(df)
-        except Exception as e:
+        except Exception:
             logger.exception("Error creating DataFrame output")
-            display.display_error("DataFrame creation failed", str(e))
+            display.display_error("DataFrame creation failed", "See logs for details")
             # Continue without DataFrame output
             df = None
 
@@ -464,9 +464,9 @@ def main() -> int:
     except ImportError as e:
         display.display_error("System import failed", str(e))
         return 1
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error occurred")
-        display.display_error("Unexpected error occurred", str(e))
+        display.display_error("Unexpected error occurred", "See logs for details")
         return 1
 
 

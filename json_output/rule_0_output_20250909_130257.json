@@ -1,0 +1,90 @@
+{
+  "1": {
+    "products": {
+      "naphtha japan": {
+        "positionSummary": [
+          {
+            "contractMonth": "Aug-25",
+            "traderQuantity": 1000.0,
+            "exchangeQuantity": 1000.0,
+            "difference": 0.0,
+            "unit": "MT",
+            "status": "MATCHED",
+            "traderTradeCount": 1,
+            "exchangeTradeCount": 1
+          }
+        ],
+        "tradeDetails": [
+          {
+            "contractMonth": "Aug-25",
+            "source": "1",
+            "internalId": "1",
+            "quantity": 1000.0,
+            "unit": "MT",
+            "price": 550.5,
+            "brokerGroupId": "3",
+            "exchClearingAcctId": "2",
+            "tradeType": "",
+            "matchId": "M_1_1"
+          },
+          {
+            "contractMonth": "Aug-25",
+            "source": "2",
+            "internalId": "1",
+            "quantity": 1000.0,
+            "unit": "MT",
+            "price": 550.5,
+            "brokerGroupId": "3",
+            "exchClearingAcctId": "2",
+            "tradeType": "",
+            "matchId": "M_1_1"
+          }
+        ]
+      }
+    }
+  },
+  "4": {
+    "products": {
+      "naphtha japan": {
+        "positionSummary": [
+          {
+            "contractMonth": "Aug-25",
+            "traderQuantity": 1000.0,
+            "exchangeQuantity": 1000.0,
+            "difference": 0.0,
+            "unit": "MT",
+            "status": "MATCHED",
+            "traderTradeCount": 1,
+            "exchangeTradeCount": 1
+          }
+        ],
+        "tradeDetails": [
+          {
+            "contractMonth": "Aug-25",
+            "source": "1",
+            "internalId": "1",
+            "quantity": 1000.0,
+            "unit": "MT",
+            "price": 550.5,
+            "brokerGroupId": "3",
+            "exchClearingAcctId": "2",
+            "tradeType": "",
+            "matchId": "M_1_1"
+          },
+          {
+            "contractMonth": "Aug-25",
+            "source": "2",
+            "internalId": "1",
+            "quantity": 1000.0,
+            "unit": "MT",
+            "price": 550.5,
+            "brokerGroupId": "3",
+            "exchClearingAcctId": "2",
+            "tradeType": "",
+            "matchId": "M_1_1"
+          }
+        ]
+      }
+    }
+  }
+}

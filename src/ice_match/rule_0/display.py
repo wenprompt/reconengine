@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.columns import Columns
 
 from src.ice_match.rule_0.matrix_comparator import MatchStatus, PositionComparison
-from src.ice_match.rule_0.position_matrix import PositionMatrix
+from src.ice_match.rule_0.position_matrix import Position, PositionMatrix
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,18 @@ logger = logging.getLogger(__name__)
 class PositionDisplay:
     """Display position analysis results using Rich terminal formatting."""
     
-    def __init__(self, console: Optional[Console] = None):
+    console: Console
+    bbl_products: List[str]
+    
+    def __init__(self, console: Optional[Console] = None, bbl_products: Optional[List[str]] = None):
         """Initialize the display.
         
         Args:
             console: Rich console instance, creates new if None
+            bbl_products: List of products that use BBL units (default: ['brent swap'])
         """
         self.console = console or Console()
+        self.bbl_products = [p.lower() for p in (bbl_products if bbl_products is not None else ["brent swap"])]
     
     def show_header(self) -> None:
         """Display the header for Rule 0."""
@@ -75,8 +80,8 @@ class PositionDisplay:
         if all(comp.status == MatchStatus.ZERO_POSITION for comp in comparisons):
             return
         
-        # Check if this is brent swap
-        is_brent = product.lower() == "brent swap"
+        # Check if this product uses BBL units
+        is_bbl_product = product.lower() in self.bbl_products
         
         table = Table(
             title=f"[bold cyan]{product}[/bold cyan]",
@@ -89,8 +94,8 @@ class PositionDisplay:
         # Add columns based on product type
         table.add_column("Contract Month", style="yellow", width=15)
         
-        if is_brent:
-            # Brent swap - only show BBL
+        if is_bbl_product:
+            # BBL product - only show BBL
             table.add_column("Trader BBL", justify="right", style="green")
             table.add_column("Exchange BBL", justify="right", style="blue")
             table.add_column("Diff BBL", justify="right")
@@ -113,8 +118,8 @@ class PositionDisplay:
             # Status formatting
             status = self._format_status(comp.status)
             
-            if is_brent:
-                # Format BBL quantities for brent
+            if is_bbl_product:
+                # Format BBL quantities for BBL products
                 trader_bbl = self._format_decimal(comp.trader_bbl) if comp.trader_bbl is not None else "N/A"
                 exchange_bbl = self._format_decimal(comp.exchange_bbl) if comp.exchange_bbl is not None else "N/A"
                 diff_bbl = self._format_decimal(comp.difference_bbl, show_sign=True) if comp.difference_bbl is not None else "N/A"
@@ -310,7 +315,8 @@ class PositionDisplay:
     def show_position_details(
         self,
         trader_matrix: PositionMatrix,
-        exchange_matrix: PositionMatrix
+        exchange_matrix: PositionMatrix,
+        contract_month: Optional[str] = None
     ) -> None:
         """Display detailed trade breakdown for each product.
         
@@ -320,27 +326,25 @@ class PositionDisplay:
         Args:
             trader_matrix: Trader position matrix with trade details
             exchange_matrix: Exchange position matrix with trade details
+            contract_month: Optional filter for specific month
         """
         # Get all products
         all_products = trader_matrix.products.union(exchange_matrix.products)
         
         for product in sorted(all_products):
             # Get all contract months for this product
-            months_with_product = set()
+            all_pos_keys = trader_matrix.positions.keys() | exchange_matrix.positions.keys()
+            months_with_product = {m for m, p in all_pos_keys if p == product}
             
-            for (month, prod) in trader_matrix.positions.keys():
-                if prod == product:
-                    months_with_product.add(month)
-            
-            for (month, prod) in exchange_matrix.positions.keys():
-                if prod == product:
-                    months_with_product.add(month)
+            # Apply month filter if provided
+            if contract_month:
+                months_with_product = {m for m in months_with_product if m == contract_month}
             
             if not months_with_product:
                 continue
             
             # Determine unit for this product
-            unit = "BBL" if product.lower() == "brent swap" else "MT"
+            unit = "BBL" if product.lower() in self.bbl_products else "MT"
             
             # Create header for product
             self.console.print()
@@ -352,6 +356,46 @@ class PositionDisplay:
             # Process each contract month
             for month in sorted(months_with_product):
                 self._show_month_details(product, month, unit, trader_matrix, exchange_matrix)
+    
+    def _format_detail_string(self, detail: Dict[str, Any], unit: str) -> str:
+        """Format a trade detail string for display.
+        
+        Args:
+            detail: Trade detail dictionary
+            unit: Unit type (BBL or MT)
+            
+        Returns:
+            Formatted string for display
+        """
+        trade_id = detail["internal_trade_id"]
+        qty_field = "quantity_bbl" if unit == "BBL" else "quantity_mt"
+        qty = detail.get(qty_field, 0)
+        qty_str = self._format_decimal(qty, show_sign=True)
+        
+        if detail.get("is_synthetic"):
+            orig = detail.get("original_product")
+            if orig:
+                return f"{trade_id}*: {qty_str} (from {orig})"
+            else:
+                return f"{trade_id}*: {qty_str}"
+        else:
+            return f"{trade_id}: {qty_str}"
+    
+    def _get_position_total(self, position: Optional[Position], unit: str) -> Decimal:
+        """Get the total quantity for a position in the specified unit.
+        
+        Args:
+            position: Position object or None
+            unit: Unit type (BBL or MT)
+            
+        Returns:
+            Total quantity as Decimal
+        """
+        if not position:
+            return Decimal("0")
+        if unit == "BBL":
+            return position.quantity_bbl or Decimal("0")
+        return position.quantity_mt or Decimal("0")
     
     def _show_month_details(
         self,
@@ -379,16 +423,15 @@ class PositionDisplay:
         exchange_details = exchange_pos.trade_details if exchange_pos else []
         
         # Sort by absolute quantity (largest first)
-        trader_details = sorted(
-            trader_details,
-            key=lambda x: abs(x.get("quantity_bbl" if unit == "BBL" else "quantity_mt", 0)),
-            reverse=True
-        )
-        exchange_details = sorted(
-            exchange_details,
-            key=lambda x: abs(x.get("quantity_bbl" if unit == "BBL" else "quantity_mt", 0)),
-            reverse=True
-        )
+        def get_absolute_quantity(detail: Dict[str, Any]) -> float:
+            qty_field = "quantity_bbl" if unit == "BBL" else "quantity_mt"
+            qty = detail.get(qty_field)
+            if qty is None:
+                return 0
+            return abs(float(qty))
+        
+        trader_details = sorted(trader_details, key=get_absolute_quantity, reverse=True)
+        exchange_details = sorted(exchange_details, key=get_absolute_quantity, reverse=True)
         
         # Create table
         table = Table(
@@ -411,56 +454,20 @@ class PositionDisplay:
             
             # Format trader detail
             if i < len(trader_details):
-                detail = trader_details[i]
-                trade_id = detail["internal_trade_id"]
-                qty = detail.get("quantity_bbl" if unit == "BBL" else "quantity_mt", 0)
-                
-                # Format quantity with sign
-                qty_str = self._format_decimal(qty, show_sign=True)
-                
-                # Add synthetic indicator and original product
-                if detail.get("is_synthetic"):
-                    orig = detail.get("original_product", "")
-                    trader_str = f"{trade_id}*: {qty_str} (from {orig})"
-                else:
-                    trader_str = f"{trade_id}: {qty_str}"
+                trader_str = self._format_detail_string(trader_details[i], unit)
             
             # Format exchange detail
             if i < len(exchange_details):
-                detail = exchange_details[i]
-                trade_id = detail["internal_trade_id"]
-                qty = detail.get("quantity_bbl" if unit == "BBL" else "quantity_mt", 0)
-                
-                # Format quantity with sign
-                qty_str = self._format_decimal(qty, show_sign=True)
-                
-                # Add synthetic indicator and original product
-                if detail.get("is_synthetic"):
-                    orig = detail.get("original_product", "")
-                    exchange_str = f"{trade_id}*: {qty_str} (from {orig})"
-                else:
-                    exchange_str = f"{trade_id}: {qty_str}"
+                exchange_str = self._format_detail_string(exchange_details[i], unit)
             
             table.add_row(trader_str, exchange_str)
         
         # Add separator row
         table.add_row("─" * 36, "─" * 36)
         
-        # Add totals row
-        trader_total = Decimal("0")
-        exchange_total = Decimal("0")
-        
-        if trader_pos:
-            if unit == "BBL":
-                trader_total = trader_pos.quantity_bbl or Decimal("0")
-            else:
-                trader_total = trader_pos.quantity_mt or Decimal("0")
-        
-        if exchange_pos:
-            if unit == "BBL":
-                exchange_total = exchange_pos.quantity_bbl or Decimal("0")
-            else:
-                exchange_total = exchange_pos.quantity_mt or Decimal("0")
+        # Add totals row using helper method
+        trader_total = self._get_position_total(trader_pos, unit)
+        exchange_total = self._get_position_total(exchange_pos, unit)
         
         trader_total_str = f"Total: {self._format_decimal(trader_total, show_sign=True)}"
         exchange_total_str = f"Total: {self._format_decimal(exchange_total, show_sign=True)}"

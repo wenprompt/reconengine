@@ -1,5 +1,6 @@
 """Generic product decomposer for unified Rule 0."""
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
@@ -47,20 +48,20 @@ class UnifiedDecomposer:
         
         # Check for crack pattern (ICE only)
         if self.crack_pattern and "crack" in product_lower:
-            # Extract base product (remove "crack" from name)
-            base_product = product_name.replace(" crack", "").replace(" Crack", "")
+            # Extract base product (remove "crack" from name, case-insensitive)
+            base_product = re.sub(r" crack", "", product_name, flags=re.IGNORECASE).strip()
             
             return [
                 DecomposedProduct(
                     base_product=base_product,
                     quantity=quantity,
-                    is_synthetic=False  # Base product of crack
+                    is_synthetic=False,  # Base product of crack
                 ),
                 DecomposedProduct(
                     base_product=self.crack_pattern,  # e.g., "brent swap"
                     quantity=quantity,
-                    is_synthetic=True   # Synthetic component
-                )
+                    is_synthetic=True,   # Synthetic component
+                ),
             ]
         
         # Check for spread pattern (ICE and SGX)
@@ -71,17 +72,28 @@ class UnifiedDecomposer:
                 first_product = parts[0].strip()
                 second_product = parts[1].strip()
                 
+                # Validate that both parts exist and are different
+                if not first_product or not second_product or first_product == second_product:
+                    # Invalid spread - return as-is without decomposition
+                    return [
+                        DecomposedProduct(
+                            base_product=product_name,
+                            quantity=quantity,
+                            is_synthetic=False,
+                        ),
+                    ]
+                
                 return [
                     DecomposedProduct(
                         base_product=first_product,
                         quantity=quantity,
-                        is_synthetic=False
+                        is_synthetic=False,
                     ),
                     DecomposedProduct(
                         base_product=second_product,
                         quantity=quantity,
-                        is_synthetic=True
-                    )
+                        is_synthetic=True,
+                    ),
                 ]
         
         # No decomposition - return as-is
@@ -89,6 +101,6 @@ class UnifiedDecomposer:
             DecomposedProduct(
                 base_product=product_name,
                 quantity=quantity,
-                is_synthetic=False
-            )
+                is_synthetic=False,
+            ),
         ]

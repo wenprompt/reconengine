@@ -58,7 +58,11 @@ class Rule0Analyzer:
         
         # For the comparator, we use the default ratio for BBL tolerance calculation
         self.comparator = MatrixComparator(default_ratio)
-        self.display = PositionDisplay()
+        
+        # Get products that use BBL from config
+        unit_defaults = self.config_manager.get_traders_product_unit_defaults()
+        bbl_products = [prod for prod, unit in unit_defaults.items() if unit.lower() == "bbl" and prod != "default"]
+        self.display = PositionDisplay(bbl_products=bbl_products)
         
         # Set default conversion ratio for Trade model (not used in Rule 0 but needed for compatibility)
         Trade.set_conversion_ratio(default_ratio)

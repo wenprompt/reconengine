@@ -202,6 +202,9 @@ class UnifiedPositionMatrixBuilder:
             if "internalTradeId" not in trade:
                 trade["internalTradeId"] = index
             self._process_trade(trade, matrix, source)
+            # Clear cached key-map for this trade to prevent unbounded memory growth
+            if hasattr(self, "_trade_keys_cache"):
+                self._trade_keys_cache.pop(id(trade), None)
         
         logger.info(
             f"Built {self.exchange} matrix with {len(matrix.positions)} positions across "
@@ -294,8 +297,8 @@ class UnifiedPositionMatrixBuilder:
         if self.default_unit:
             original_unit = self.default_unit
         else:
-            # Get unit from trade, leave empty if missing
-            original_unit = str(trade.get("unit", ""))
+            # Get unit from trade using field mappings
+            original_unit = str(self._get_trade_field(trade, "unit", ""))
             # Only handle pandas NaN, leave everything else as-is
             if original_unit.upper() == "NAN":
                 original_unit = ""
@@ -417,7 +420,7 @@ class UnifiedPositionMatrixBuilder:
             
             # Apply buy/sell direction
             final_quantity = self._apply_direction(
-                trade, component, final_quantity, product_name
+                buy_sell, component, final_quantity, product_name
             )
             
             # Create trade detail for tracking
@@ -437,22 +440,21 @@ class UnifiedPositionMatrixBuilder:
     
     def _apply_direction(
         self,
-        trade: Dict[str, Any],
+        buy_sell: str,
         component: DecomposedProduct,
         quantity: Decimal,
         original_product: str
     ) -> Decimal:
         """Apply direction logic for trades and synthetic components."""
-        buy_sell = trade.get("b/s", trade.get("buy_sell", "B"))
         product_lower = original_product.lower()
         
         if component.is_synthetic:
             # Synthetic component from decomposition
             if "crack" in product_lower:
-                # For cracks: brent swap has opposite direction
-                if component.base_product.lower() == "brent swap":
+                # For cracks: synthetic component (e.g., brent swap) has opposite direction
+                if self.decomposer.crack_pattern and component.base_product.lower() == self.decomposer.crack_pattern.lower():
                     if buy_sell == "B":
-                        quantity = -quantity  # Buying crack = selling brent
+                        quantity = -quantity  # Buying crack = selling synthetic component
                 else:
                     # Base product follows crack direction
                     if buy_sell == "S":
