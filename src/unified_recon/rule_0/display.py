@@ -213,15 +213,16 @@ class UnifiedDisplay:
             trade["matched"] = False
             trade["match_id"] = ""
 
-        # If external match IDs provided, use them first
+        # If external match IDs provided, use them exclusively (NO FALLBACK)
         if external_match_ids:
-            # Apply external match IDs to trades
+            # Apply external match IDs from reconciliation engine
             for t_trade in trader_trades:
                 t_id = str(t_trade.get("internal_trade_id", ""))
                 external_match_id = external_match_ids.get(f"T_{t_id}")
                 if external_match_id:
                     t_trade["matched"] = True
                     t_trade["match_id"] = external_match_id
+                # If no match from reconciliation engine, trade remains unmatched (EMPTY)
             
             for e_trade in exchange_trades:
                 e_id = str(e_trade.get("internal_trade_id", ""))
@@ -229,8 +230,9 @@ class UnifiedDisplay:
                 if external_match_id:
                     e_trade["matched"] = True
                     e_trade["match_id"] = external_match_id
+                # If no match from reconciliation engine, trade remains unmatched (EMPTY)
         else:
-            # Fall back to position-based matching (original logic)
+            # Use position-based matching ONLY when no external IDs provided
             # Try to match each trader trade with the best exchange trade
             for t_trade in trader_trades:
                 # Get tolerance for this trade's unit
@@ -333,15 +335,25 @@ class UnifiedDisplay:
         Returns:
             Tuple of (trader_str, exchange_str, diff_str, status_str, trade_counts)
         """
-        # Format quantities
+        # Format quantities using their specific units
+        # Use trader_unit/exchange_unit if available, fallback to shared unit for backward compatibility
+        trader_unit_to_use = getattr(comp, 'trader_unit', None)
+        exchange_unit_to_use = getattr(comp, 'exchange_unit', None)
+        
+        # If specific units not available (old code), fall back to shared unit
+        if trader_unit_to_use is None:
+            trader_unit_to_use = comp.unit
+        if exchange_unit_to_use is None:
+            exchange_unit_to_use = comp.unit
+        
         trader_str = self._format_quantity(
             comp.trader_quantity,
-            comp.unit if comp.trader_quantity != 0 else None,
+            trader_unit_to_use if comp.trader_quantity != 0 else None,
             show_sign=False,
         )
         exchange_str = self._format_quantity(
             comp.exchange_quantity,
-            comp.unit if comp.exchange_quantity != 0 else None,
+            exchange_unit_to_use if comp.exchange_quantity != 0 else None,
             show_sign=False,
         )
 

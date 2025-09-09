@@ -336,7 +336,7 @@ class UnifiedPositionMatrixBuilder:
             # Only handle pandas NaN, leave everything else as-is
             if original_unit.upper() == "NAN":
                 original_unit = ""
-
+        
         return quantity, original_unit
 
     def _create_trade_detail(

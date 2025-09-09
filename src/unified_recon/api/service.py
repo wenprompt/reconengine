@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 from ..core.group_router import UnifiedTradeRouter
 from ..core.result_aggregator import ResultAggregator
 from ..utils.dataframe_output import create_unified_dataframe
+from ..utils.rule0_trade_utils import create_match_id_mapping
 from ..rule_0.main import process_exchanges, load_unified_config
 from ..rule_0.json_output import Rule0JSONOutput
 from ..main import (
@@ -36,8 +37,6 @@ class BaseRule0Service:
         config_path = Path(__file__).parent.parent / "config" / "unified_config.json"
         self.router: UnifiedTradeRouter = UnifiedTradeRouter(config_path)
         self.config: Dict[str, Any] = load_unified_config()
-        # Get supported exchanges from config
-        self.supported_exchanges: List[str] = list(self.config.get("rule_0_config", {}).keys())
 
     def _process_rule0_analysis(
         self, 
@@ -68,17 +67,25 @@ class BaseRule0Service:
             trader_df, exchange_df
         )
 
-        # Process through Rule 0 for each exchange
+        # Get processable groups from router (single source of truth)
+        processable_groups = self.router.get_processable_groups(grouped_trades)
+        
+        if not processable_groups:
+            logger.warning("No processable trade groups found for Rule 0 analysis")
+            return {}
+
+        # Process through Rule 0 for each processable exchange
         all_results = {}
         
-        for group_id, group_info in grouped_trades.items():
+        for group_id in processable_groups:
+            group_info = grouped_trades[group_id]
             # Get system name for this group
             system_name = group_info["system"]
             
-            # Only process supported exchanges from config
-            if system_name not in self.supported_exchanges:
+            # Check if Rule 0 is configured for this system
+            if system_name not in self.config.get("rule_0_config", {}):
                 logger.info(
-                    f"Skipping Rule 0 for {system_name} (not configured)"
+                    f"Skipping Rule 0 for {system_name} (not configured in rule_0_config)"
                 )
                 continue
             
@@ -102,7 +109,8 @@ class BaseRule0Service:
                 trader_records,  # trader_trades
                 exchange_records,  # exchange_trades
                 self.config,  # unified_config
-                args  # args
+                args,  # args
+                external_match_ids  # Pass external match IDs for consistent matching
             )
             
             # Merge results
@@ -217,9 +225,8 @@ class ReconciliationService:
             )
             return typed_records
 
-        except Exception as e:
-            logger.error("Error during reconciliation processing")
-            logger.debug(f"Reconciliation processing error: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error during reconciliation processing")
             raise
 
     def _call_matching_system(
@@ -269,9 +276,8 @@ class Rule0Service(BaseRule0Service):
             # Convert to Rule0Response format
             return Rule0Response(root=json_dict)
 
-        except Exception as e:
-            logger.error("Error during Rule 0 analysis")
-            logger.debug(f"Rule 0 analysis error: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error during Rule 0 analysis")
             raise
 
 
@@ -302,7 +308,7 @@ class PosMatchService(BaseRule0Service):
             reconciliation_results = self.recon_service._process_sync(recon_request)
             
             # Step 2: Create mapping of internal_trade_id to match_id
-            match_id_mapping = self._create_match_id_mapping(reconciliation_results)
+            match_id_mapping = create_match_id_mapping(reconciliation_results)
             
             # Step 3: Run Rule 0 analysis with external match IDs
             json_dict = self._process_rule0_analysis(request, match_id_mapping)
@@ -314,38 +320,6 @@ class PosMatchService(BaseRule0Service):
             # Convert to Rule0Response format
             return Rule0Response(root=json_dict)
 
-        except Exception as e:
-            logger.error("Error during position match analysis")
-            logger.debug(f"Position match analysis error: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error during position match analysis")
             raise
-    
-    def _create_match_id_mapping(self, reconciliation_results: List[Dict[str, Any]]) -> Dict[str, str]:
-        """
-        Create a mapping of internal_trade_id to match_id from reconciliation results.
-        
-        Args:
-            reconciliation_results: List of reconciliation matches
-            
-        Returns:
-            Dictionary mapping "T_<id>" and "E_<id>" to match IDs
-        """
-        mapping = {}
-        
-        for result in reconciliation_results:
-            match_id = result.get("matchId")
-            if not match_id:
-                continue
-                
-            # Map trader trade IDs
-            trader_ids = result.get("traderTradeIds", [])
-            for t_id in trader_ids:
-                if t_id:
-                    mapping[f"T_{t_id}"] = match_id
-                    
-            # Map exchange trade IDs  
-            exchange_ids = result.get("exchangeTradeIds", [])
-            for e_id in exchange_ids:
-                if e_id:
-                    mapping[f"E_{e_id}"] = match_id
-                    
-        return mapping

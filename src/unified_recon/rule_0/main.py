@@ -17,6 +17,7 @@ from src.unified_recon.rule_0.display import UnifiedDisplay
 from src.unified_recon.rule_0.json_output import Rule0JSONOutput
 from src.unified_recon.utils import rule0_config_utils as config_utils
 from src.unified_recon.utils import rule0_json_utils as json_utils
+from src.unified_recon.utils.rule0_trade_utils import create_match_id_mapping
 
 # Import API service logic for reconciliation match IDs
 try:
@@ -49,9 +50,8 @@ def get_reconciliation_match_ids(json_data: Dict[str, Any]) -> Optional[Dict[str
         # Create reconciliation service with error handling
         try:
             recon_service = ReconciliationService()
-        except Exception as e:
-            logger.error("Failed to initialize reconciliation service")
-            logger.debug(f"Service initialization error: {e}")
+        except Exception:
+            logger.exception("Failed to initialize reconciliation service")
             return None
             
         # Create reconciliation request with validation
@@ -60,40 +60,21 @@ def get_reconciliation_match_ids(json_data: Dict[str, Any]) -> Optional[Dict[str
                 traderTrades=json_data["traderTrades"],
                 exchangeTrades=json_data["exchangeTrades"]
             )
-        except Exception as e:
-            logger.error("Failed to create reconciliation request")
-            logger.debug(f"Request creation error: {e}")
+        except Exception:
+            logger.exception("Failed to create reconciliation request")
             return None
         
         # Run reconciliation to get match IDs
         reconciliation_results = recon_service._process_sync(recon_request)
         
-        # Create match ID mapping (same logic as PosMatchService._create_match_id_mapping)
-        match_id_mapping = {}
-        
-        for result in reconciliation_results:
-            match_id = result.get("matchId")
-            if not match_id:
-                continue
-                
-            # Map trader trade IDs
-            trader_ids = result.get("traderTradeIds", [])
-            for t_id in trader_ids:
-                if t_id:
-                    match_id_mapping[f"T_{t_id}"] = match_id
-                    
-            # Map exchange trade IDs  
-            exchange_ids = result.get("exchangeTradeIds", [])
-            for e_id in exchange_ids:
-                if e_id:
-                    match_id_mapping[f"E_{e_id}"] = match_id
+        # Create match ID mapping using shared utility function
+        match_id_mapping = create_match_id_mapping(reconciliation_results)
         
         logger.info(f"Retrieved {len(match_id_mapping)} match ID mappings from reconciliation engine")
         return match_id_mapping
         
-    except Exception as e:
-        logger.error("Failed to get reconciliation match IDs")
-        logger.debug(f"Reconciliation error details: {e}")
+    except Exception:
+        logger.exception("Failed to get reconciliation match IDs")
         return None
 
 
@@ -161,7 +142,7 @@ def load_json_data(file_path: str) -> tuple[List[Dict[str, Any]], List[Dict[str,
     Raises:
         FileNotFoundError: If JSON file doesn't exist
         json.JSONDecodeError: If JSON file is malformed
-        KeyError: If required data structure is missing
+        ValueError: If JSON structure is invalid or data types are incorrect
     """
     try:
         with open(file_path, "r") as f:
@@ -169,13 +150,11 @@ def load_json_data(file_path: str) -> tuple[List[Dict[str, Any]], List[Dict[str,
     except FileNotFoundError:
         logger.error(f"JSON file not found: {file_path}")
         raise
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON format in file: {file_path}")
-        logger.debug(f"JSON decode error: {e}")
+    except json.JSONDecodeError:
+        logger.exception(f"Invalid JSON format in file: {file_path}")
         raise
-    except Exception as e:
-        logger.error(f"Failed to read JSON file: {file_path}")
-        logger.debug(f"File read error: {e}")
+    except Exception:
+        logger.exception(f"Failed to read JSON file: {file_path}")
         raise
 
     # Validate JSON structure
@@ -404,8 +383,8 @@ def save_json_output(
     json_output_dir_name = unified_config.get("output_settings", {}).get("json_output_dir", "json_output")
     
     # Find project root (where pyproject.toml or src/ directory exists)
-    current_path = Path(__file__).resolve()
-    project_root = current_path
+    current_dir = Path(__file__).resolve().parent
+    project_root = current_dir
     while project_root.parent != project_root:
         if (project_root / "pyproject.toml").exists() or (project_root / "src").exists():
             break

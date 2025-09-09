@@ -4,12 +4,15 @@ from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from dataclasses import dataclass
 import json
+import logging
 from pathlib import Path
 
 from src.unified_recon.rule_0.position_matrix import PositionMatrix
 from src.unified_recon.rule_0.matrix_comparator import PositionComparison
 from src.unified_recon.utils import rule0_trade_utils as trade_utils
 from src.unified_recon.utils import rule0_json_utils as json_utils
+
+logger = logging.getLogger(__name__)
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -232,19 +235,24 @@ class Rule0JSONOutput:
     def _match_trades(
         self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]]
     ) -> None:
-        """Match trader and exchange trades with optional external match IDs."""
+        """Match trader and exchange trades with optional external match IDs.
+        
+        If external match IDs are provided (from reconciliation engine), use them exclusively.
+        Otherwise, use position-based matching for /poscheck endpoint.
+        """
         # Reset match status
         trade_utils.reset_match_status(trader_trades + exchange_trades)
 
-        # If we have external match IDs, use them first
+        # If we have external match IDs, use them exclusively (no fallback)
         if self.external_match_ids:
-            # Apply external match IDs to trades
+            # Apply external match IDs from reconciliation engine
             for t_trade in trader_trades:
                 t_id = str(t_trade.get("internal_trade_id", ""))
                 external_match_id = self.external_match_ids.get(f"T_{t_id}")
                 if external_match_id:
                     t_trade["matched"] = True
                     t_trade["match_id"] = external_match_id
+                # If no match from reconciliation engine, trade remains unmatched
             
             for e_trade in exchange_trades:
                 e_id = str(e_trade.get("internal_trade_id", ""))
@@ -252,8 +260,27 @@ class Rule0JSONOutput:
                 if external_match_id:
                     e_trade["matched"] = True
                     e_trade["match_id"] = external_match_id
+                # If no match from reconciliation engine, trade remains unmatched
+            
+            # Validate for orphaned match IDs (only one side has the match)
+            trader_match_ids = {t["match_id"] for t in trader_trades if t.get("matched")}
+            exchange_match_ids = {e["match_id"] for e in exchange_trades if e.get("matched")}
+            
+            orphaned_trader_only = trader_match_ids - exchange_match_ids
+            orphaned_exchange_only = exchange_match_ids - trader_match_ids
+            
+            if orphaned_trader_only:
+                logger.debug(
+                    "Match IDs found only in trader trades (no exchange counterpart): %s",
+                    orphaned_trader_only
+                )
+            if orphaned_exchange_only:
+                logger.debug(
+                    "Match IDs found only in exchange trades (no trader counterpart): %s", 
+                    orphaned_exchange_only
+                )
         else:
-            # Fall back to position-based matching (original logic)
+            # Use position-based matching for /poscheck endpoint
             for t_trade in trader_trades:
                 t_unit = t_trade.get("unit", "").upper()
 

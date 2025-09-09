@@ -150,6 +150,37 @@ def apply_match(
     exchange_trade["match_id"] = match_id
 
 
+def create_match_id_mapping(reconciliation_results: list[Dict[str, Any]]) -> Dict[str, str]:
+    """Create a mapping from internal trade IDs to reconciliation match IDs.
+
+    Args:
+        reconciliation_results: List of reconciliation results from the matching engine
+
+    Returns:
+        Dictionary mapping internal trade IDs to match IDs
+    """
+    mapping = {}
+    
+    for result in reconciliation_results:
+        match_id = result.get("matchId")
+        if not match_id:
+            continue
+            
+        # Map trader trade IDs (prefix with T_)
+        trader_ids = result.get("traderTradeIds", [])
+        for t_id in trader_ids:
+            if t_id:
+                mapping[f"T_{t_id}"] = match_id
+                
+        # Map exchange trade IDs (prefix with E_)
+        exchange_ids = result.get("exchangeTradeIds", [])
+        for e_id in exchange_ids:
+            if e_id:
+                mapping[f"E_{e_id}"] = match_id
+                
+    return mapping
+
+
 def reset_match_status(trades: list[Dict[str, Any]]) -> None:
     """Reset match status for all trades.
 
