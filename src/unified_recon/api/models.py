@@ -1,6 +1,6 @@
 """Pydantic models for API request and response."""
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import List, Any, Dict, Optional
 from decimal import Decimal
 
@@ -23,8 +23,8 @@ class ReconciliationRequest(BaseModel):
             raise ValueError("Trade arrays cannot be empty")
         return v
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "examples": [
                 {
                     "traderTrades": [
@@ -60,7 +60,7 @@ class ReconciliationRequest(BaseModel):
                 }
             ]
         }
-    }
+    )
 
 
 class ErrorResponse(BaseModel):
@@ -144,9 +144,8 @@ class Rule0Response(BaseModel):
         ..., description="Position analysis results by exchange group ID"
     )
     
-    class Config:
-        """Pydantic config."""
-        
-        json_encoders = {
-            Decimal: lambda v: float(v)
-        }
+    model_config = ConfigDict(
+        json_encoders={
+            Decimal: lambda v: float(v),
+        },
+    )

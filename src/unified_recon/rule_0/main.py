@@ -300,7 +300,7 @@ def save_json_output(
     # Generate JSON output
     first_key = list(exchange_results.keys())[0]
     tolerances = exchange_results.get(first_key, {}).get('tolerance_dict', {})
-    json_output = Rule0JSONOutput(tolerances=tolerances)
+    json_output = Rule0JSONOutput(tolerances=tolerances, unified_config=unified_config)
     json_str = json_output.to_json_string(exchange_results)
     
     # Save to json_output directory from config

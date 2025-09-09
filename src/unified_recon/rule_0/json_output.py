@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from dataclasses import dataclass
 import json
+from pathlib import Path
 
 from src.unified_recon.rule_0.position_matrix import PositionMatrix
 from src.unified_recon.rule_0.matrix_comparator import PositionComparison, MatchStatus
@@ -74,16 +75,128 @@ class PositionSummaryJSON:
         }
 
 
+class FieldExtractor:
+    """Extract fields from PositionComparison based on exchange configuration."""
+    
+    def __init__(self, unified_config: Dict[str, Any], exchange_group_id: str):
+        """Initialize field extractor with configs.
+        
+        Args:
+            unified_config: Main unified configuration
+            exchange_group_id: Exchange group identifier
+        """
+        self.unified_config = unified_config
+        self.exchange_group_id = exchange_group_id
+        
+        # Get the specific exchange for this group
+        mappings = unified_config.get("exchange_group_mappings", {})
+        self.exchange = mappings.get(exchange_group_id, "")
+        
+        # Get exchange-specific rule_0 config
+        rule0_configs = unified_config.get("rule_0_config", {})
+        self.exchange_config = rule0_configs.get(self.exchange, {})
+        
+        # Load normalizer config if available
+        self.normalizer_config = self._load_normalizer_config()
+    
+    def _load_normalizer_config(self) -> Optional[Dict[str, Any]]:
+        """Load normalizer config if path is specified."""
+        normalizer_path = self.exchange_config.get("normalizer_config")
+        if normalizer_path:
+            path = Path(normalizer_path)
+            if path.exists():
+                with open(path) as f:
+                    return json.load(f)
+        return None
+    
+    def extract_quantities_and_unit(self, comp: Any) -> Dict[str, Any]:
+        """Extract quantities and unit based on this exchange's configuration.
+        
+        Args:
+            comp: PositionComparison object (could be ICE or unified type)
+            
+        Returns:
+            Dict with trader_quantity, exchange_quantity, difference, unit
+        """
+        # Handle based on the specific exchange this group belongs to
+        if self.exchange == "ice_match":
+            # ICE uses MT/BBL fields
+            return self._extract_ice_fields(comp)
+        
+        elif self.exchange == "cme_match":
+            # CME uses quantitylot with LOTS unit
+            return self._extract_cme_fields(comp)
+        
+        else:
+            # SGX, EEX use standard fields
+            return self._extract_standard_fields(comp)
+    
+    def _extract_ice_fields(self, comp: Any) -> Dict[str, Any]:
+        """Extract ICE-specific MT/BBL fields."""
+        # ICE has both MT and BBL, need to determine which to use
+        trader_mt = float(getattr(comp, 'trader_mt', 0))
+        trader_bbl = float(getattr(comp, 'trader_bbl', 0))
+        exchange_mt = float(getattr(comp, 'exchange_mt', 0))
+        exchange_bbl = float(getattr(comp, 'exchange_bbl', 0))
+        
+        # Determine primary unit based on non-zero values
+        # Prefer BBL if it has values, otherwise MT
+        if trader_bbl != 0 or exchange_bbl != 0:
+            return {
+                "trader_quantity": trader_bbl,
+                "exchange_quantity": exchange_bbl,
+                "difference": float(getattr(comp, 'difference_bbl', 0)),
+                "unit": "BBL"
+            }
+        else:
+            return {
+                "trader_quantity": trader_mt,
+                "exchange_quantity": exchange_mt,
+                "difference": float(getattr(comp, 'difference_mt', 0)),
+                "unit": "MT"
+            }
+    
+    def _extract_cme_fields(self, comp: Any) -> Dict[str, Any]:
+        """Extract CME-specific quantitylot fields."""
+        # CME config specifies quantity_field and default_unit
+        quantity_field = self.exchange_config.get("quantity_field", "quantity")
+        default_unit = self.exchange_config.get("default_unit", "LOTS")
+        
+        # Build field names dynamically
+        trader_field = f"trader_{quantity_field}"
+        exchange_field = f"exchange_{quantity_field}"
+        
+        return {
+            "trader_quantity": float(getattr(comp, trader_field, 0)),
+            "exchange_quantity": float(getattr(comp, exchange_field, 0)),
+            "difference": float(getattr(comp, 'difference', 0)),
+            "unit": default_unit
+        }
+    
+    def _extract_standard_fields(self, comp: Any) -> Dict[str, Any]:
+        """Extract standard quantity/unit fields (SGX, EEX)."""
+        return {
+            "trader_quantity": float(getattr(comp, 'trader_quantity', 0)),
+            "exchange_quantity": float(getattr(comp, 'exchange_quantity', 0)),
+            "difference": float(getattr(comp, 'difference', 0)),
+            "unit": getattr(comp, 'unit', '')
+        }
+
+
 class Rule0JSONOutput:
     """JSON output formatter for Rule 0 results."""
     
-    def __init__(self, tolerances: Optional[Dict[str, float]] = None):
+    def __init__(self, tolerances: Optional[Dict[str, float]] = None, 
+                 unified_config: Optional[Dict[str, Any]] = None):
         """Initialize JSON output formatter.
         
         Args:
             tolerances: Optional tolerance values for matching
+            unified_config: Optional unified configuration for field extraction
         """
         self.tolerances = tolerances or {}
+        self.unified_config = unified_config or {}
+        self.field_extractors: Dict[str, FieldExtractor] = {}
     
     def _determine_trade_type(self, original_product: str, spread_flag: str) -> str:
         """Determine trade type based on product and flags."""
@@ -157,6 +270,14 @@ class Rule0JSONOutput:
                 best_match['matched'] = True
                 best_match['match_id'] = match_id
     
+    def _get_field_extractor(self, exchange_group_id: str) -> FieldExtractor:
+        """Get or create field extractor for exchange group."""
+        if exchange_group_id not in self.field_extractors:
+            self.field_extractors[exchange_group_id] = FieldExtractor(
+                self.unified_config, exchange_group_id
+            )
+        return self.field_extractors[exchange_group_id]
+    
     def generate_json_output_for_exchange(
         self,
         trader_matrix: PositionMatrix,
@@ -211,12 +332,16 @@ class Rule0JSONOutput:
                 else:
                     status_str = "ZERO"
                 
+                # Use field extractor to handle different exchange formats
+                extractor = self._get_field_extractor(exchange_group_id)
+                quantities = extractor.extract_quantities_and_unit(comp)
+                
                 summary = PositionSummaryJSON(
                     contract_month=comp.contract_month,
-                    trader_quantity=float(comp.trader_quantity),
-                    exchange_quantity=float(comp.exchange_quantity),
-                    difference=float(comp.difference),
-                    unit=comp.unit or "",
+                    trader_quantity=quantities["trader_quantity"],
+                    exchange_quantity=quantities["exchange_quantity"],
+                    difference=quantities["difference"],
+                    unit=quantities["unit"],
                     status=status_str,
                     trader_trade_count=comp.trader_trades,
                     exchange_trade_count=comp.exchange_trades

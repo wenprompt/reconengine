@@ -32,14 +32,14 @@ class ReconciliationService:
 
     async def process_reconciliation(
         self, request: ReconciliationRequest
-    ) -> List[Any]:
+    ) -> List[Dict[str, Any]]:
         """
         Process reconciliation request asynchronously.
         Wraps synchronous processing to avoid blocking.
         """
         return await asyncio.to_thread(self._process_sync, request)
 
-    def _process_sync(self, request: ReconciliationRequest) -> List[Any]:
+    def _process_sync(self, request: ReconciliationRequest) -> List[Dict[str, Any]]:
         """
         Synchronous processing using existing infrastructure.
         Validation happens in the Trade Factories.
@@ -104,11 +104,14 @@ class ReconciliationService:
             # Convert DataFrame to JSON records format (same as CLI --json-output)
             # Reuses the same logic as save_dataframe_to_json
             records_data = df.to_dict(orient="records")
+            
+            # Cast to ensure proper typing (DataFrame columns are always strings)
+            typed_records: List[Dict[str, Any]] = records_data  # type: ignore[assignment]
 
             logger.info(
-                f"Successfully processed reconciliation: {len(records_data)} records"
+                f"Successfully processed reconciliation: {len(typed_records)} records"
             )
-            return records_data
+            return typed_records
 
         except Exception as e:
             logger.error(f"Error during reconciliation processing: {e}", exc_info=True)
@@ -225,7 +228,7 @@ class Rule0Service:
             if first_key:
                 tolerances = all_results.get(first_key, {}).get('tolerance_dict', {})
             
-            json_output = Rule0JSONOutput(tolerances=tolerances)
+            json_output = Rule0JSONOutput(tolerances=tolerances, unified_config=self.config)
             json_dict = json_output.generate_multi_exchange_json(all_results)
             
             # Convert to Rule0Response format
