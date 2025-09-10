@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import Any
 from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
@@ -14,7 +14,7 @@ MAX_UNMATCHED_DISPLAY = 100  # Maximum unmatched trades to show
 class CMEDisplay:
     """Rich console display for CME matching results."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize display with Rich console."""
         self.console = Console()
 
@@ -38,7 +38,7 @@ class CMEDisplay:
         self.console.print(summary)
 
     def show_match_results(
-        self, matches: List[CMEMatchResult], statistics: Dict[str, Any]
+        self, matches: list[CMEMatchResult], statistics: dict[str, Any]
     ) -> None:
         """Display matching results with statistics.
 
@@ -55,7 +55,7 @@ class CMEDisplay:
         else:
             self.console.print("\n[yellow]No matches found.[/yellow]")
 
-    def _show_statistics(self, stats: Dict[str, Any]) -> None:
+    def _show_statistics(self, stats: dict[str, Any]) -> None:
         """Show matching statistics."""
         table = Table(title="Matching Statistics", box=box.ROUNDED)
         table.add_column("Metric", style="cyan")
@@ -100,7 +100,7 @@ class CMEDisplay:
         self.console.print("\n")
         self.console.print(table)
 
-    def _show_detailed_matches(self, matches: List[CMEMatchResult]) -> None:
+    def _show_detailed_matches(self, matches: list[CMEMatchResult]) -> None:
         """Show detailed match results."""
         if not matches:
             return
@@ -108,7 +108,7 @@ class CMEDisplay:
         # CME only has exact matches, so we show them in SGX format
         self._show_single_leg_matches(matches)
 
-    def _show_single_leg_matches(self, matches: List[CMEMatchResult]) -> None:
+    def _show_single_leg_matches(self, matches: list[CMEMatchResult]) -> None:
         """Show single-leg match results."""
         table = Table(title=f"Detailed Matches ({len(matches)} found)", box=box.ROUNDED)
         table.add_column("Match ID", style="cyan")
@@ -142,7 +142,7 @@ class CMEDisplay:
         self.console.print(table)
 
     def show_unmatched_trades(
-        self, trader_trades: List[CMETrade], exchange_trades: List[CMETrade]
+        self, trader_trades: list[CMETrade], exchange_trades: list[CMETrade]
     ) -> None:
         """Display unmatched trades."""
         if trader_trades:
@@ -154,7 +154,7 @@ class CMEDisplay:
         if not trader_trades and not exchange_trades:
             self.console.print("\n[green]All trades successfully matched![/green]")
 
-    def _show_unmatched_trader_trades(self, trades: List[CMETrade]) -> None:
+    def _show_unmatched_trader_trades(self, trades: list[CMETrade]) -> None:
         """Show unmatched trader trades."""
         display_count = min(len(trades), MAX_UNMATCHED_DISPLAY)
         title = f"Unmatched Trader Trades ({len(trades)} total"
@@ -183,7 +183,7 @@ class CMEDisplay:
         self.console.print("\n")
         self.console.print(table)
 
-    def _show_unmatched_exchange_trades(self, trades: List[CMETrade]) -> None:
+    def _show_unmatched_exchange_trades(self, trades: list[CMETrade]) -> None:
         """Show unmatched exchange trades."""
         display_count = min(len(trades), MAX_UNMATCHED_DISPLAY)
         title = f"Unmatched Exchange Trades ({len(trades)} total"
@@ -220,7 +220,7 @@ class CMEDisplay:
         """
         self.console.print(f"\n[red]Error: {message}[/red]")
 
-    def show_rule_info(self, rule_info: Dict[str, Any]) -> None:
+    def show_rule_info(self, rule_info: dict[str, Any]) -> None:
         """Display information about a matching rule."""
         table = Table(
             title=f"Rule {rule_info.get('rule_number', 'Unknown')}: {rule_info.get('rule_name', 'Unknown')}",

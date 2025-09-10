@@ -1,23 +1,23 @@
 """Pydantic models for API request and response."""
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import List, Any, Dict, Optional
+from typing import Any, Optional
 from decimal import Decimal
 
 
 class ReconciliationRequest(BaseModel):
     """Request model for trade reconciliation API."""
 
-    traderTrades: List[Dict[str, Any]] = Field(
+    traderTrades: list[dict[str, Any]] = Field(
         ..., description="List of trader trade records", min_length=1
     )
-    exchangeTrades: List[Dict[str, Any]] = Field(
+    exchangeTrades: list[dict[str, Any]] = Field(
         ..., description="List of exchange trade records", min_length=1
     )
 
     @field_validator("traderTrades", "exchangeTrades")
     @classmethod
-    def validate_trades_not_empty(cls, v):
+    def validate_trades_not_empty(cls, v: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Ensure trade arrays are not empty."""
         if not v:
             raise ValueError("Trade arrays cannot be empty")
@@ -72,22 +72,22 @@ class ErrorResponse(BaseModel):
 class Rule0Request(BaseModel):
     """Request model for Rule 0 position analysis API."""
 
-    traderTrades: List[Dict[str, Any]] = Field(
+    traderTrades: list[dict[str, Any]] = Field(
         ..., description="List of trader trade records"
     )
-    exchangeTrades: List[Dict[str, Any]] = Field(
+    exchangeTrades: list[dict[str, Any]] = Field(
         ..., description="List of exchange trade records"
     )
-    exchangeGroups: Optional[Dict[str, str]] = Field(
+    exchangeGroups: Optional[dict[str, str]] = Field(
         default=None, description="Mapping of exchange group IDs to names"
     )
-    brokerGroups: Optional[Dict[str, str]] = Field(
+    brokerGroups: Optional[dict[str, str]] = Field(
         default=None, description="Mapping of broker group IDs to names"
     )
 
     @field_validator("traderTrades", "exchangeTrades")
     @classmethod
-    def validate_trades(cls, v):
+    def validate_trades(cls, v: Optional[list[dict[str, Any]]]) -> list[dict[str, Any]]:
         """Ensure trade arrays exist (can be empty for Rule 0)."""
         if v is None:
             return []
@@ -125,14 +125,14 @@ class PositionSummary(BaseModel):
 class ProductResult(BaseModel):
     """Result for a single product."""
 
-    positionSummary: List[PositionSummary]
-    tradeDetails: List[TradeDetail]
+    positionSummary: list[PositionSummary]
+    tradeDetails: list[TradeDetail]
 
 
 class ExchangeResult(BaseModel):
     """Result for a single exchange group."""
 
-    products: Dict[str, ProductResult]
+    products: dict[str, ProductResult]
 
 
 class Rule0Response(BaseModel):
@@ -140,7 +140,7 @@ class Rule0Response(BaseModel):
 
     # Exchange group ID to results mapping
     # e.g., {"1": {...}, "4": {...}}
-    root: Dict[str, ExchangeResult] = Field(
+    root: dict[str, ExchangeResult] = Field(
         ..., description="Position analysis results by exchange group ID"
     )
 

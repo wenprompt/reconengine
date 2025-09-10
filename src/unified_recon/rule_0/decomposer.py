@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Optional, Dict, Any
+from typing import Optional, Any
 
 
 @dataclass
@@ -18,11 +18,11 @@ class DecomposedProduct:
 class UnifiedDecomposer:
     """Generic decomposer that uses exchange-specific patterns from config."""
 
-    def __init__(self, decomposition_patterns: Optional[Dict[str, Any]] = None):
+    def __init__(self, decomposition_patterns: Optional[dict[str, Any]] = None):
         """Initialize with exchange-specific decomposition patterns.
 
         Args:
-            decomposition_patterns: Dict with "crack" and/or "spread" patterns
+            decomposition_patterns: dict with "crack" and/or "spread" patterns
         """
         self.patterns = decomposition_patterns or {}
         self.crack_pattern: Optional[str] = self.patterns.get(
@@ -34,7 +34,7 @@ class UnifiedDecomposer:
 
     def decompose(
         self, product_name: str, quantity: Decimal, buy_sell: str
-    ) -> List[DecomposedProduct]:
+    ) -> list[DecomposedProduct]:
         """Decompose a product based on configured patterns.
 
         Args:
@@ -66,7 +66,7 @@ class UnifiedDecomposer:
 
     def _decompose_crack(
         self, product_name: str, quantity: Decimal
-    ) -> List[DecomposedProduct]:
+    ) -> list[DecomposedProduct]:
         """Decompose a crack product into base and synthetic components.
 
         Args:
@@ -96,7 +96,7 @@ class UnifiedDecomposer:
 
     def _decompose_spread(
         self, product_name: str, quantity: Decimal
-    ) -> List[DecomposedProduct]:
+    ) -> list[DecomposedProduct]:
         """Decompose a spread product into two components.
 
         Args:

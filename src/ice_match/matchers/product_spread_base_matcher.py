@@ -1,6 +1,6 @@
 """Product spread mixin with shared utility methods."""
 
-from typing import Optional, Tuple
+from typing import Optional
 from decimal import Decimal
 from ..models import Trade
 
@@ -8,7 +8,7 @@ from ..models import Trade
 class ProductSpreadMixin:
     """Mixin for product spread matchers providing shared utility methods."""
 
-    def _parse_hyphenated_product(self, product_name: str) -> Optional[Tuple[str, str]]:
+    def _parse_hyphenated_product(self, product_name: str) -> Optional[tuple[str, str]]:
         """Parse hyphenated product into component products.
 
         Args:

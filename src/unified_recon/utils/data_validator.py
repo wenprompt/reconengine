@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class DataValidationError(Exception):
 class DataValidator:
     """Validates CSV data for unified reconciliation processing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize validator."""
         pass
 
@@ -80,7 +80,7 @@ class DataValidator:
 
     def validate_exchange_groups(
         self, df: pd.DataFrame, file_path: Path
-    ) -> Tuple[List[int], Dict[int, int]]:
+    ) -> tuple[list[int], dict[int, int]]:
         """Validate and analyze exchange groups in data.
 
         Args:
@@ -118,7 +118,7 @@ class DataValidator:
         return sorted(unique_groups), group_counts
 
     def validate_data_consistency(
-        self, trader_groups: List[int], exchange_groups: List[int]
+        self, trader_groups: list[int], exchange_groups: list[int]
     ) -> bool:
         """Validate that trader and exchange data have consistent exchange groups.
 
@@ -161,7 +161,7 @@ class DataValidator:
 
     def validate_group_data_quality(
         self, df: pd.DataFrame, group_id: int, data_type: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validate data quality for a specific exchange group.
 
         Args:
@@ -170,7 +170,7 @@ class DataValidator:
             data_type: Type of data ('exchange' or 'trader')
 
         Returns:
-            Dict with validation results and statistics
+            dict with validation results and statistics
         """
         group_data = df[df["exchangegroupid"] == group_id]
 

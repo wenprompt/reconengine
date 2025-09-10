@@ -1,6 +1,6 @@
 """Display module for EEX trade matching results with rich terminal output."""
 
-from typing import List, Dict, Any
+from typing import Any, Union
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -12,7 +12,7 @@ from ..models import EEXTrade, EEXMatchResult, EEXMatchType
 class EEXDisplay:
     """Handles all display output for EEX trade matching system."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize display with Rich console."""
         self.console = Console()
 
@@ -56,7 +56,7 @@ class EEXDisplay:
         self.console.print()
 
     def show_match_results(
-        self, matches: List[EEXMatchResult], statistics: Dict[str, Any]
+        self, matches: list[EEXMatchResult], statistics: dict[str, Any]
     ) -> None:
         """Display match results and statistics.
 
@@ -88,7 +88,7 @@ class EEXDisplay:
         if matches:
             self._show_detailed_matches(matches)
 
-    def _show_detailed_matches(self, matches: List[EEXMatchResult]) -> None:
+    def _show_detailed_matches(self, matches: list[EEXMatchResult]) -> None:
         """Show detailed match information in a table.
 
         Args:
@@ -134,7 +134,7 @@ class EEXDisplay:
             self.console.print()
 
     def show_unmatched_trades(
-        self, unmatched_trader: List[EEXTrade], unmatched_exchange: List[EEXTrade]
+        self, unmatched_trader: list[EEXTrade], unmatched_exchange: list[EEXTrade]
     ) -> None:
         """Display unmatched trades.
 
@@ -148,7 +148,7 @@ class EEXDisplay:
         if unmatched_exchange:
             self._show_unmatched_exchange_table(unmatched_exchange)
 
-    def _show_unmatched_trader_table(self, trades: List[EEXTrade]) -> None:
+    def _show_unmatched_trader_table(self, trades: list[EEXTrade]) -> None:
         """Display unmatched trader trades in a table.
 
         Args:
@@ -194,7 +194,7 @@ class EEXDisplay:
 
         self.console.print()
 
-    def _show_unmatched_exchange_table(self, trades: List[EEXTrade]) -> None:
+    def _show_unmatched_exchange_table(self, trades: list[EEXTrade]) -> None:
         """Display unmatched exchange trades in a table.
 
         Args:
@@ -251,17 +251,26 @@ class EEXDisplay:
         )
         self.console.print(error_panel)
 
-    def show_rule_info(self, rule_info: Dict) -> None:
+    def show_rule_info(
+        self, rule_info: dict[str, Union[str, int, float, list[str]]]
+    ) -> None:
         """Display information about a matching rule.
 
         Args:
             rule_info: Dictionary with rule metadata
         """
+        # Handle matched_fields which could be a list or other type
+        matched_fields = rule_info.get("matched_fields", [])
+        if isinstance(matched_fields, list):
+            fields_str = ", ".join(str(f) for f in matched_fields)
+        else:
+            fields_str = str(matched_fields)
+
         rule_text = (
             f"📋 Rule {rule_info['rule_number']}: {rule_info['name']}\n"
             f"📝 {rule_info['description']}\n"
             f"🎯 Confidence: {rule_info['confidence']}%\n"
-            f"🔍 Matched Fields: {', '.join(rule_info['matched_fields'])}"
+            f"🔍 Matched Fields: {fields_str}"
         )
 
         if "notes" in rule_info:

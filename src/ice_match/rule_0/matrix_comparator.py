@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Optional, Any, Set
 
 from src.ice_match.rule_0.position_matrix import PositionMatrix
 
@@ -74,7 +74,7 @@ class MatrixComparator:
 
     def compare_matrices(
         self, trader_matrix: PositionMatrix, exchange_matrix: PositionMatrix
-    ) -> List[PositionComparison]:
+    ) -> list[PositionComparison]:
         """Compare two position matrices and identify discrepancies.
 
         Args:
@@ -87,7 +87,7 @@ class MatrixComparator:
         comparisons = []
 
         # Get all unique (contract_month, product) combinations
-        all_positions: Set[Tuple[str, str]] = set()
+        all_positions: Set[tuple[str, str]] = set()
         all_positions.update(trader_matrix.positions.keys())
         all_positions.update(exchange_matrix.positions.keys())
 
@@ -235,8 +235,8 @@ class MatrixComparator:
         return MatchStatus.QUANTITY_MISMATCH
 
     def get_summary_statistics(
-        self, comparisons: List[PositionComparison]
-    ) -> Dict[str, Any]:
+        self, comparisons: list[PositionComparison]
+    ) -> dict[str, Any]:
         """Generate summary statistics from comparisons.
 
         Args:
@@ -279,8 +279,8 @@ class MatrixComparator:
         return stats
 
     def get_discrepancies_by_month(
-        self, comparisons: List[PositionComparison]
-    ) -> Dict[str, List[PositionComparison]]:
+        self, comparisons: list[PositionComparison]
+    ) -> dict[str, list[PositionComparison]]:
         """Group discrepancies by contract month.
 
         Args:
@@ -289,7 +289,7 @@ class MatrixComparator:
         Returns:
             Dictionary mapping contract months to their discrepancies
         """
-        discrepancies: Dict[str, List[PositionComparison]] = {}
+        discrepancies: dict[str, list[PositionComparison]] = {}
 
         for comp in comparisons:
             if comp.has_discrepancy:
@@ -300,8 +300,8 @@ class MatrixComparator:
         return discrepancies
 
     def get_discrepancies_by_product(
-        self, comparisons: List[PositionComparison]
-    ) -> Dict[str, List[PositionComparison]]:
+        self, comparisons: list[PositionComparison]
+    ) -> dict[str, list[PositionComparison]]:
         """Group discrepancies by product.
 
         Args:
@@ -310,7 +310,7 @@ class MatrixComparator:
         Returns:
             Dictionary mapping products to their discrepancies
         """
-        discrepancies: Dict[str, List[PositionComparison]] = {}
+        discrepancies: dict[str, list[PositionComparison]] = {}
 
         for comp in comparisons:
             if comp.has_discrepancy:

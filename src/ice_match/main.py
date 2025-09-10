@@ -1,10 +1,11 @@
 """Main application entry point for ice trade matching system."""
 
 import logging
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Protocol
+from typing import Optional, Any, Protocol, Union
 from decimal import Decimal
 import pandas as pd
 
@@ -38,7 +39,7 @@ from .utils.dataframe_output import (
 class MatcherProtocol(Protocol):
     """Protocol for matcher classes with a find_matches method."""
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]: ...
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]: ...
 
 
 # Default file paths and constants - package-relative
@@ -111,7 +112,7 @@ class ICEMatchingEngine:
         self,
         trader_csv_path: Path,
         exchange_csv_path: Path,
-    ) -> List[MatchResult]:
+    ) -> list[MatchResult]:
         """Run the complete matching process.
 
         Args:
@@ -315,7 +316,9 @@ class ICEMatchingEngine:
             self.displayer.show_error(f"{e!s}")
             raise
 
-    def get_match_summary(self, matches: List[MatchResult]) -> dict:
+    def get_match_summary(
+        self, matches: list[MatchResult]
+    ) -> dict[str, Union[int, float, dict[str, int]]]:
         """Get summary statistics for matches.
 
         Args:
@@ -348,7 +351,7 @@ class ICEMatchingEngine:
 
     def run_matching_from_dataframes(
         self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-    ) -> tuple[List[MatchResult], Dict[str, Any]]:
+    ) -> tuple[list[MatchResult], dict[str, Any]]:
         """Run ICE matching process directly from DataFrames without CSV files.
 
         Args:
@@ -388,7 +391,7 @@ class ICEMatchingEngine:
             processing_order = self.config_manager.get_processing_order()
 
             # Create matcher instances based on config
-            matchers: Dict[int, MatcherProtocol] = {
+            matchers: dict[int, MatcherProtocol] = {
                 1: ExactMatcher(self.config_manager),
                 2: SpreadMatcher(self.config_manager, self.normalizer),
                 3: CrackMatcher(self.config_manager, self.normalizer),
@@ -430,7 +433,7 @@ class ICEMatchingEngine:
             )
 
             # Get rule breakdown
-            rule_breakdown: Dict[int, int] = {}
+            rule_breakdown: dict[int, int] = {}
             for match in all_matches:
                 rule_num = match.rule_order
                 rule_breakdown[rule_num] = rule_breakdown.get(rule_num, 0) + 1
@@ -465,7 +468,7 @@ class ICEMatchingEngine:
             raise RuntimeError(f"ICE matching failed: {e}") from e
 
 
-def main():
+def main() -> int:
     """Main entry point for command line execution."""
     import argparse
 
@@ -618,4 +621,4 @@ Examples:
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

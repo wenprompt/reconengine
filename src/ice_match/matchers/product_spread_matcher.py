@@ -2,11 +2,11 @@
 
 import logging
 from decimal import Decimal
-from typing import List, Tuple, Dict, Optional, Any
+from typing import Optional, Any
 from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import Trade, MatchResult, MatchType
+from ..models import Trade, MatchResult, MatchType, SignatureValue
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
@@ -52,7 +52,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             f"Initialized ProductSpreadMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find product spread matches between trader and exchange data.
 
         Args:
@@ -63,7 +63,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         """
         logger.info("Starting product spread matching (Rule 5)")
 
-        matches: List[MatchResult] = []
+        matches: list[MatchResult] = []
         trader_trades = pool_manager.get_unmatched_trader_trades()
         exchange_trades = pool_manager.get_unmatched_exchange_trades()
 
@@ -86,10 +86,10 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
 
     def _find_hyphenated_exchange_matches(
         self,
-        trader_trades: List[Trade],
-        exchange_trades: List[Trade],
+        trader_trades: list[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
-    ) -> List[MatchResult]:
+    ) -> list[MatchResult]:
         """Find matches where exchange has hyphenated products and trader has 2-leg trades.
 
         Args:
@@ -100,7 +100,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         Returns:
             List of matches found for hyphenated exchange products
         """
-        matches: List[MatchResult] = []
+        matches: list[MatchResult] = []
 
         # Filter exchange trades to only hyphenated products
         hyphenated_trades = [
@@ -151,10 +151,10 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
 
     def _find_two_leg_exchange_matches(
         self,
-        trader_trades: List[Trade],
-        exchange_trades: List[Trade],
+        trader_trades: list[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
-    ) -> List[MatchResult]:
+    ) -> list[MatchResult]:
         """Find matches where both trader and exchange have 2-leg spread trades.
 
         Args:
@@ -165,7 +165,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         Returns:
             List of matches found for 2-leg exchange spreads
         """
-        matches: List[MatchResult] = []
+        matches: list[MatchResult] = []
 
         # Group trader trades into 2-leg spread pairs
         trader_spread_pairs = self._group_trader_spreads(trader_trades, pool_manager)
@@ -213,8 +213,8 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         return matches
 
     def _create_trader_index(
-        self, trader_trades: List[Trade]
-    ) -> Dict[Tuple[Any, ...], List[Trade]]:
+        self, trader_trades: list[Trade]
+    ) -> dict[tuple[Any, ...], list[Trade]]:
         """Create index of trader trades by matching signature.
 
         Args:
@@ -223,7 +223,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         Returns:
             Dictionary mapping signatures to trader trades
         """
-        index: Dict[Tuple[Any, ...], List[Trade]] = defaultdict(list)
+        index: dict[tuple[Any, ...], list[Trade]] = defaultdict(list)
 
         for trade in trader_trades:
             # Index by contract month, quantity, and universal fields
@@ -234,8 +234,8 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         return index
 
     def _group_trader_spreads(
-        self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[Tuple[Trade, Trade]]:
+        self, trader_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[tuple[Trade, Trade]]:
         """Group trader trades into 2-leg spread pairs.
 
         Args:
@@ -278,8 +278,8 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         return spread_pairs
 
     def _group_exchange_spreads(
-        self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[Tuple[Trade, Trade]]:
+        self, exchange_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[tuple[Trade, Trade]]:
         """Group exchange trades into 2-leg spread pairs.
 
         Args:
@@ -332,23 +332,23 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
         logger.debug(f"Found {len(spread_pairs)} exchange spread pairs")
         return spread_pairs
 
-    def _create_trader_signature(self, trade: Trade) -> Tuple[Any, ...]:
+    def _create_trader_signature(self, trade: Trade) -> tuple[Any, ...]:
         """Create signature for trader trade grouping."""
         return self._create_base_signature(trade)
 
-    def _create_exchange_signature(self, trade: Trade) -> Tuple[Any, ...]:
+    def _create_exchange_signature(self, trade: Trade) -> tuple[Any, ...]:
         """Create signature for exchange trade grouping."""
         return self._create_base_signature(trade)
 
-    def _create_base_signature(self, trade: Trade) -> Tuple[Any, ...]:
+    def _create_base_signature(self, trade: Trade) -> tuple[SignatureValue, ...]:
         """Create base signature for trade grouping (shared between trader and exchange)."""
-        rule_fields = [trade.contract_month, trade.quantity_mt]
+        rule_fields: list[SignatureValue] = [trade.contract_month, trade.quantity_mt]
         return self.create_universal_signature(trade, rule_fields)
 
     def _find_product_spread_match(
         self,
         exchange_trade: Trade,
-        trader_index: Dict[Tuple[Any, ...], List[Trade]],
+        trader_index: dict[tuple[SignatureValue, ...], list[Trade]],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find product spread match for an exchange trade.
@@ -437,8 +437,8 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
 
     def _find_two_leg_spread_match(
         self,
-        trader_pair: Tuple[Trade, Trade],
-        exchange_pair: Tuple[Trade, Trade],
+        trader_pair: tuple[Trade, Trade],
+        exchange_pair: tuple[Trade, Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find match between trader 2-leg spread and exchange 2-leg spread.
@@ -481,9 +481,9 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
 
     def _validate_two_leg_spread_match(
         self,
-        trader_pair: Tuple[Trade, Trade],
-        exchange_pair: Tuple[Trade, Trade],
-        exchange_order: Tuple[Trade, Trade],
+        trader_pair: tuple[Trade, Trade],
+        exchange_pair: tuple[Trade, Trade],
+        exchange_order: tuple[Trade, Trade],
     ) -> bool:
         """Validate that trader and exchange 2-leg spreads can match.
 
@@ -559,9 +559,9 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
 
     def _create_two_leg_match_result(
         self,
-        trader_pair: Tuple[Trade, Trade],
-        exchange_pair: Tuple[Trade, Trade],
-        exchange_order: Tuple[Trade, Trade],
+        trader_pair: tuple[Trade, Trade],
+        exchange_pair: tuple[Trade, Trade],
+        exchange_order: tuple[Trade, Trade],
     ) -> MatchResult:
         """Create MatchResult for 2-leg spread match.
 
@@ -765,7 +765,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             rule_order=self.rule_number,
         )
 
-    def get_rule_info(self) -> Dict[str, Any]:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule.
 
         Returns:

@@ -5,7 +5,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 import pandas as pd
 
 from .core.group_router import UnifiedTradeRouter
@@ -19,10 +19,10 @@ from .utils.dataframe_output import (
 )
 
 # Import all matching engines at the top
-from ..ice_match.main import ICEMatchingEngine
-from ..sgx_match.main import SGXMatchingEngine
-from ..cme_match.main import CMEMatchingEngine
-from ..eex_match.main import EEXMatchingEngine
+from src.ice_match.main import ICEMatchingEngine
+from src.sgx_match.main import SGXMatchingEngine
+from src.cme_match.main import CMEMatchingEngine
+from src.eex_match.main import EEXMatchingEngine
 
 # Constants
 DEFAULT_TRADER_CSV = "sourceTraders.csv"
@@ -55,7 +55,7 @@ def setup_logging(log_level: str = "NONE") -> None:
 
 def call_ice_match_system(
     trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Call ICE match system with filtered data.
 
     Args:
@@ -63,7 +63,7 @@ def call_ice_match_system(
         exchange_df: Filtered exchange DataFrame for group 1
 
     Returns:
-        Dict with ICE match results and statistics
+        dict with ICE match results and statistics
     """
     # Call ICE match system
     try:
@@ -100,7 +100,7 @@ def call_ice_match_system(
 
 def call_sgx_match_system(
     trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Call SGX match system with filtered data.
 
     Args:
@@ -108,7 +108,7 @@ def call_sgx_match_system(
         exchange_df: Filtered exchange DataFrame for group 2
 
     Returns:
-        Dict with SGX match results and statistics
+        dict with SGX match results and statistics
     """
     # Call SGX match system
     try:
@@ -168,7 +168,7 @@ def call_sgx_match_system(
 
 def call_cme_match_system(
     trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Call CME match system with filtered data.
 
     Args:
@@ -176,7 +176,7 @@ def call_cme_match_system(
         exchange_df: Filtered exchange DataFrame for group 3
 
     Returns:
-        Dict with CME match results and statistics
+        dict with CME match results and statistics
     """
     # Call CME match system
     try:
@@ -236,7 +236,7 @@ def call_cme_match_system(
 
 def call_eex_match_system(
     trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Call EEX match system with filtered data.
 
     Args:
@@ -244,7 +244,7 @@ def call_eex_match_system(
         exchange_df: Filtered exchange DataFrame for group 5
 
     Returns:
-        Dict with EEX match results and statistics
+        dict with EEX match results and statistics
     """
     # Call EEX match system
     try:

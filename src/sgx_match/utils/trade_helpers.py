@@ -1,11 +1,11 @@
 """Helper utilities for SGX trade processing."""
 
-from typing import Optional, Tuple
+from typing import Optional
 import re
 from decimal import Decimal
 
 
-def get_month_order_tuple(contract_month: str) -> Optional[Tuple[int, int]]:
+def get_month_order_tuple(contract_month: str) -> Optional[tuple[int, int]]:
     """Convert contract month to sortable tuple (year, month_number).
 
     Args:

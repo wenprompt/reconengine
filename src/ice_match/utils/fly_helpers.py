@@ -1,39 +1,38 @@
 """Helper functions for fly pattern matching optimization."""
 
-from typing import List, Dict, Tuple
 from decimal import Decimal
 from collections import defaultdict
 
 from ..models import Trade
 
 
-def group_trades_by_month(trades: List[Trade]) -> Dict[str, List[Trade]]:
+def group_trades_by_month(trades: list[Trade]) -> dict[str, list[Trade]]:
     """Group trades by contract month for efficient fly pattern analysis.
 
     Args:
         trades: List of trades to group
 
     Returns:
-        Dict mapping contract months to lists of trades
+        dict mapping contract months to lists of trades
     """
-    groups: Dict[str, List[Trade]] = defaultdict(list)
+    groups: dict[str, list[Trade]] = defaultdict(list)
     for trade in trades:
         groups[trade.contract_month].append(trade)
     return groups
 
 
 def build_month_quantity_lookups(
-    month_groups: Dict[str, List[Trade]],
-) -> Dict[str, Dict[Decimal, List[Trade]]]:
+    month_groups: dict[str, list[Trade]],
+) -> dict[str, dict[Decimal, list[Trade]]]:
     """Build quantity-based lookup indexes for O(1) middle leg searches.
 
     Args:
         month_groups: Trades grouped by contract month
 
     Returns:
-        Dict mapping month -> quantity -> list of trades with that quantity
+        dict mapping month -> quantity -> list of trades with that quantity
     """
-    lookups: Dict[str, Dict[Decimal, List[Trade]]] = {
+    lookups: dict[str, dict[Decimal, list[Trade]]] = {
         month: defaultdict(list) for month in month_groups
     }
 
@@ -44,7 +43,7 @@ def build_month_quantity_lookups(
     return lookups
 
 
-def generate_month_triplets(sorted_months: List[str]) -> List[Tuple[str, str, str]]:
+def generate_month_triplets(sorted_months: list[str]) -> list[tuple[str, str, str]]:
     """Generate all valid month triplets (i < j < k) for fly pattern matching.
 
     Args:
@@ -67,9 +66,9 @@ def find_fly_candidates_for_triplet(
     month1: str,
     month2: str,
     month3: str,
-    month_groups: Dict[str, List[Trade]],
-    month_qty_lookups: Dict[str, Dict[Decimal, List[Trade]]],
-) -> List[List[Trade]]:
+    month_groups: dict[str, list[Trade]],
+    month_qty_lookups: dict[str, dict[Decimal, list[Trade]]],
+) -> list[list[Trade]]:
     """Find fly candidates for a specific month triplet using optimized lookups.
 
     Args:

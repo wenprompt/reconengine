@@ -1,7 +1,7 @@
 """Rich CLI display for ice trade matching results."""
 
 from decimal import Decimal
-from typing import List, Dict, Optional
+from typing import Optional
 
 from rich.console import Console
 from rich.table import Table
@@ -83,14 +83,14 @@ class MatchDisplayer:
         else:
             return f"[red]{rate_str}[/red]"
 
-    def show_header(self):
+    def show_header(self) -> None:
         """Display application header."""
         header_text = Text("🔋 ICE Trade Matching System", style="bold blue")
         header_panel = Panel(Align.center(header_text), box=box.DOUBLE, style="blue")
         self.console.print(header_panel)
         self.console.print()
 
-    def show_configuration(self):
+    def show_configuration(self) -> None:
         """Display current configuration summary."""
         config_summary = self.config_manager.get_summary()
 
@@ -106,7 +106,7 @@ class MatchDisplayer:
         self.console.print(config_table)
         self.console.print()
 
-    def show_data_summary(self, trader_count: int, exchange_count: int):
+    def show_data_summary(self, trader_count: int, exchange_count: int) -> None:
         """Display data loading summary.
 
         Args:
@@ -126,7 +126,7 @@ class MatchDisplayer:
         self.console.print(data_table)
         self.console.print()
 
-    def show_matches_by_type(self, matches: List[MatchResult]):
+    def show_matches_by_type(self, matches: list[MatchResult]) -> None:
         """Display matches grouped by matching type.
 
         Args:
@@ -137,7 +137,7 @@ class MatchDisplayer:
             return
 
         # Group matches by type
-        matches_by_type: Dict[str, List[MatchResult]] = {}
+        matches_by_type: dict[str, list[MatchResult]] = {}
         for match in matches:
             match_type = match.match_type.value
             if match_type not in matches_by_type:
@@ -148,7 +148,9 @@ class MatchDisplayer:
         for match_type, type_matches in matches_by_type.items():
             self._show_match_type_section(match_type, type_matches)
 
-    def _show_match_type_section(self, match_type: str, matches: List[MatchResult]):
+    def _show_match_type_section(
+        self, match_type: str, matches: list[MatchResult]
+    ) -> None:
         """Display matches for a specific match type.
 
         Args:
@@ -228,7 +230,7 @@ class MatchDisplayer:
         self.console.print(match_table)
         self.console.print()
 
-    def show_unmatched_summary(self, pool_manager: UnmatchedPoolManager):
+    def show_unmatched_summary(self, pool_manager: UnmatchedPoolManager) -> None:
         """Display summary of unmatched trades.
 
         Args:
@@ -280,7 +282,7 @@ class MatchDisplayer:
 
     def show_detailed_unmatched(
         self, pool_manager: UnmatchedPoolManager, limit: Optional[int] = None
-    ):
+    ) -> None:
         """Display detailed unmatched trades.
 
         Args:
@@ -304,7 +306,7 @@ class MatchDisplayer:
             )
             self._show_unmatched_trades("Exchange", trades_to_show)
 
-    def _show_unmatched_trades(self, source: str, trades: List[Trade]):
+    def _show_unmatched_trades(self, source: str, trades: list[Trade]) -> None:
         """Display unmatched trades for a specific source.
 
         Args:
@@ -342,8 +344,8 @@ class MatchDisplayer:
         self.console.print()
 
     def show_statistics(
-        self, pool_manager: UnmatchedPoolManager, matches: List[MatchResult]
-    ):
+        self, pool_manager: UnmatchedPoolManager, matches: list[MatchResult]
+    ) -> None:
         """Display comprehensive matching statistics.
 
         Args:
@@ -403,7 +405,7 @@ class MatchDisplayer:
 
         self.console.print()
 
-    def show_processing_complete(self, processing_time: float):
+    def show_processing_complete(self, processing_time: float) -> None:
         """Display processing completion message.
 
         Args:
@@ -418,7 +420,7 @@ class MatchDisplayer:
         )
         self.console.print(completion_panel)
 
-    def show_error(self, error_message: str):
+    def show_error(self, error_message: str) -> None:
         """Display error message.
 
         Args:
@@ -428,7 +430,7 @@ class MatchDisplayer:
         error_panel = Panel(error_text, box=box.ROUNDED, style="red", title="Error")
         self.console.print(error_panel)
 
-    def create_progress_context(self, description: str):
+    def create_progress_context(self, description: str) -> Progress:
         """Create a progress context for long-running operations.
 
         Args:

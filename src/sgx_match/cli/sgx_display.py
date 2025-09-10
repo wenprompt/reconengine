@@ -1,6 +1,6 @@
 """Display utilities for SGX trade matching results."""
 
-from typing import List, Dict, Any
+from typing import Any
 from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
@@ -16,7 +16,7 @@ MAX_UNMATCHED_DISPLAY = 100  # Maximum unmatched trades to show
 class SGXDisplay:
     """Rich console display for SGX matching results."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize display with Rich console."""
         self.console = Console()
 
@@ -38,7 +38,7 @@ class SGXDisplay:
         self.console.print(summary)
 
     def show_match_results(
-        self, matches: List[SGXMatchResult], statistics: Dict[str, Any]
+        self, matches: list[SGXMatchResult], statistics: dict[str, Any]
     ) -> None:
         """Display matching results with statistics.
 
@@ -55,7 +55,7 @@ class SGXDisplay:
         else:
             self.console.print("\n[yellow]No matches found.[/yellow]")
 
-    def _show_statistics(self, stats: Dict[str, Any]) -> None:
+    def _show_statistics(self, stats: dict[str, Any]) -> None:
         """Show matching statistics."""
         table = Table(title="Matching Statistics", box=box.ROUNDED)
         table.add_column("Metric", style="cyan")
@@ -100,7 +100,7 @@ class SGXDisplay:
         self.console.print("\n")
         self.console.print(table)
 
-    def _show_detailed_matches(self, matches: List[SGXMatchResult]) -> None:
+    def _show_detailed_matches(self, matches: list[SGXMatchResult]) -> None:
         """Show detailed match results, separating single-leg and multi-leg matches."""
         if not matches:
             return
@@ -131,7 +131,7 @@ class SGXDisplay:
         if product_spread_matches:
             self._show_product_spread_matches(product_spread_matches)
 
-    def _show_single_leg_matches(self, matches: List[SGXMatchResult]) -> None:
+    def _show_single_leg_matches(self, matches: list[SGXMatchResult]) -> None:
         """Show single-leg match results."""
         table = Table(title=f"Detailed Matches ({len(matches)} found)", box=box.ROUNDED)
         table.add_column("Match ID", style="cyan")
@@ -164,7 +164,7 @@ class SGXDisplay:
         self.console.print("\n")
         self.console.print(table)
 
-    def _show_spread_matches(self, matches: List[SGXMatchResult]) -> None:
+    def _show_spread_matches(self, matches: list[SGXMatchResult]) -> None:
         """Show multi-leg match results (spreads)."""
         # Import here to avoid circular imports
         from ..utils.trade_helpers import get_month_order_tuple
@@ -191,7 +191,7 @@ class SGXDisplay:
 
             # Sort trades chronologically by contract month for consistent display
             # Handle None return values by providing a fallback sort key
-            def sort_key(trade):
+            def sort_key(trade: SGXTrade) -> tuple[int, int]:
                 order_tuple = get_month_order_tuple(trade.contract_month)
                 return (
                     order_tuple if order_tuple is not None else (9999, 99)
@@ -239,7 +239,7 @@ class SGXDisplay:
         self.console.print("\n")
         self.console.print(table)
 
-    def _show_product_spread_matches(self, matches: List[SGXMatchResult]) -> None:
+    def _show_product_spread_matches(self, matches: list[SGXMatchResult]) -> None:
         """Show product spread match results."""
         # Import here to avoid circular imports
 
@@ -312,7 +312,7 @@ class SGXDisplay:
         self.console.print(table)
 
     def show_unmatched_trades(
-        self, trader_trades: List[SGXTrade], exchange_trades: List[SGXTrade]
+        self, trader_trades: list[SGXTrade], exchange_trades: list[SGXTrade]
     ) -> None:
         """Show unmatched trades.
 
@@ -326,7 +326,7 @@ class SGXDisplay:
         if exchange_trades:
             self._show_unmatched_exchange_table(exchange_trades)
 
-    def _show_unmatched_trader_table(self, trades: List[SGXTrade]) -> None:
+    def _show_unmatched_trader_table(self, trades: list[SGXTrade]) -> None:
         """Show unmatched trader trades table."""
         min(len(trades), MAX_UNMATCHED_DISPLAY)
         title = f"Unmatched Trader Trades ({len(trades)})"
@@ -357,7 +357,7 @@ class SGXDisplay:
         self.console.print("\n")
         self.console.print(table)
 
-    def _show_unmatched_exchange_table(self, trades: List[SGXTrade]) -> None:
+    def _show_unmatched_exchange_table(self, trades: list[SGXTrade]) -> None:
         """Show unmatched exchange trades table."""
         min(len(trades), MAX_UNMATCHED_DISPLAY)
         title = f"Unmatched Exchange Trades ({len(trades)})"
@@ -412,7 +412,7 @@ class SGXDisplay:
         """
         self.console.print(f"[bold yellow]Warning:[/bold yellow] {message}")
 
-    def show_rules_information(self, rules_info: List[Dict[str, Any]]) -> None:
+    def show_rules_information(self, rules_info: list[dict[str, Any]]) -> None:
         """Display detailed information about matching rules.
 
         Args:
@@ -448,7 +448,7 @@ class SGXDisplay:
         for rule in rules_info:
             self._show_rule_details(rule)
 
-    def _show_rule_details(self, rule: Dict[str, Any]) -> None:
+    def _show_rule_details(self, rule: dict[str, Any]) -> None:
         """Show detailed requirements for a single rule.
 
         Args:

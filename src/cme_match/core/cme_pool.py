@@ -1,6 +1,6 @@
 """Unmatched CME trade pool manager for ensuring non-duplication."""
 
-from typing import List, Set, Dict, Tuple, Any, TYPE_CHECKING
+from typing import Any, Set, TYPE_CHECKING
 import logging
 
 from ..models import CMETrade, CMETradeSource
@@ -18,7 +18,7 @@ class CMEUnmatchedPool:
     by ANY rule, it must be permanently removed from consideration.
     """
 
-    def __init__(self, trader_trades: List[CMETrade], exchange_trades: List[CMETrade]):
+    def __init__(self, trader_trades: list[CMETrade], exchange_trades: list[CMETrade]):
         """Initialize the CME pool manager with initial trade lists.
 
         Args:
@@ -30,10 +30,10 @@ class CMEUnmatchedPool:
         self._original_exchange_count = len(exchange_trades)
 
         # Active pools - trades still available for matching
-        self._trader_pool: Dict[str, CMETrade] = {
+        self._trader_pool: dict[str, CMETrade] = {
             trade.internal_trade_id: trade for trade in trader_trades
         }
-        self._exchange_pool: Dict[str, CMETrade] = {
+        self._exchange_pool: dict[str, CMETrade] = {
             trade.internal_trade_id: trade for trade in exchange_trades
         }
 
@@ -42,15 +42,15 @@ class CMEUnmatchedPool:
         self._matched_exchange_ids: Set[str] = set()
 
         # Match history for audit trail
-        self._match_history: List[
-            Tuple[str, str, str]
+        self._match_history: list[
+            tuple[str, str, str]
         ] = []  # (trader_id, exchange_id, rule_type)
 
         logger.info(
             f"Initialized CME pool with {len(trader_trades)} trader trades and {len(exchange_trades)} exchange trades"
         )
 
-    def get_unmatched_trades(self, source: CMETradeSource) -> List[CMETrade]:
+    def get_unmatched_trades(self, source: CMETradeSource) -> list[CMETrade]:
         """Get list of unmatched trades for a specific source.
 
         Args:
@@ -145,7 +145,7 @@ class CMEUnmatchedPool:
         )
         return True
 
-    def get_match_statistics(self) -> Dict[str, Any]:
+    def get_match_statistics(self) -> dict[str, Any]:
         """Get matching statistics.
 
         Returns:
@@ -175,7 +175,7 @@ class CMEUnmatchedPool:
             "match_history": self._match_history.copy(),
         }
 
-    def get_unmatched_trader_trades(self) -> List[CMETrade]:
+    def get_unmatched_trader_trades(self) -> list[CMETrade]:
         """Get all unmatched trader trades.
 
         Returns:
@@ -183,7 +183,7 @@ class CMEUnmatchedPool:
         """
         return list(self._trader_pool.values())
 
-    def get_unmatched_exchange_trades(self) -> List[CMETrade]:
+    def get_unmatched_exchange_trades(self) -> list[CMETrade]:
         """Get all unmatched exchange trades.
 
         Returns:
@@ -208,7 +208,7 @@ class CMEUnmatchedPool:
         return self._matched_exchange_ids.copy()
 
     def reset(
-        self, trader_trades: List[CMETrade], exchange_trades: List[CMETrade]
+        self, trader_trades: list[CMETrade], exchange_trades: list[CMETrade]
     ) -> None:
         """Reset the pool with new trade lists.
 

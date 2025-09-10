@@ -4,7 +4,7 @@ import argparse
 import asyncio
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 from ..core.group_router import UnifiedTradeRouter
 from ..core.result_aggregator import ResultAggregator
@@ -39,11 +39,11 @@ class BaseRule0Service:
         # Use relative path from current file location
         config_path = Path(__file__).parent.parent / "config" / "unified_config.json"
         self.router: UnifiedTradeRouter = UnifiedTradeRouter(config_path)
-        self.config: Dict[str, Any] = load_unified_config()
+        self.config: dict[str, Any] = load_unified_config()
 
     def _process_rule0_analysis(
-        self, request: Rule0Request, external_match_ids: Optional[Dict[str, str]] = None
-    ) -> Dict[str, Any]:
+        self, request: Rule0Request, external_match_ids: Optional[dict[str, str]] = None
+    ) -> dict[str, Any]:
         """
         Common Rule 0 processing logic.
 
@@ -140,14 +140,14 @@ class ReconciliationService:
 
     async def process_reconciliation(
         self, request: ReconciliationRequest
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Process reconciliation request asynchronously.
         Wraps synchronous processing to avoid blocking.
         """
         return await asyncio.to_thread(self._process_sync, request)
 
-    def _process_sync(self, request: ReconciliationRequest) -> List[Dict[str, Any]]:
+    def _process_sync(self, request: ReconciliationRequest) -> list[dict[str, Any]]:
         """
         Synchronous processing using existing infrastructure.
         Validation happens in the Trade Factories.
@@ -214,7 +214,7 @@ class ReconciliationService:
             records_data = df.to_dict(orient="records")
 
             # Cast to ensure proper typing (DataFrame columns are always strings)
-            typed_records: List[Dict[str, Any]] = records_data  # type: ignore[assignment]
+            typed_records: list[dict[str, Any]] = records_data  # type: ignore[assignment]
 
             logger.info(
                 f"Successfully processed reconciliation: {len(typed_records)} records"
@@ -226,8 +226,8 @@ class ReconciliationService:
             raise
 
     def _call_matching_system(
-        self, system_name: str, prepared_data: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        self, system_name: str, prepared_data: dict[str, Any]
+    ) -> Optional[dict[str, Any]]:
         """
         Call the appropriate matching system.
         Each system handles its own validation via Trade Factories.

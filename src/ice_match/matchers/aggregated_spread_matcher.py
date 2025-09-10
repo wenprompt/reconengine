@@ -2,11 +2,11 @@
 
 import logging
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
+from typing import Optional, Any
 from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import Trade, MatchResult, MatchType
+from ..models import Trade, MatchResult, MatchType, SignatureValue
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
 from ..core import UnmatchedPoolManager
@@ -41,7 +41,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             f"Initialized AggregatedSpreadMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find aggregated spread matches between trader and exchange data.
 
         Args:
@@ -90,8 +90,8 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         return matches
 
     def _find_trader_spread_pairs(
-        self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[Tuple[Trade, Trade]]:
+        self, trader_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[tuple[Trade, Trade]]:
         """Find trader spread patterns using enhanced Tier 3 logic.
 
         Args:
@@ -104,7 +104,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         spread_pairs = []
 
         # Use enhanced grouping logic similar to SpreadMatcher Tier 3
-        trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
+        trade_groups: dict[tuple[SignatureValue, ...], list[Trade]] = defaultdict(list)
 
         for trade in trader_trades:
             if pool_manager.is_trade_matched(trade):
@@ -201,8 +201,8 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
 
     def _find_aggregated_spread_match(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        exchange_trades: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find aggregated exchange trades that match the trader spread pair.
@@ -247,11 +247,11 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
 
     def _aggregate_exchange_trades_by_contract(
         self,
-        exchange_trades: List[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
         target_product: str,
         reference_trader_trade: Trade,
-    ) -> Dict[str, List[Tuple[List[Trade], Decimal, Decimal]]]:
+    ) -> dict[str, list[tuple[list[Trade], Decimal, Decimal]]]:
         """Aggregate exchange trades by contract month and characteristics.
 
         Args:
@@ -261,7 +261,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             reference_trader_trade: Reference trader trade for universal field validation
 
         Returns:
-            Dict mapping contract_month -> list of (trades_list, total_quantity, price)
+            dict mapping contract_month -> list of (trades_list, total_quantity, price)
         """
         # Group trades by aggregation characteristics
         aggregation_groups = defaultdict(list)
@@ -283,8 +283,8 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             aggregation_groups[group_key].append(trade)
 
         # Create aggregated positions per contract month
-        aggregated_by_contract: Dict[
-            str, List[Tuple[List[Trade], Decimal, Decimal]]
+        aggregated_by_contract: dict[
+            str, list[tuple[list[Trade], Decimal, Decimal]]
         ] = defaultdict(list)
 
         for (
@@ -311,9 +311,9 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
 
     def _validate_aggregated_spread_match(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        price_aggregation: Tuple[List[Trade], Decimal, Decimal],
-        zero_aggregation: Tuple[List[Trade], Decimal, Decimal],
+        trader_spread_pair: tuple[Trade, Trade],
+        price_aggregation: tuple[list[Trade], Decimal, Decimal],
+        zero_aggregation: tuple[list[Trade], Decimal, Decimal],
     ) -> bool:
         """Validate that aggregated exchange positions match trader spread pair.
 
@@ -370,9 +370,9 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
 
     def _create_aggregated_spread_match_result(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        price_aggregation: Tuple[List[Trade], Decimal, Decimal],
-        zero_aggregation: Tuple[List[Trade], Decimal, Decimal],
+        trader_spread_pair: tuple[Trade, Trade],
+        price_aggregation: tuple[list[Trade], Decimal, Decimal],
+        zero_aggregation: tuple[list[Trade], Decimal, Decimal],
     ) -> MatchResult:
         """Create match result for aggregated spread match.
 
@@ -425,7 +425,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             rule_order=self.rule_number,
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule.
 
         Returns:

@@ -1,10 +1,10 @@
 """Exact matching implementation for Rule 1."""
 
-from typing import List, Optional, Dict
+from typing import Optional, Any
 import logging
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import Trade, TradeSource, MatchResult, MatchType
+from ..models import Trade, TradeSource, MatchResult, MatchType, SignatureValue
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 from .base_matcher import BaseMatcher
@@ -38,7 +38,7 @@ class ExactMatcher(BaseMatcher):
 
         logger.info(f"Initialized ExactMatcher with {self.confidence}% confidence")
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find all exact matches between unmatched trader and exchange trades.
 
         Args:
@@ -79,7 +79,9 @@ class ExactMatcher(BaseMatcher):
         logger.info(f"Found {len(matches)} exact matches")
         return matches
 
-    def _create_exchange_index(self, exchange_trades: List[Trade]) -> dict:
+    def _create_exchange_index(
+        self, exchange_trades: list[Trade]
+    ) -> dict[tuple[SignatureValue, ...], list[Trade]]:
         """Create lookup index for exchange trades by matching signature.
 
         Args:
@@ -88,7 +90,7 @@ class ExactMatcher(BaseMatcher):
         Returns:
             Dictionary mapping matching signatures to exchange trades
         """
-        index: Dict[tuple, List[Trade]] = {}
+        index: dict[tuple[SignatureValue, ...], list[Trade]] = {}
 
         for exchange_trade in exchange_trades:
             # Create matching signature for exact comparison
@@ -101,7 +103,7 @@ class ExactMatcher(BaseMatcher):
         logger.debug(f"Created exchange index with {len(index)} unique signatures")
         return index
 
-    def _create_matching_signature(self, trade: Trade) -> tuple:
+    def _create_matching_signature(self, trade: Trade) -> tuple[SignatureValue, ...]:
         """Create matching signature for exact comparison.
 
         Args:
@@ -111,7 +113,7 @@ class ExactMatcher(BaseMatcher):
             Tuple representing the matching signature
         """
         # Rule 1 specific matching fields
-        rule_specific_fields = [
+        rule_specific_fields: list[SignatureValue] = [
             trade.product_name,
             trade.quantity_mt,  # Always in MT for comparison
             trade.price,
@@ -125,7 +127,7 @@ class ExactMatcher(BaseMatcher):
     def _find_exact_match(
         self,
         trader_trade: Trade,
-        exchange_index: dict,
+        exchange_index: dict[tuple[SignatureValue, ...], list[Trade]],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find exact match for a trader trade.
@@ -202,7 +204,7 @@ class ExactMatcher(BaseMatcher):
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
         # No differing fields for exact matches
-        differing_fields: List[str] = []
+        differing_fields: list[str] = []
 
         return MatchResult(
             match_id=match_id,
@@ -252,7 +254,7 @@ class ExactMatcher(BaseMatcher):
             logger.error(f"Error validating exact match: {e}")
             return False
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule.
 
         Returns:

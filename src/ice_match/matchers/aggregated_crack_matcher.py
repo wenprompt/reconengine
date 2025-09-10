@@ -2,7 +2,7 @@
 
 import logging
 from decimal import Decimal
-from typing import List, Tuple
+from typing import Any
 
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
@@ -46,7 +46,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
             f"Initialized AggregatedCrackMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find aggregated crack matches between trader and exchange data.
 
         Args:
@@ -130,12 +130,12 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
 
     def _find_crack_aggregations_with_conversion(
         self,
-        many_source: List[Trade],
-        one_source: List[Trade],
+        many_source: list[Trade],
+        one_source: list[Trade],
         pool_manager: UnmatchedPoolManager,
-        aggregation_fields: List[str],
+        aggregation_fields: list[str],
         reference_trade: Trade,
-    ) -> List[Tuple[List[Trade], Trade]]:
+    ) -> list[tuple[list[Trade], Trade]]:
         """Find crack aggregations with unit conversion validation.
 
         Modified version of base class method that uses unit conversion instead of exact quantity matching.
@@ -189,7 +189,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
 
     def _validate_crack_aggregation_with_conversion(
         self,
-        aggregated_trades: List[Trade],
+        aggregated_trades: list[Trade],
         single_trade: Trade,
         total_quantity_bbl: Decimal,
     ) -> bool:
@@ -234,7 +234,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         return True
 
     def _create_crack_match_result(
-        self, aggregated_trades: List[Trade], single_trade: Trade
+        self, aggregated_trades: list[Trade], single_trade: Trade
     ) -> MatchResult:
         """Create MatchResult for aggregated crack match using base class method."""
 
@@ -262,7 +262,7 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
             rule_order=self.rule_number,
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule.
 
         Returns:

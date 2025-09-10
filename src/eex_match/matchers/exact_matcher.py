@@ -1,6 +1,6 @@
 """Exact matching rule for EEX trades (Rule 1)."""
 
-from typing import List, Dict, Tuple
+from typing import Any
 from collections import defaultdict
 import logging
 
@@ -43,7 +43,7 @@ class ExactMatcher(BaseMatcher):
         self.confidence = config_manager.get_rule_confidence(1)
         logger.info(f"Initialized EEX ExactMatcher with {self.confidence}% confidence")
 
-    def find_matches(self, pool_manager: EEXUnmatchedPool) -> List[EEXMatchResult]:
+    def find_matches(self, pool_manager: EEXUnmatchedPool) -> list[EEXMatchResult]:
         """Find exact matches in the unmatched pool.
 
         Args:
@@ -113,8 +113,8 @@ class ExactMatcher(BaseMatcher):
         return matches
 
     def _build_exchange_lookup(
-        self, exchange_trades: List[EEXTrade]
-    ) -> Dict[Tuple, List[EEXTrade]]:
+        self, exchange_trades: list[EEXTrade]
+    ) -> dict[tuple[Any, ...], list[EEXTrade]]:
         """Build a lookup dictionary for exchange trades based on matching signature.
 
         Args:
@@ -129,7 +129,7 @@ class ExactMatcher(BaseMatcher):
             lookup[signature].append(trade)
         return dict(lookup)
 
-    def _create_matching_signature(self, trade: EEXTrade) -> Tuple:
+    def _create_matching_signature(self, trade: EEXTrade) -> tuple[Any, ...]:
         """Create a signature for exact matching.
 
         Args:
@@ -191,7 +191,7 @@ class ExactMatcher(BaseMatcher):
             matched_fields=matched_fields,
         )
 
-    def get_rule_info(self) -> Dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about the exact matching rule.
 
         Returns:

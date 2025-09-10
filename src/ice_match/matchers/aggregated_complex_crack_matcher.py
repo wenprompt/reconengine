@@ -2,7 +2,7 @@
 
 import logging
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
@@ -50,7 +50,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             f"Initialized AggregatedComplexCrackMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find aggregated complex crack matches between trader and exchange data.
 
         Uses the parent class structure but with aggregated matching logic.
@@ -96,7 +96,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
     def _find_aggregated_complex_crack_match(
         self,
         crack_trade: Trade,
-        exchange_trades: List[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find matching aggregated base products + brent swap combination for a crack trade.
@@ -149,7 +149,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
     def _find_aggregated_base_combination(
         self,
         crack_trade: Trade,
-        base_candidates: List[Trade],
+        base_candidates: list[Trade],
         brent_trade: Trade,
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
@@ -190,7 +190,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
     def _validate_aggregated_complex_crack_combination(
         self,
         crack_trade: Trade,
-        base_trades: List[Trade],
+        base_trades: list[Trade],
         total_base_quantity: Decimal,
         brent_trade: Trade,
     ) -> bool:
@@ -248,7 +248,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
         return True
 
     def _create_aggregated_crack_match_result(
-        self, crack_trade: Trade, base_trades: List[Trade], brent_trade: Trade
+        self, crack_trade: Trade, base_trades: list[Trade], brent_trade: Trade
     ) -> MatchResult:
         """Create MatchResult for aggregated complex crack match."""
 

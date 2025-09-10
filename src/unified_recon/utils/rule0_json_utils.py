@@ -1,13 +1,13 @@
 """JSON generation utilities for Rule 0."""
 
-from typing import Dict, Any, List, Set
+from typing import Any, Set
 from src.unified_recon.rule_0.position_matrix import PositionMatrix
 from src.unified_recon.rule_0.matrix_comparator import PositionComparison, MatchStatus
 
 
 def group_comparisons_by_product(
-    comparisons: List[PositionComparison],
-) -> Dict[str, List[PositionComparison]]:
+    comparisons: list[PositionComparison],
+) -> dict[str, list[PositionComparison]]:
     """Group position comparisons by product.
 
     Args:
@@ -16,7 +16,7 @@ def group_comparisons_by_product(
     Returns:
         Dictionary mapping product to list of comparisons
     """
-    by_product: Dict[str, List[PositionComparison]] = {}
+    by_product: dict[str, list[PositionComparison]] = {}
     for comp in comparisons:
         if comp.product not in by_product:
             by_product[comp.product] = []
@@ -90,7 +90,7 @@ def collect_contract_months(
 
 def get_trades_for_position(
     matrix: PositionMatrix, month: str, product: str
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get trades for a specific position.
 
     Args:
@@ -107,7 +107,7 @@ def get_trades_for_position(
     return []
 
 
-def create_product_data_structure() -> Dict[str, List[Any]]:
+def create_product_data_structure() -> dict[str, list[Any]]:
     """Create empty product data structure.
 
     Returns:
@@ -116,7 +116,7 @@ def create_product_data_structure() -> Dict[str, List[Any]]:
     return {"positionSummary": [], "tradeDetails": []}
 
 
-def has_product_data(product_data: Dict[str, List[Any]]) -> bool:
+def has_product_data(product_data: dict[str, list[Any]]) -> bool:
     """Check if product data has any content.
 
     Args:
@@ -128,7 +128,7 @@ def has_product_data(product_data: Dict[str, List[Any]]) -> bool:
     return bool(product_data["positionSummary"] or product_data["tradeDetails"])
 
 
-def get_exchange_groups_for_trades(trades: List[Dict[str, Any]]) -> Set[int]:
+def get_exchange_groups_for_trades(trades: list[dict[str, Any]]) -> Set[int]:
     """Extract unique exchange group IDs from trades.
 
     Args:
@@ -147,8 +147,8 @@ def get_exchange_groups_for_trades(trades: List[Dict[str, Any]]) -> Set[int]:
 
 
 def filter_trades_by_exchange_groups(
-    trades: List[Dict[str, Any]], exchange_groups: List[int]
-) -> List[Dict[str, Any]]:
+    trades: list[dict[str, Any]], exchange_groups: list[int]
+) -> list[dict[str, Any]]:
     """Filter trades by exchange group IDs.
 
     Args:
@@ -159,7 +159,7 @@ def filter_trades_by_exchange_groups(
         Filtered list of trades
     """
 
-    def get_exchange_group(trade: Dict[str, Any]) -> int:
+    def get_exchange_group(trade: dict[str, Any]) -> int:
         group = trade.get("exchangeGroupId", trade.get("exchangegroupid", 0))
         return int(group) if group else 0
 

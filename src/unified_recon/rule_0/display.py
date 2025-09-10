@@ -1,7 +1,7 @@
 """Rich terminal display for unified Rule 0."""
 
 from decimal import Decimal
-from typing import List, Dict, Any, Set, Tuple, Optional, Union
+from typing import Any, Set, Optional, Union
 
 from rich.console import Console
 from rich.panel import Panel
@@ -16,9 +16,9 @@ class UnifiedDisplay:
 
     exchange: str
     console: Console
-    tolerances: Dict[str, float]
+    tolerances: dict[str, float]
 
-    def __init__(self, exchange: str, tolerances: Optional[Dict[str, float]] = None):
+    def __init__(self, exchange: str, tolerances: Optional[dict[str, float]] = None):
         """Initialize display for specific exchange.
 
         Args:
@@ -107,7 +107,7 @@ class UnifiedDisplay:
         )
 
     def _trades_are_compatible(
-        self, trader_trade: Dict[str, Any], exchange_trade: Dict[str, Any]
+        self, trader_trade: dict[str, Any], exchange_trade: dict[str, Any]
     ) -> bool:
         """Check if two trades are compatible for matching.
 
@@ -123,20 +123,21 @@ class UnifiedDisplay:
         e_qty = exchange_trade.get("quantity", 0)
 
         # Check: same sign (direction), same broker group, same clearing account
-        return (
+        result: bool = bool(
             t_qty * e_qty > 0  # Same sign check
             and trader_trade.get("broker_group_id", "")
             == exchange_trade.get("broker_group_id", "")
             and trader_trade.get("exch_clearing_acct_id", "")
             == exchange_trade.get("exch_clearing_acct_id", "")
         )
+        return result
 
     def _find_best_match(
         self,
-        trader_trade: Dict[str, Any],
-        exchange_trades: List[Dict[str, Any]],
+        trader_trade: dict[str, Any],
+        exchange_trades: list[dict[str, Any]],
         tolerance: float,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Find the best matching exchange trade for a trader trade.
 
         Args:
@@ -196,9 +197,9 @@ class UnifiedDisplay:
 
     def _match_trades(
         self,
-        trader_trades: List[Dict[str, Any]],
-        exchange_trades: List[Dict[str, Any]],
-        external_match_ids: Optional[Dict[str, str]] = None,
+        trader_trades: list[dict[str, Any]],
+        exchange_trades: list[dict[str, Any]],
+        external_match_ids: Optional[dict[str, str]] = None,
     ) -> None:
         """Match trader and exchange trades based on quantity, broker, and clearing account.
 
@@ -266,7 +267,7 @@ class UnifiedDisplay:
         )
         self.console.print(header)
 
-    def show_summary(self, stats: Dict[str, Any]) -> None:
+    def show_summary(self, stats: dict[str, Any]) -> None:
         """Display summary statistics."""
         summary_table = Table(title="Summary Statistics", show_header=True)
         summary_table.add_column("Metric", style="cyan")
@@ -289,8 +290,8 @@ class UnifiedDisplay:
         self.console.print(summary_table)
 
     def _group_comparisons_by_product(
-        self, comparisons: List[PositionComparison]
-    ) -> Dict[str, List[PositionComparison]]:
+        self, comparisons: list[PositionComparison]
+    ) -> dict[str, list[PositionComparison]]:
         """Group position comparisons by product.
 
         Args:
@@ -299,7 +300,7 @@ class UnifiedDisplay:
         Returns:
             Dictionary mapping product to list of comparisons
         """
-        by_product: Dict[str, List[PositionComparison]] = {}
+        by_product: dict[str, list[PositionComparison]] = {}
         for comp in comparisons:
             if comp.product not in by_product:
                 by_product[comp.product] = []
@@ -328,7 +329,7 @@ class UnifiedDisplay:
 
     def _format_comparison_row(
         self, comp: PositionComparison
-    ) -> Tuple[str, str, str, str, str]:
+    ) -> tuple[str, str, str, str, str]:
         """Format a comparison into table row values.
 
         Args:
@@ -373,7 +374,7 @@ class UnifiedDisplay:
 
         return trader_str, exchange_str, diff_str, status_str, trade_counts
 
-    def show_comparison_by_product(self, comparisons: List[PositionComparison]) -> None:
+    def show_comparison_by_product(self, comparisons: list[PositionComparison]) -> None:
         """Display comparison results grouped by product."""
         # Group by product
         by_product = self._group_comparisons_by_product(comparisons)
@@ -408,7 +409,7 @@ class UnifiedDisplay:
         self,
         trader_matrix: PositionMatrix,
         exchange_matrix: PositionMatrix,
-        external_match_ids: Optional[Dict[str, str]] = None,
+        external_match_ids: Optional[dict[str, str]] = None,
     ) -> None:
         """Show detailed trade breakdown for each position.
 
@@ -418,11 +419,11 @@ class UnifiedDisplay:
             external_match_ids: Optional mapping of "T_<id>" or "E_<id>" to match IDs
         """
         # Group positions by product
-        all_positions: Set[Tuple[str, str]] = set()
+        all_positions: Set[tuple[str, str]] = set()
         all_positions.update(trader_matrix.positions.keys())
         all_positions.update(exchange_matrix.positions.keys())
 
-        products: Dict[str, List[str]] = {}
+        products: dict[str, list[str]] = {}
         for month, product in all_positions:
             if product not in products:
                 products[product] = []
@@ -469,7 +470,7 @@ class UnifiedDisplay:
                     )
 
                 # Helper function to add trade rows
-                def add_trade_row(detail: Dict[str, Any], source_code: str) -> None:
+                def add_trade_row(detail: dict[str, Any], source_code: str) -> None:
                     qty_str = self._format_quantity(
                         detail.get("quantity", 0), detail.get("unit"), show_sign=True
                     )

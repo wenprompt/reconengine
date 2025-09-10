@@ -6,7 +6,7 @@ import os
 import uvicorn
 
 
-def setup_logging():
+def setup_logging() -> None:
     """Configure logging for the API server."""
     logging.basicConfig(
         level=logging.INFO,
@@ -20,7 +20,7 @@ def setup_logging():
     logging.getLogger("src.unified_recon").setLevel(logging.DEBUG)
 
 
-def main():
+def main() -> None:
     """Run the FastAPI application with uvicorn."""
     setup_logging()
 

@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional, Any, Tuple, Dict
+from typing import Optional, Any
 import argparse
 import sys
 import pandas as pd
@@ -36,7 +36,7 @@ class SGXMatchingEngine:
     exact_matcher: ExactMatcher
     spread_matcher: SpreadMatcher
     product_spread_matcher: ProductSpreadMatcher
-    matchers: Dict[int, Any]
+    matchers: dict[int, Any]
 
     def __init__(self, config_manager: Optional[SGXConfigManager] = None):
         """Initialize SGX matching engine.
@@ -70,7 +70,7 @@ class SGXMatchingEngine:
         trader_csv_path: Path,
         exchange_csv_path: Path,
         show_unmatched: bool = False,
-    ) -> List[SGXMatchResult]:
+    ) -> list[SGXMatchResult]:
         """Run the complete SGX matching process.
 
         Args:
@@ -139,7 +139,7 @@ class SGXMatchingEngine:
 
     def run_matching_from_dataframes(
         self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-    ) -> Tuple[List[SGXMatchResult], dict[str, Any]]:
+    ) -> tuple[list[SGXMatchResult], dict[str, Any]]:
         """Run SGX matching process directly from DataFrames without CSV files.
 
         Args:
@@ -196,7 +196,7 @@ class SGXMatchingEngine:
             logger.error(f"SGX DataFrame matching failed: {e}")
             raise RuntimeError(f"SGX DataFrame matching failed: {e}") from e
 
-    def _get_matcher_for_rule(self, rule_number: int):
+    def _get_matcher_for_rule(self, rule_number: int) -> Any:
         """Get matcher for specific rule number.
 
         Args:

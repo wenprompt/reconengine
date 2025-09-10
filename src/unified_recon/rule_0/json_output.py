@@ -1,6 +1,6 @@
 """JSON output formatting for unified Rule 0."""
 
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 from decimal import Decimal
 from dataclasses import dataclass
 import json
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class DecimalEncoder(json.JSONEncoder):
     """Custom JSON encoder for Decimal values."""
 
-    def default(self, obj):
+    def default(self, obj: Any) -> Any:
         if isinstance(obj, Decimal):
             return float(obj)
         return super().default(obj)
@@ -39,7 +39,7 @@ class TradeDetailJSON:
     trade_type: str  # "Crack", "PS", "S", or empty
     match_id: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "contractMonth": self.contract_month,
@@ -68,7 +68,7 @@ class PositionSummaryJSON:
     trader_trade_count: int
     exchange_trade_count: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "contractMonth": self.contract_month,
@@ -85,7 +85,7 @@ class PositionSummaryJSON:
 class FieldExtractor:
     """Extract fields from PositionComparison based on exchange configuration."""
 
-    def __init__(self, unified_config: Dict[str, Any], exchange_group_id: str):
+    def __init__(self, unified_config: dict[str, Any], exchange_group_id: str):
         """Initialize field extractor with configs.
 
         Args:
@@ -106,7 +106,7 @@ class FieldExtractor:
         # Load normalizer config if available
         self.normalizer_config = self._load_normalizer_config()
 
-    def _load_normalizer_config(self) -> Optional[Dict[str, Any]]:
+    def _load_normalizer_config(self) -> Optional[dict[str, Any]]:
         """Load normalizer config if path is specified."""
         normalizer_path = self.exchange_config.get("normalizer_config")
         if normalizer_path:
@@ -114,21 +114,22 @@ class FieldExtractor:
             if path.exists():
                 try:
                     with open(path) as f:
-                        return json.load(f)
+                        data: dict[str, Any] = json.load(f)
+                        return data
                 except (json.JSONDecodeError, OSError) as e:
                     # Log error but don't raise - config is optional
                     print(f"Warning: Failed to load normalizer config from {path}: {e}")
                     return None
         return None
 
-    def extract_quantities_and_unit(self, comp: Any) -> Dict[str, Any]:
+    def extract_quantities_and_unit(self, comp: Any) -> dict[str, Any]:
         """Extract quantities and unit based on this exchange's configuration.
 
         Args:
             comp: PositionComparison object (could be ICE or unified type)
 
         Returns:
-            Dict with trader_quantity, exchange_quantity, difference, unit
+            dict with trader_quantity, exchange_quantity, difference, unit
         """
         # Handle based on the specific exchange this group belongs to
         if self.exchange == "ice_match":
@@ -143,7 +144,7 @@ class FieldExtractor:
             # SGX, EEX use standard fields
             return self._extract_standard_fields(comp)
 
-    def _extract_ice_fields(self, comp: Any) -> Dict[str, Any]:
+    def _extract_ice_fields(self, comp: Any) -> dict[str, Any]:
         """Extract ICE-specific MT/BBL fields."""
         # Check if this is a unified comparison (has trader_quantity/exchange_quantity)
         # or an ICE-specific comparison (has trader_mt/trader_bbl)
@@ -180,7 +181,7 @@ class FieldExtractor:
                 "unit": "MT",
             }
 
-    def _extract_cme_fields(self, comp: Any) -> Dict[str, Any]:
+    def _extract_cme_fields(self, comp: Any) -> dict[str, Any]:
         """Extract CME-specific quantitylot fields."""
         # CME config specifies quantity_field and default_unit
         quantity_field = self.exchange_config.get("quantity_field", "quantity")
@@ -197,7 +198,7 @@ class FieldExtractor:
             "unit": default_unit,
         }
 
-    def _extract_standard_fields(self, comp: Any) -> Dict[str, Any]:
+    def _extract_standard_fields(self, comp: Any) -> dict[str, Any]:
         """Extract standard quantity/unit fields (SGX, EEX)."""
         return {
             "trader_quantity": float(getattr(comp, "trader_quantity", 0)),
@@ -212,9 +213,9 @@ class Rule0JSONOutput:
 
     def __init__(
         self,
-        tolerances: Optional[Dict[str, float]] = None,
-        unified_config: Optional[Dict[str, Any]] = None,
-        external_match_ids: Optional[Dict[str, str]] = None,
+        tolerances: Optional[dict[str, float]] = None,
+        unified_config: Optional[dict[str, Any]] = None,
+        external_match_ids: Optional[dict[str, str]] = None,
     ):
         """Initialize JSON output formatter.
 
@@ -226,14 +227,14 @@ class Rule0JSONOutput:
         self.tolerances = tolerances or {}
         self.unified_config = unified_config or {}
         self.external_match_ids = external_match_ids or {}
-        self.field_extractors: Dict[str, FieldExtractor] = {}
+        self.field_extractors: dict[str, FieldExtractor] = {}
 
     def _determine_trade_type(self, original_product: str, spread_flag: str) -> str:
         """Determine trade type based on product and flags."""
         return trade_utils.determine_trade_type(original_product, spread_flag)
 
     def _match_trades(
-        self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]]
+        self, trader_trades: list[dict[str, Any]], exchange_trades: list[dict[str, Any]]
     ) -> None:
         """Match trader and exchange trades with optional external match IDs.
 
@@ -315,9 +316,9 @@ class Rule0JSONOutput:
         self,
         trader_matrix: PositionMatrix,
         exchange_matrix: PositionMatrix,
-        comparisons: List[PositionComparison],
+        comparisons: list[PositionComparison],
         exchange_group_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate JSON output for a single exchange group.
 
         Args:
@@ -329,7 +330,7 @@ class Rule0JSONOutput:
         Returns:
             Dictionary containing products data for this exchange group
         """
-        result: Dict[str, Any] = {"products": {}}
+        result: dict[str, Any] = {"products": {}}
 
         # Group comparisons by product
         by_product = json_utils.group_comparisons_by_product(comparisons)
@@ -440,8 +441,8 @@ class Rule0JSONOutput:
         return result
 
     def generate_multi_exchange_json(
-        self, exchange_results: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, exchange_results: dict[str, dict[str, Any]]
+    ) -> dict[str, Any]:
         """Generate JSON output for multiple exchange groups.
 
         Args:
@@ -470,7 +471,7 @@ class Rule0JSONOutput:
         return output
 
     def to_json_string(
-        self, exchange_results: Dict[str, Dict[str, Any]], indent: int = 2
+        self, exchange_results: dict[str, dict[str, Any]], indent: int = 2
     ) -> str:
         """Generate JSON string output for multiple exchanges.
 

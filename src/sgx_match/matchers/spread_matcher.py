@@ -1,6 +1,6 @@
 """Spread matching implementation for Rule 2."""
 
-from typing import List, Optional, Dict, Tuple
+from typing import Optional, Union
 from decimal import Decimal
 import logging
 from collections import defaultdict
@@ -29,7 +29,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         logger.info(f"Initialized SpreadMatcher with {self.confidence}% confidence")
 
-    def find_matches(self, pool_manager: SGXUnmatchedPool) -> List[SGXMatchResult]:
+    def find_matches(self, pool_manager: SGXUnmatchedPool) -> list[SGXMatchResult]:
         """Find all spread matches using 2-tier sequential approach (dealid + time-based)."""
         logger.info("Starting spread matching (Rule 2) - 2-tier sequential approach")
         matches = []
@@ -76,13 +76,13 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return matches
 
     def _find_trader_spread_pairs(
-        self, trader_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool
-    ) -> List[List[SGXTrade]]:
+        self, trader_trades: list[SGXTrade], pool_manager: SGXUnmatchedPool
+    ) -> list[list[SGXTrade]]:
         """Find trader spread pairs with spread indicators."""
-        spread_pairs: List[List[SGXTrade]] = []
+        spread_pairs: list[list[SGXTrade]] = []
 
         # Group trades by product and quantity
-        trade_groups: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
+        trade_groups: dict[tuple[str, ...], list[SGXTrade]] = defaultdict(list)
         for trade in trader_trades:
             if pool_manager.is_unmatched(
                 trade.internal_trade_id, SGXTradeSource.TRADER
@@ -128,8 +128,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return has_spread_indicator or has_identical_spread_price
 
     def _find_exchange_spread_pairs(
-        self, exchange_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool
-    ) -> List[List[SGXTrade]]:
+        self, exchange_trades: list[SGXTrade], pool_manager: SGXUnmatchedPool
+    ) -> list[list[SGXTrade]]:
         """Find exchange spread pairs using 2-tier sequential approach.
 
         Tier 1: DealID-based grouping (most accurate)
@@ -138,7 +138,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         logger.info("Starting 2-tier sequential spread grouping for SGX")
 
         # Initialize results
-        all_spread_pairs: List[List[SGXTrade]] = []
+        all_spread_pairs: list[list[SGXTrade]] = []
         remaining_trades = [
             t
             for t in exchange_trades
@@ -222,13 +222,13 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return all_spread_pairs
 
     def _find_exchange_spread_pairs_by_dealid(
-        self, exchange_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool
-    ) -> List[List[SGXTrade]]:
+        self, exchange_trades: list[SGXTrade], pool_manager: SGXUnmatchedPool
+    ) -> list[list[SGXTrade]]:
         """Find exchange spread pairs using dealid/tradeid grouping (Tier 1 approach)."""
-        spread_pairs: List[List[SGXTrade]] = []
+        spread_pairs: list[list[SGXTrade]] = []
 
         # Group trades by dealid
-        dealid_groups: Dict[str, List[SGXTrade]] = defaultdict(list)
+        dealid_groups: dict[str, list[SGXTrade]] = defaultdict(list)
         for trade in exchange_trades:
             if not pool_manager.is_unmatched(
                 trade.internal_trade_id, SGXTradeSource.EXCHANGE
@@ -289,8 +289,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return spread_pairs
 
     def _find_exchange_spread_pairs_by_time(
-        self, exchange_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool
-    ) -> List[List[SGXTrade]]:
+        self, exchange_trades: list[SGXTrade], pool_manager: SGXUnmatchedPool
+    ) -> list[list[SGXTrade]]:
         """
         TIER 2: Enhanced time-based spread detection with price calculation matching.
 
@@ -307,7 +307,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         Returns:
             List of validated spread pairs found using time-based approach
         """
-        spread_pairs: List[List[SGXTrade]] = []
+        spread_pairs: list[list[SGXTrade]] = []
 
         # Step 1: Group trades by exact same trade_time
         time_groups = self._group_trades_by_exact_datetime(exchange_trades)
@@ -359,8 +359,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return spread_pairs
 
     def _group_trades_by_exact_datetime(
-        self, exchange_trades: List[SGXTrade]
-    ) -> Dict[str, List[SGXTrade]]:
+        self, exchange_trades: list[SGXTrade]
+    ) -> dict[str, list[SGXTrade]]:
         """Group exchange trades by exact same trade_time for spread detection.
 
         This method groups trades that occur at the exact same trade_time,
@@ -371,9 +371,9 @@ class SpreadMatcher(MultiLegBaseMatcher):
             exchange_trades: List of exchange trades to group
 
         Returns:
-            Dict mapping datetime strings to lists of trades with that exact datetime
+            dict mapping datetime strings to lists of trades with that exact datetime
         """
-        time_groups: Dict[str, List[SGXTrade]] = defaultdict(list)
+        time_groups: dict[str, list[SGXTrade]] = defaultdict(list)
 
         for trade in exchange_trades:
             # Get the trade_time field directly from SGXTrade model
@@ -529,8 +529,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
     def _match_spread_pair(
         self,
-        trader_pair: List[SGXTrade],
-        exchange_spread_pairs: List[List[SGXTrade]],
+        trader_pair: list[SGXTrade],
+        exchange_spread_pairs: list[list[SGXTrade]],
         pool_manager: SGXUnmatchedPool,
     ) -> Optional[SGXMatchResult]:
         """Match a trader spread pair with exchange spread pairs (Tier 1 approach)."""
@@ -558,7 +558,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         return None
 
     def _validate_spread_match(
-        self, trader_trades: List[SGXTrade], exchange_trades: List[SGXTrade]
+        self, trader_trades: list[SGXTrade], exchange_trades: list[SGXTrade]
     ) -> bool:
         """Validate that trader and exchange trades form a valid spread match."""
         if len(trader_trades) != 2 or len(exchange_trades) != 2:
@@ -600,7 +600,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         ) and self._validate_spread_prices(trader_trades, exchange_trades)
 
     def _validate_spread_directions(
-        self, trader_trades: List[SGXTrade], exchange_trades: List[SGXTrade]
+        self, trader_trades: list[SGXTrade], exchange_trades: list[SGXTrade]
     ) -> bool:
         """Validate that B/S directions match between trader and exchange spreads."""
         trader_month_bs = {
@@ -616,7 +616,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         )
 
     def _validate_spread_prices(
-        self, trader_trades: List[SGXTrade], exchange_trades: List[SGXTrade]
+        self, trader_trades: list[SGXTrade], exchange_trades: list[SGXTrade]
     ) -> bool:
         """Validate spread price calculation between trader and exchange trades."""
         # For SGX trader spreads: both legs should have the same price (the spread price)
@@ -653,8 +653,8 @@ class SpreadMatcher(MultiLegBaseMatcher):
 
     def _create_spread_match_result(
         self,
-        trader_trades: List[SGXTrade],
-        exchange_trades: List[SGXTrade],
+        trader_trades: list[SGXTrade],
+        exchange_trades: list[SGXTrade],
     ) -> SGXMatchResult:
         """Create SGXMatchResult for spread match."""
         # Rule-specific matched fields
@@ -689,7 +689,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             status=status,
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Union[str, int, float, list[str]]]:
         """Get information about this matching rule."""
         return {
             "rule_number": self.rule_number,

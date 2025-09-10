@@ -2,7 +2,7 @@
 
 import logging
 from decimal import Decimal
-from typing import List, Tuple, Dict, Optional
+from typing import Optional, Any
 
 from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
@@ -49,7 +49,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             f"Initialized ComplexCrackRollMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find complex crack roll matches between consecutive trader crack trades and complete exchange crack positions.
 
         Args:
@@ -59,7 +59,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             List of complex crack roll match results
         """
         logger.info("Starting complex crack roll matching (Rule 12)")
-        matches: List[MatchResult] = []
+        matches: list[MatchResult] = []
 
         # Get unmatched trades
         trader_trades = pool_manager.get_unmatched_trader_trades()
@@ -98,8 +98,8 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         return matches
 
     def _find_consecutive_crack_pairs(
-        self, trader_trades: List[Trade]
-    ) -> List[Tuple[Trade, Trade]]:
+        self, trader_trades: list[Trade]
+    ) -> list[tuple[Trade, Trade]]:
         """Find consecutive crack trades that could form crack roll pairs.
 
         Args:
@@ -108,7 +108,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
         Returns:
             List of consecutive crack trade pairs
         """
-        crack_pairs: List[Tuple[Trade, Trade]] = []
+        crack_pairs: list[tuple[Trade, Trade]] = []
 
         # Filter to crack trades only
         crack_trades = [t for t in trader_trades if "crack" in t.product_name.lower()]
@@ -190,8 +190,8 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
 
     def _find_crack_roll_match(
         self,
-        trader_pair: Tuple[Trade, Trade],
-        exchange_trades: List[Trade],
+        trader_pair: tuple[Trade, Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find complex crack roll match for a trader crack pair.
@@ -234,12 +234,12 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
 
     def _find_exchange_crack_position(
         self,
-        exchange_trades: List[Trade],
+        exchange_trades: list[Trade],
         contract_month: str,
         base_product: str,
         reference_trade: Trade,
         pool_manager: UnmatchedPoolManager,
-    ) -> Optional[Tuple[Trade, Trade]]:
+    ) -> Optional[tuple[Trade, Trade]]:
         """Find complete crack position (base product + brent swap) for a contract month.
 
         Args:
@@ -334,14 +334,14 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
 
     def _validate_crack_roll_match(
         self,
-        trader_pair: Tuple[Trade, Trade],
-        exchange_positions: Dict[str, Tuple[Trade, Trade]],
+        trader_pair: tuple[Trade, Trade],
+        exchange_positions: dict[str, tuple[Trade, Trade]],
     ) -> bool:
         """Validate complete complex crack roll match between trader and exchange data.
 
         Args:
             trader_pair: Tuple of two trader crack trades
-            exchange_positions: Dict mapping contract months to (base, brent) trade tuples
+            exchange_positions: dict mapping contract months to (base, brent) trade tuples
 
         Returns:
             True if valid complex crack roll match
@@ -430,13 +430,13 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             return False
 
     def _validate_roll_spread_calculation(
-        self, trader_pair: Tuple[Trade, Trade], crack_prices: Dict[str, Decimal]
+        self, trader_pair: tuple[Trade, Trade], crack_prices: dict[str, Decimal]
     ) -> bool:
         """Validate roll spread calculation matches trader price pattern.
 
         Args:
             trader_pair: Tuple of two trader crack trades
-            crack_prices: Dict mapping contract months to calculated crack prices
+            crack_prices: dict mapping contract months to calculated crack prices
 
         Returns:
             True if roll spread calculation matches trader pattern
@@ -478,14 +478,14 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
 
     def _create_crack_roll_match_result(
         self,
-        trader_pair: Tuple[Trade, Trade],
-        exchange_positions: Dict[str, Tuple[Trade, Trade]],
+        trader_pair: tuple[Trade, Trade],
+        exchange_positions: dict[str, tuple[Trade, Trade]],
     ) -> MatchResult:
         """Create MatchResult for complex crack roll match.
 
         Args:
             trader_pair: Tuple of two trader crack trades
-            exchange_positions: Dict mapping contract months to exchange trade pairs
+            exchange_positions: dict mapping contract months to exchange trade pairs
 
         Returns:
             MatchResult for the complex crack roll match
@@ -531,7 +531,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             additional_exchange_trades=exchange_trades[1:],
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule."""
         return {
             "rule_number": self.rule_number,

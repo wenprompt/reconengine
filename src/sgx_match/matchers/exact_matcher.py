@@ -1,11 +1,17 @@
 """Exact matching implementation for SGX Rule 1."""
 
-from typing import List, Dict
+from typing import Any
 import logging
 from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import SGXTrade, SGXTradeSource, SGXMatchResult, SGXMatchType
+from ..models import (
+    SGXTrade,
+    SGXTradeSource,
+    SGXMatchResult,
+    SGXMatchType,
+    SignatureValue,
+)
 from ..core import SGXUnmatchedPool
 from ..config import SGXConfigManager
 from .base_matcher import BaseMatcher
@@ -40,7 +46,7 @@ class ExactMatcher(BaseMatcher):
 
         logger.info(f"Initialized ExactMatcher with {self.confidence}% confidence")
 
-    def find_matches(self, pool_manager: SGXUnmatchedPool) -> List[SGXMatchResult]:
+    def find_matches(self, pool_manager: SGXUnmatchedPool) -> list[SGXMatchResult]:
         """Find all exact matches between unmatched trader and exchange trades.
 
         Args:
@@ -109,15 +115,15 @@ class ExactMatcher(BaseMatcher):
         return matches
 
     def _create_exchange_index(
-        self, exchange_trades: List[SGXTrade]
-    ) -> Dict[tuple, List[SGXTrade]]:
+        self, exchange_trades: list[SGXTrade]
+    ) -> dict[tuple[SignatureValue, ...], list[SGXTrade]]:
         """Create index of exchange trades by matching signature for efficient lookup.
 
         Args:
             exchange_trades: List of exchange trades to index
 
         Returns:
-            Dict mapping signatures to lists of matching exchange trades
+            dict mapping signatures to lists of matching exchange trades
         """
         index = defaultdict(list)
 
@@ -128,7 +134,7 @@ class ExactMatcher(BaseMatcher):
         logger.debug(f"Created exchange index with {len(index)} unique signatures")
         return dict(index)
 
-    def _create_matching_signature(self, trade: SGXTrade) -> tuple:
+    def _create_matching_signature(self, trade: SGXTrade) -> tuple[SignatureValue, ...]:
         """Create a signature for exact matching.
 
         Args:
@@ -195,11 +201,11 @@ class ExactMatcher(BaseMatcher):
             status=status,
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule.
 
         Returns:
-            Dict containing rule metadata and requirements
+            dict containing rule metadata and requirements
         """
         return {
             "rule_number": self.rule_number,

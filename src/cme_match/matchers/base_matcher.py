@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import uuid
 import logging
-from ..models import CMETrade
+from ..models import CMETrade, SignatureValue
 from ..config import CMEConfigManager
 
 if TYPE_CHECKING:
@@ -27,8 +27,8 @@ class BaseMatcher(ABC):
         self.config_manager = config_manager
 
     def create_universal_signature(
-        self, trade: CMETrade, rule_specific_fields: List[Any]
-    ) -> Tuple:
+        self, trade: CMETrade, rule_specific_fields: list[SignatureValue]
+    ) -> tuple[SignatureValue, ...]:
         """Create matching signature by combining rule-specific fields with universal fields.
 
         Args:
@@ -50,8 +50,8 @@ class BaseMatcher(ABC):
         return tuple(signature_parts)
 
     def get_universal_matched_fields(
-        self, rule_specific_fields: List[str]
-    ) -> List[str]:
+        self, rule_specific_fields: list[str]
+    ) -> list[str]:
         """Get complete matched fields list with universal fields added.
 
         Args:
@@ -155,7 +155,7 @@ class BaseMatcher(ABC):
         return match_id
 
     @abstractmethod
-    def find_matches(self, pool_manager: "CMEUnmatchedPool") -> List["CMEMatchResult"]:
+    def find_matches(self, pool_manager: "CMEUnmatchedPool") -> list["CMEMatchResult"]:
         """Find matches using this matcher's rule. Must be implemented by subclasses.
 
         Args:

@@ -2,7 +2,7 @@
 
 import logging
 from functools import wraps
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +14,9 @@ from .service import PosMatchService, ReconciliationService, Rule0Service
 logger = logging.getLogger(__name__)
 
 
-def handle_api_errors(operation_name: str) -> Callable:
+def handle_api_errors(
+    operation_name: str,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to handle common API exceptions with consistent error responses.
 
@@ -25,9 +27,9 @@ def handle_api_errors(operation_name: str) -> Callable:
         Decorated function with standardized error handling
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return await func(*args, **kwargs)
             except ValueError as e:
@@ -92,7 +94,7 @@ posmatch_service = PosMatchService()
 
 
 @app.get("/", tags=["Health"])
-async def root():
+async def root() -> dict[str, str]:
     """Health check endpoint."""
     return {
         "status": "healthy",
@@ -102,7 +104,7 @@ async def root():
 
 
 @app.get("/health", tags=["Health"])
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Detailed health check."""
     return {
         "status": "healthy",
@@ -117,12 +119,12 @@ async def health_check():
 
 @app.post(
     "/reconcile",
-    response_model=List[Dict[str, Any]],
+    response_model=list[dict[str, Any]],
     status_code=status.HTTP_200_OK,
     tags=["Reconciliation"],
 )
 @handle_api_errors("Reconciliation")
-async def reconcile_trades(request: ReconciliationRequest) -> List[Dict[str, Any]]:
+async def reconcile_trades(request: ReconciliationRequest) -> list[dict[str, Any]]:
     """
     Process trade reconciliation.
 

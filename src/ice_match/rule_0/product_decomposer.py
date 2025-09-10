@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List
 
 from src.ice_match.utils.trade_helpers import extract_base_product
 
@@ -30,7 +29,7 @@ class ProductDecomposer:
 
     def decompose(
         self, product_name: str, quantity: Decimal, unit: str, buy_sell: str
-    ) -> List[DecomposedProduct]:
+    ) -> list[DecomposedProduct]:
         """Decompose a product into its base components.
 
         Args:
@@ -64,7 +63,7 @@ class ProductDecomposer:
 
     def _decompose_crack(
         self, product_name: str, quantity: Decimal, unit: str, _buy_sell: str
-    ) -> List[DecomposedProduct]:
+    ) -> list[DecomposedProduct]:
         """Decompose a crack product into base product and brent swap.
 
         For a crack trade:
@@ -109,7 +108,7 @@ class ProductDecomposer:
 
     def _decompose_spread(
         self, product_name: str, quantity: Decimal, unit: str, _buy_sell: str
-    ) -> List[DecomposedProduct]:
+    ) -> list[DecomposedProduct]:
         """Decompose a spread product into its components.
 
         For a spread trade (e.g., 0.5% marine-380cst):

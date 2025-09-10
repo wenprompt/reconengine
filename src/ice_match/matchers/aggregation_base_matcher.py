@@ -1,12 +1,12 @@
 """Base aggregation matcher providing shared aggregation logic for Rules 6, 7, 8, 9."""
 
 import logging
-from typing import List, Dict, Tuple, Optional
-from collections import defaultdict
+from typing import Optional
 from decimal import Decimal
+from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import Trade, MatchResult
+from ..models import Trade, MatchResult, SignatureValue, MatchType
 from ..config import ConfigManager
 from ..core import UnmatchedPoolManager
 from .base_matcher import BaseMatcher
@@ -42,8 +42,8 @@ class AggregationBaseMatcher(BaseMatcher):
         )
 
     def group_trades_by_aggregation_signature(
-        self, trades: List[Trade], aggregation_fields: List[str]
-    ) -> Dict[tuple, List[Trade]]:
+        self, trades: list[Trade], aggregation_fields: list[str]
+    ) -> dict[tuple[SignatureValue, ...], list[Trade]]:
         """Group trades by aggregation signature using specified fields.
 
         Args:
@@ -53,7 +53,7 @@ class AggregationBaseMatcher(BaseMatcher):
         Returns:
             Dictionary mapping aggregation signatures to trade lists
         """
-        groups: Dict[tuple, List[Trade]] = defaultdict(list)
+        groups: dict[tuple[SignatureValue, ...], list[Trade]] = defaultdict(list)
 
         for trade in trades:
             # Extract values for aggregation fields
@@ -72,12 +72,12 @@ class AggregationBaseMatcher(BaseMatcher):
 
     def find_many_to_one_aggregations(
         self,
-        many_source: List[Trade],
-        one_source: List[Trade],
+        many_source: list[Trade],
+        one_source: list[Trade],
         pool_manager: UnmatchedPoolManager,
-        aggregation_fields: List[str],
+        aggregation_fields: list[str],
         min_aggregation_size: int = 2,
-    ) -> List[Tuple[List[Trade], Trade]]:
+    ) -> list[tuple[list[Trade], Trade]]:
         """Find many-to-one aggregation patterns.
 
         Args:
@@ -155,7 +155,7 @@ class AggregationBaseMatcher(BaseMatcher):
         return aggregations
 
     def validate_aggregation_consistency(
-        self, aggregated_trades: List[Trade], single_trade: Trade
+        self, aggregated_trades: list[Trade], single_trade: Trade
     ) -> bool:
         """Validate that multiple trades can aggregate to a single trade.
 
@@ -213,12 +213,12 @@ class AggregationBaseMatcher(BaseMatcher):
 
     def aggregate_trades_by_contract_and_characteristics(
         self,
-        trades: List[Trade],
+        trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
         target_product: str,
         reference_trade: Trade,
-        additional_grouping_fields: Optional[List[str]] = None,
-    ) -> Dict[str, List[Tuple[List[Trade], Decimal, Decimal]]]:
+        additional_grouping_fields: Optional[list[str]] = None,
+    ) -> dict[str, list[tuple[list[Trade], Decimal, Decimal]]]:
         """Aggregate trades by contract month and additional characteristics.
 
         Args:
@@ -229,7 +229,7 @@ class AggregationBaseMatcher(BaseMatcher):
             additional_grouping_fields: Additional fields for grouping (e.g., ['price', 'buy_sell'])
 
         Returns:
-            Dict mapping contract_month -> list of (trades_list, total_quantity, representative_value)
+            dict mapping contract_month -> list of (trades_list, total_quantity, representative_value)
         """
         if additional_grouping_fields is None:
             additional_grouping_fields = ["price", "buy_sell"]
@@ -258,8 +258,8 @@ class AggregationBaseMatcher(BaseMatcher):
             aggregation_groups[group_key].append(trade)
 
         # Create aggregated positions per contract month
-        aggregated_by_contract: Dict[
-            str, List[Tuple[List[Trade], Decimal, Decimal]]
+        aggregated_by_contract: dict[
+            str, list[tuple[list[Trade], Decimal, Decimal]]
         ] = defaultdict(list)
 
         for group_key, trades_group in aggregation_groups.items():
@@ -279,8 +279,8 @@ class AggregationBaseMatcher(BaseMatcher):
         return dict(aggregated_by_contract)
 
     def _create_full_trade_index(
-        self, trades: List[Trade], base_fields: List[str]
-    ) -> Dict[tuple, List[Trade]]:
+        self, trades: list[Trade], base_fields: list[str]
+    ) -> dict[tuple[SignatureValue, ...], list[Trade]]:
         """Create index for trades by full signature including quantity.
 
         Args:
@@ -290,7 +290,7 @@ class AggregationBaseMatcher(BaseMatcher):
         Returns:
             Dictionary mapping full signatures to trade lists
         """
-        index: Dict[tuple, List[Trade]] = defaultdict(list)
+        index: dict[tuple[SignatureValue, ...], list[Trade]] = defaultdict(list)
 
         for trade in trades:
             # Create base signature
@@ -342,12 +342,12 @@ class AggregationBaseMatcher(BaseMatcher):
     def create_aggregation_match_result(
         self,
         match_id: str,
-        match_type,
+        match_type: MatchType,
         confidence: Decimal,
-        aggregated_trades: List[Trade],
+        aggregated_trades: list[Trade],
         single_trade: Trade,
         direction: str,
-        rule_specific_fields: List[str],
+        rule_specific_fields: list[str],
         rule_order: int,
     ) -> MatchResult:
         """Create MatchResult for aggregation matches.
@@ -411,7 +411,9 @@ class AggregationBaseMatcher(BaseMatcher):
                 rule_order=rule_order,
             )
 
-    def get_aggregation_statistics(self, aggregations: List[Tuple]) -> Dict[str, int]:
+    def get_aggregation_statistics(
+        self, aggregations: list[tuple[list[Trade], Trade]]
+    ) -> dict[str, int]:
         """Get statistics about aggregation patterns found.
 
         Args:

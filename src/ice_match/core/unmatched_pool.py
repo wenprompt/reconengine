@@ -1,6 +1,6 @@
 """Unmatched trade pool manager for ensuring non-duplication."""
 
-from typing import List, Set, Dict, Optional, Tuple, Any
+from typing import Set, Optional, Any
 from collections import defaultdict
 import logging
 from decimal import Decimal
@@ -17,7 +17,7 @@ class UnmatchedPoolManager:
     by ANY rule, it must be permanently removed from consideration.
     """
 
-    def __init__(self, trader_trades: List[Trade], exchange_trades: List[Trade]):
+    def __init__(self, trader_trades: list[Trade], exchange_trades: list[Trade]):
         """Initialize the pool manager with initial trade lists.
 
         Args:
@@ -29,10 +29,10 @@ class UnmatchedPoolManager:
         self._original_exchange_count = len(exchange_trades)
 
         # Active pools - trades still available for matching
-        self._trader_pool: Dict[str, Trade] = {
+        self._trader_pool: dict[str, Trade] = {
             trade.internal_trade_id: trade for trade in trader_trades
         }
-        self._exchange_pool: Dict[str, Trade] = {
+        self._exchange_pool: dict[str, Trade] = {
             trade.internal_trade_id: trade for trade in exchange_trades
         }
 
@@ -41,8 +41,8 @@ class UnmatchedPoolManager:
         self._matched_exchange_ids: Set[str] = set()
 
         # Match history for audit trail
-        self._match_history: List[
-            Tuple[str, str, str]
+        self._match_history: list[
+            tuple[str, str, str]
         ] = []  # (trader_id, exchange_id, rule_type)
 
         logger.info(
@@ -50,7 +50,7 @@ class UnmatchedPoolManager:
             f"and {len(exchange_trades)} exchange trades"
         )
 
-    def get_unmatched_trader_trades(self) -> List[Trade]:
+    def get_unmatched_trader_trades(self) -> list[Trade]:
         """Get list of all unmatched trader trades.
 
         Returns:
@@ -58,7 +58,7 @@ class UnmatchedPoolManager:
         """
         return list(self._trader_pool.values())
 
-    def get_unmatched_exchange_trades(self) -> List[Trade]:
+    def get_unmatched_exchange_trades(self) -> list[Trade]:
         """Get list of all unmatched exchange trades.
 
         Returns:
@@ -66,7 +66,7 @@ class UnmatchedPoolManager:
         """
         return list(self._exchange_pool.values())
 
-    def get_unmatched_count(self) -> Tuple[int, int]:
+    def get_unmatched_count(self) -> tuple[int, int]:
         """Get count of unmatched trades.
 
         Returns:
@@ -74,7 +74,7 @@ class UnmatchedPoolManager:
         """
         return len(self._trader_pool), len(self._exchange_pool)
 
-    def get_matched_count(self) -> Tuple[int, int]:
+    def get_matched_count(self) -> tuple[int, int]:
         """Get count of matched trades.
 
         Returns:
@@ -82,7 +82,7 @@ class UnmatchedPoolManager:
         """
         return len(self._matched_trader_ids), len(self._matched_exchange_ids)
 
-    def get_original_count(self) -> Tuple[int, int]:
+    def get_original_count(self) -> tuple[int, int]:
         """Get count of original trades.
 
         Returns:
@@ -120,7 +120,7 @@ class UnmatchedPoolManager:
         else:
             return None
 
-    def get_match_history(self) -> List[Tuple[str, str, str]]:
+    def get_match_history(self) -> list[tuple[str, str, str]]:
         """Get history of all matches made.
 
         Returns:
@@ -128,7 +128,7 @@ class UnmatchedPoolManager:
         """
         return self._match_history.copy()
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get comprehensive statistics about the matching progress.
 
         Returns:
@@ -147,7 +147,7 @@ class UnmatchedPoolManager:
         )
 
         # Count matches by rule type
-        match_by_rule: Dict[str, int] = defaultdict(int)
+        match_by_rule: dict[str, int] = defaultdict(int)
         for _, _, rule_type in self._match_history:
             match_by_rule[rule_type] += 1
 
@@ -185,7 +185,7 @@ class UnmatchedPoolManager:
         Returns:
             True if all trades were successfully removed, False otherwise.
         """
-        trades_to_remove: List[Trade] = []
+        trades_to_remove: list[Trade] = []
         trades_to_remove.append(match_result.trader_trade)
         if match_result.additional_trader_trades:
             trades_to_remove.extend(match_result.additional_trader_trades)
@@ -248,8 +248,8 @@ class UnmatchedPoolManager:
         return success
 
     def reset_to_unmatched(
-        self, trader_trades: List[Trade], exchange_trades: List[Trade]
-    ):
+        self, trader_trades: list[Trade], exchange_trades: list[Trade]
+    ) -> None:
         """Reset pools with new unmatched trade lists.
 
         Args:

@@ -1,6 +1,6 @@
 """Product spread matching implementation for Rule 3."""
 
-from typing import List, Optional, Dict, Tuple
+from typing import Optional, Union
 import logging
 from collections import defaultdict
 from decimal import Decimal
@@ -30,7 +30,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             f"Initialized ProductSpreadMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: SGXUnmatchedPool) -> List[SGXMatchResult]:
+    def find_matches(self, pool_manager: SGXUnmatchedPool) -> list[SGXMatchResult]:
         """Find all product spread matches."""
         logger.info("Starting product spread matching (Rule 3)")
         matches = []
@@ -98,8 +98,8 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         return matches
 
     def _find_trader_product_spread_pairs(
-        self, trader_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool
-    ) -> List[Tuple[SGXTrade, SGXTrade, int]]:
+        self, trader_trades: list[SGXTrade], pool_manager: SGXUnmatchedPool
+    ) -> list[tuple[SGXTrade, SGXTrade, int]]:
         """Find trader product spread pairs with PS spread indicators or identical non-zero spread prices."""
         product_spread_pairs = []
 
@@ -116,7 +116,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             )
 
         # Group trades by contract month, quantity, and universal fields
-        trade_groups: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
+        trade_groups: dict[tuple[str, ...], list[SGXTrade]] = defaultdict(list)
         for trade in trader_trades:
             if pool_manager.is_unmatched(
                 trade.internal_trade_id, SGXTradeSource.TRADER
@@ -165,7 +165,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
 
     def _is_trader_product_spread_pair(
         self, trade1: SGXTrade, trade2: SGXTrade
-    ) -> Tuple[bool, int]:
+    ) -> tuple[bool, int]:
         """Check if two trader trades form a product spread pair.
 
         Returns tuple of (is_match, confidence_tier):
@@ -202,13 +202,13 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         return False, 0
 
     def _find_exchange_product_spread_pairs(
-        self, exchange_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool
-    ) -> List[List[SGXTrade]]:
+        self, exchange_trades: list[SGXTrade], pool_manager: SGXUnmatchedPool
+    ) -> list[list[SGXTrade]]:
         """Find exchange product spread pairs using dealid grouping."""
         product_spread_pairs = []
 
         # Group trades by dealid
-        dealid_groups: Dict[str, List[SGXTrade]] = defaultdict(list)
+        dealid_groups: dict[str, list[SGXTrade]] = defaultdict(list)
         for trade in exchange_trades:
             if not pool_manager.is_unmatched(
                 trade.internal_trade_id, SGXTradeSource.EXCHANGE
@@ -293,8 +293,8 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
 
     def _match_product_spread_pair(
         self,
-        trader_pair: List[SGXTrade],
-        exchange_product_spread_pairs: List[List[SGXTrade]],
+        trader_pair: list[SGXTrade],
+        exchange_product_spread_pairs: list[list[SGXTrade]],
         pool_manager: SGXUnmatchedPool,
         confidence_tier: int = 1,
     ) -> Optional[SGXMatchResult]:
@@ -325,7 +325,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         return None
 
     def _validate_product_spread_match(
-        self, trader_trades: List[SGXTrade], exchange_trades: List[SGXTrade]
+        self, trader_trades: list[SGXTrade], exchange_trades: list[SGXTrade]
     ) -> bool:
         """Validate that trader and exchange trades form a valid product spread match."""
         if len(trader_trades) != 2 or len(exchange_trades) != 2:
@@ -396,7 +396,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         return directions_valid and prices_valid
 
     def _validate_product_spread_directions(
-        self, trader_trades: List[SGXTrade], exchange_trades: List[SGXTrade]
+        self, trader_trades: list[SGXTrade], exchange_trades: list[SGXTrade]
     ) -> bool:
         """Validate that B/S directions match exactly between trader and exchange product spreads.
 
@@ -431,7 +431,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         )
 
     def _validate_product_spread_prices(
-        self, trader_trades: List[SGXTrade], exchange_trades: List[SGXTrade]
+        self, trader_trades: list[SGXTrade], exchange_trades: list[SGXTrade]
     ) -> bool:
         """Validate product spread price calculation between trader and exchange trades."""
         # Get trader spread price (should be same for both legs)
@@ -460,8 +460,8 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
 
     def _create_product_spread_match_result(
         self,
-        trader_trades: List[SGXTrade],
-        exchange_trades: List[SGXTrade],
+        trader_trades: list[SGXTrade],
+        exchange_trades: list[SGXTrade],
         confidence_tier: int = 1,
     ) -> SGXMatchResult:
         """Create SGXMatchResult for product spread match."""
@@ -538,7 +538,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
 
         return tier_confidence
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Union[str, int, float, list[str]]]:
         """Get information about this matching rule."""
         return {
             "rule_number": self.rule_number,
@@ -561,12 +561,12 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
 
     def _find_hyphenated_exchange_matches(
         self,
-        trader_trades: List[SGXTrade],
-        exchange_trades: List[SGXTrade],
+        trader_trades: list[SGXTrade],
+        exchange_trades: list[SGXTrade],
         pool_manager: SGXUnmatchedPool,
-    ) -> List[SGXMatchResult]:
+    ) -> list[SGXMatchResult]:
         """Find Tier 3 matches: hyphenated exchange spreads vs trader pairs (1-to-2)."""
-        matches: List[SGXMatchResult] = []
+        matches: list[SGXMatchResult] = []
 
         # Filter exchange trades to only hyphenated products
         hyphenated_trades = [
@@ -609,7 +609,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         logger.debug(f"Found {len(matches)} Tier 3 hyphenated matches")
         return matches
 
-    def _parse_hyphenated_product(self, product_name: str) -> Optional[Tuple[str, str]]:
+    def _parse_hyphenated_product(self, product_name: str) -> Optional[tuple[str, str]]:
         """Parse hyphenated product name into component products.
 
         Args:
@@ -634,10 +634,10 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         return (first_product, second_product)
 
     def _create_trader_index_for_hyphenated(
-        self, trader_trades: List[SGXTrade], pool_manager: SGXUnmatchedPool
-    ) -> Dict[Tuple, List[SGXTrade]]:
+        self, trader_trades: list[SGXTrade], pool_manager: SGXUnmatchedPool
+    ) -> dict[tuple[str, ...], list[SGXTrade]]:
         """Create index of trader trades for hyphenated exchange matching."""
-        index: Dict[Tuple, List[SGXTrade]] = defaultdict(list)
+        index: dict[tuple[str, ...], list[SGXTrade]] = defaultdict(list)
 
         for trade in trader_trades:
             if pool_manager.is_unmatched(
@@ -657,7 +657,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
     def _find_hyphenated_product_spread_match(
         self,
         exchange_trade: SGXTrade,
-        trader_index: Dict[Tuple, List[SGXTrade]],
+        trader_index: dict[tuple[str, ...], list[SGXTrade]],
         pool_manager: SGXUnmatchedPool,
     ) -> Optional[SGXMatchResult]:
         """Find hyphenated product spread match for an exchange trade.

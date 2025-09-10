@@ -1,9 +1,9 @@
 """Trade matching utilities for Rule 0."""
 
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
 
-def determine_tolerance(unit: str, tolerances: Dict[str, float]) -> float:
+def determine_tolerance(unit: str, tolerances: dict[str, float]) -> float:
     """Determine tolerance based on unit and available tolerances.
 
     Args:
@@ -36,10 +36,10 @@ def determine_tolerance(unit: str, tolerances: Dict[str, float]) -> float:
 
 
 def find_best_match(
-    trader_trade: Dict[str, Any],
-    exchange_trades: list[Dict[str, Any]],
+    trader_trade: dict[str, Any],
+    exchange_trades: list[dict[str, Any]],
     tolerance: float,
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """Find best matching exchange trade for a trader trade.
 
     Args:
@@ -135,7 +135,7 @@ def generate_match_id(trader_id: str, exchange_id: str) -> str:
 
 
 def apply_match(
-    trader_trade: Dict[str, Any], exchange_trade: Dict[str, Any], match_id: str
+    trader_trade: dict[str, Any], exchange_trade: dict[str, Any], match_id: str
 ) -> None:
     """Apply match to both trades.
 
@@ -151,8 +151,8 @@ def apply_match(
 
 
 def create_match_id_mapping(
-    reconciliation_results: list[Dict[str, Any]],
-) -> Dict[str, str]:
+    reconciliation_results: list[dict[str, Any]],
+) -> dict[str, str]:
     """Create a mapping from internal trade IDs to reconciliation match IDs.
 
     Args:
@@ -183,7 +183,7 @@ def create_match_id_mapping(
     return mapping
 
 
-def reset_match_status(trades: list[Dict[str, Any]]) -> None:
+def reset_match_status(trades: list[dict[str, Any]]) -> None:
     """Reset match status for all trades.
 
     Args:

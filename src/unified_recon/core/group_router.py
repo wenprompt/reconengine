@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Optional, Any
 import logging
 import json
 
@@ -42,7 +42,7 @@ class UnifiedTradeRouter:
         self.config = self._load_config()
         self.validator = DataValidator()
 
-    def _load_config(self) -> Dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:
         """Load configuration from JSON file.
 
         Returns:
@@ -54,7 +54,7 @@ class UnifiedTradeRouter:
         """
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
-                config: Dict[str, Any] = json.load(f)
+                config: dict[str, Any] = json.load(f)
             logger.info(f"Loaded unified configuration from {self.config_path}")
             return config
         except FileNotFoundError as e:
@@ -68,7 +68,7 @@ class UnifiedTradeRouter:
 
     def load_and_validate_data(
         self, data_dir: Optional[Path] = None
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Load and validate trader and exchange data.
 
         Args:
@@ -126,7 +126,7 @@ class UnifiedTradeRouter:
 
     def load_and_validate_json_data(
         self, json_path: Path
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Load and validate JSON data from file using trade factories for sophisticated field handling.
 
         This method loads JSON from a file and delegates to load_and_validate_json_dict
@@ -167,8 +167,8 @@ class UnifiedTradeRouter:
             raise DataValidationError(f"Failed to load JSON data from file: {e}") from e
 
     def load_and_validate_json_dict(
-        self, data: Dict[str, Any]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, data: dict[str, Any]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Process and validate JSON data from dictionary, using trade factories for sophisticated field handling.
 
         This method avoids filesystem I/O by accepting data directly.
@@ -206,14 +206,14 @@ class UnifiedTradeRouter:
             )
 
             # Process each group through appropriate trade factory
-            all_trader_trades: List[Any] = []
-            all_exchange_trades: List[Any] = []
+            all_trader_trades: list[Any] = []
+            all_exchange_trades: list[Any] = []
 
             for group_id, group_data in grouped_json.items():
                 system_name = self._get_system_for_group(group_id)
 
-                group_trader_trades: List[Any]
-                group_exchange_trades: List[Any]
+                group_trader_trades: list[Any]
+                group_exchange_trades: list[Any]
 
                 if system_name == "ice_match":
                     # Use ICE trade factory for sophisticated field handling
@@ -301,7 +301,7 @@ class UnifiedTradeRouter:
 
     def group_trades_by_exchange_group(
         self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-    ) -> Dict[int, Dict[str, Any]]:
+    ) -> dict[int, dict[str, Any]]:
         """Group trades by exchange group and prepare for routing.
 
         Args:
@@ -309,7 +309,7 @@ class UnifiedTradeRouter:
             exchange_df: Exchange trades DataFrame
 
         Returns:
-            Dict mapping group_id to group info with DataFrames and system info
+            dict mapping group_id to group info with DataFrames and system info
         """
         # Get all unique exchange groups from both datasets
         trader_groups = set(trader_df["exchangegroupid"].dropna().astype(int))
@@ -374,7 +374,9 @@ class UnifiedTradeRouter:
             System name ('ice_match', 'sgx_match', etc.)
         """
         group_str = str(group_id)
-        system_name = self.config["exchange_group_mappings"].get(group_str, "unknown")
+        system_name: str = self.config["exchange_group_mappings"].get(
+            group_str, "unknown"
+        )
 
         if system_name == "unknown":
             logger.warning(
@@ -384,8 +386,8 @@ class UnifiedTradeRouter:
         return system_name
 
     def get_processable_groups(
-        self, grouped_trades: Dict[int, Dict[str, Any]]
-    ) -> List[int]:
+        self, grouped_trades: dict[int, dict[str, Any]]
+    ) -> list[int]:
         """Get list of exchange groups that can be processed.
 
         Args:
@@ -420,8 +422,8 @@ class UnifiedTradeRouter:
         return processable
 
     def prepare_data_for_system(
-        self, group_info: Dict[str, Any], system_name: str
-    ) -> Dict[str, Any]:
+        self, group_info: dict[str, Any], system_name: str
+    ) -> dict[str, Any]:
         """Prepare group data for specific matching system.
 
         Args:
@@ -429,7 +431,7 @@ class UnifiedTradeRouter:
             system_name: Target system name ('ice_match', 'sgx_match')
 
         Returns:
-            Dict with data prepared for the target system
+            dict with data prepared for the target system
         """
         # Derive system_config from the requested system
         resolved_config = self.config["system_configs"].get(system_name, {})
@@ -457,8 +459,8 @@ class UnifiedTradeRouter:
         return prepared_data
 
     def _group_json_by_exchange_group(
-        self, data: Dict[str, Any], trader_key: str, exchange_key: str
-    ) -> Dict[int, Dict[str, List]]:
+        self, data: dict[str, Any], trader_key: str, exchange_key: str
+    ) -> dict[int, dict[str, list[Any]]]:
         """Group JSON data by exchangeGroupId.
 
         Args:
@@ -469,7 +471,7 @@ class UnifiedTradeRouter:
         Returns:
             Dictionary mapping group_id to grouped trade data
         """
-        grouped_data: Dict[int, Dict[str, List]] = {}
+        grouped_data: dict[int, dict[str, list[Any]]] = {}
 
         # Group trader trades by exchangeGroupId
         for trade in data.get(trader_key, []):
@@ -498,7 +500,7 @@ class UnifiedTradeRouter:
         )
         return grouped_data
 
-    def _trades_to_dataframe(self, trades: List[Any]) -> pd.DataFrame:
+    def _trades_to_dataframe(self, trades: list[Any]) -> pd.DataFrame:
         """Convert Trade objects back to DataFrame format.
 
         Args:

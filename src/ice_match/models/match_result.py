@@ -3,7 +3,7 @@
 from decimal import Decimal
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import Any
 from pydantic import BaseModel, Field, ConfigDict
 from ...unified_recon.models.recon_status import ReconStatus
 from .trade import Trade
@@ -60,20 +60,20 @@ class MatchResult(BaseModel):
     exchange_trade: Trade = Field(..., description="Primary trade from exchange source")
 
     # Additional trades for spread matches (Rule 2)
-    additional_trader_trades: List[Trade] = Field(
+    additional_trader_trades: list[Trade] = Field(
         default_factory=list, description="Additional trader trades for spread matches"
     )
-    additional_exchange_trades: List[Trade] = Field(
+    additional_exchange_trades: list[Trade] = Field(
         default_factory=list,
         description="Additional exchange trades for spread matches",
     )
 
     # Match details
-    matched_fields: List[str] = Field(..., description="Fields that matched exactly")
-    differing_fields: List[str] = Field(
+    matched_fields: list[str] = Field(..., description="Fields that matched exactly")
+    differing_fields: list[str] = Field(
         default_factory=list, description="Fields that differed"
     )
-    tolerances_applied: dict = Field(
+    tolerances_applied: dict[str, Any] = Field(
         default_factory=dict, description="Tolerances applied during matching"
     )
 
@@ -146,16 +146,16 @@ class MatchResult(BaseModel):
         )
 
     @property
-    def all_trader_trades(self) -> List[Trade]:
+    def all_trader_trades(self) -> list[Trade]:
         """Get all trader trades (primary + additional)."""
         return [self.trader_trade] + self.additional_trader_trades
 
     @property
-    def all_exchange_trades(self) -> List[Trade]:
+    def all_exchange_trades(self) -> list[Trade]:
         """Get all exchange trades (primary + additional)."""
         return [self.exchange_trade] + self.additional_exchange_trades
 
-    def get_summary(self) -> dict:
+    def get_summary(self) -> dict[str, Any]:
         """Get a summary dictionary of match information.
 
         Returns:

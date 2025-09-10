@@ -1,12 +1,12 @@
 """Fly matching implementation for Rule 6."""
 
-from typing import List, Optional, Dict, Tuple, TypeAlias
+from typing import Optional, TypeAlias, Any
 from decimal import Decimal
 import logging
 from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import Trade, MatchResult, MatchType
+from ..models import Trade, MatchResult, MatchType, SignatureValue
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
@@ -22,7 +22,7 @@ from ..utils.fly_helpers import (
 logger = logging.getLogger(__name__)
 
 # Type alias for month order tuple (year, month_number)
-MonthKey: TypeAlias = Tuple[int, int]
+MonthKey: TypeAlias = tuple[int, int]
 
 
 class FlyMatcher(BaseMatcher):
@@ -35,10 +35,10 @@ class FlyMatcher(BaseMatcher):
         self.rule_number = 6
         self.confidence = config_manager.get_rule_confidence(self.rule_number)
         # Initialize per-instance cache to avoid memory leaks from @lru_cache
-        self._month_cache: Dict[str, MonthKey] = {}
+        self._month_cache: dict[str, MonthKey] = {}
         logger.info(f"Initialized FlyMatcher with {self.confidence}% confidence")
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find all fly matches using dealid-based grouping."""
         logger.info("Starting fly matching (Rule 6) - Dealid-based grouping")
         matches = []
@@ -78,13 +78,13 @@ class FlyMatcher(BaseMatcher):
         return matches
 
     def _find_trader_fly_groups(
-        self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[List[Trade]]:
+        self, trader_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[list[Trade]]:
         """Find trader fly groups with spread indicators using optimized contract month-based grouping."""
         fly_groups = []
 
         # Group trades by product and universal fields
-        trade_groups: Dict[Tuple, List[Trade]] = defaultdict(list)
+        trade_groups: dict[tuple[SignatureValue, ...], list[Trade]] = defaultdict(list)
         for trade in trader_trades:
             if not pool_manager.is_trade_matched(trade):
                 # Check for spread indicator 'S' (fly trades usually have this)
@@ -100,8 +100,8 @@ class FlyMatcher(BaseMatcher):
         return fly_groups
 
     def _find_fly_patterns_by_month_grouping(
-        self, trades: List[Trade]
-    ) -> List[List[Trade]]:
+        self, trades: list[Trade]
+    ) -> list[list[Trade]]:
         """Find fly patterns using a 3-sum-style month triplet approach.
 
         Complexity:
@@ -110,7 +110,7 @@ class FlyMatcher(BaseMatcher):
             - For each triplet: iterate outer legs (approximately n1 * n3), middle via O(1) lookup
             - Worst case: O(m^3 * n_outer1 * n_outer3); typical datasets keep m small.
         """
-        fly_patterns: List[List[Trade]] = []
+        fly_patterns: list[list[Trade]] = []
 
         # Group trades by contract month - O(n)
         month_groups = group_trades_by_month(trades)
@@ -141,7 +141,7 @@ class FlyMatcher(BaseMatcher):
 
         return fly_patterns
 
-    def _is_valid_fly_group(self, trades: List[Trade]) -> bool:
+    def _is_valid_fly_group(self, trades: list[Trade]) -> bool:
         """Unified fly group validation for both trader and exchange trades.
 
         Requirements:
@@ -194,13 +194,13 @@ class FlyMatcher(BaseMatcher):
         return True
 
     def _find_exchange_fly_groups(
-        self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[List[Trade]]:
+        self, exchange_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[list[Trade]]:
         """Find exchange fly groups using dealid-based grouping."""
         fly_groups = []
 
         # Group trades by dealid
-        dealid_groups: Dict[str, List[Trade]] = defaultdict(list)
+        dealid_groups: dict[str, list[Trade]] = defaultdict(list)
         for trade in exchange_trades:
             if pool_manager.is_trade_matched(trade):
                 continue
@@ -257,7 +257,7 @@ class FlyMatcher(BaseMatcher):
 
         return month_key
 
-    def _sort_months_chronologically(self, months: List[str]) -> List[str]:
+    def _sort_months_chronologically(self, months: list[str]) -> list[str]:
         """Sort months using cached month tuple conversion."""
         month_tuples = [
             (month, self._get_month_order_tuple_cached(month)) for month in months
@@ -272,8 +272,8 @@ class FlyMatcher(BaseMatcher):
         return [month for month, _ in valid_month_tuples]
 
     def _sort_trades_by_contract_month(
-        self, trades: List[Trade]
-    ) -> Optional[List[Trade]]:
+        self, trades: list[Trade]
+    ) -> Optional[list[Trade]]:
         """Sort 3 trades by contract month (earliest to latest)."""
         if len(trades) != 3:
             return None
@@ -293,8 +293,8 @@ class FlyMatcher(BaseMatcher):
 
     def _match_fly_group(
         self,
-        trader_group: List[Trade],
-        exchange_fly_groups: List[List[Trade]],
+        trader_group: list[Trade],
+        exchange_fly_groups: list[list[Trade]],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Match a trader fly group with exchange fly groups."""
@@ -317,7 +317,7 @@ class FlyMatcher(BaseMatcher):
         return None
 
     def _validate_fly_match(
-        self, trader_trades: List[Trade], exchange_trades: List[Trade]
+        self, trader_trades: list[Trade], exchange_trades: list[Trade]
     ) -> bool:
         """Validate that trader and exchange trades form a valid fly match."""
         if len(trader_trades) != 3 or len(exchange_trades) != 3:
@@ -353,7 +353,7 @@ class FlyMatcher(BaseMatcher):
         ) and self._validate_fly_price_calculation(sorted_trader, sorted_exchange)
 
     def _validate_fly_directions(
-        self, trader_trades: List[Trade], exchange_trades: List[Trade]
+        self, trader_trades: list[Trade], exchange_trades: list[Trade]
     ) -> bool:
         """Validate that B/S directions match between trader and exchange fly patterns."""
         if len(trader_trades) != 3 or len(exchange_trades) != 3:
@@ -375,7 +375,7 @@ class FlyMatcher(BaseMatcher):
         )
 
     def _validate_fly_price_calculation(
-        self, trader_trades: List[Trade], exchange_trades: List[Trade]
+        self, trader_trades: list[Trade], exchange_trades: list[Trade]
     ) -> bool:
         """Validate fly price calculation between trader and exchange trades."""
         # For trader fly: find the non-zero price (usually on earliest month)
@@ -402,8 +402,8 @@ class FlyMatcher(BaseMatcher):
 
     def _create_fly_match_result(
         self,
-        trader_trades: List[Trade],
-        exchange_trades: List[Trade],
+        trader_trades: list[Trade],
+        exchange_trades: list[Trade],
     ) -> MatchResult:
         """Create MatchResult for fly match."""
         # Rule-specific matched fields
@@ -431,7 +431,7 @@ class FlyMatcher(BaseMatcher):
             additional_exchange_trades=exchange_trades[1:],  # Middle and latest months
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule."""
         return {
             "rule_number": self.rule_number,

@@ -1,11 +1,11 @@
 """Crack matching implementation for Rule 3."""
 
-from typing import List, Dict, Tuple
+from typing import Optional, Any
 import logging
 from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import Trade, MatchResult, MatchType
+from ..models import Trade, MatchResult, MatchType, SignatureValue
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
 from .base_matcher import BaseMatcher
@@ -30,7 +30,7 @@ class CrackMatcher(BaseMatcher):
     Confidence: 95%
     """
 
-    def __init__(self, config_manager: ConfigManager, normalizer=None):
+    def __init__(self, config_manager: ConfigManager, normalizer: Optional[Any] = None):
         """Initialize the crack matcher.
 
         Args:
@@ -50,7 +50,7 @@ class CrackMatcher(BaseMatcher):
 
         logger.info(f"Initialized CrackMatcher with {self.confidence}% confidence")
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find all crack matches between unmatched trader and exchange trades.
 
         Args:
@@ -119,7 +119,7 @@ class CrackMatcher(BaseMatcher):
         logger.info(f"Found {len(matches)} crack matches")
         return matches
 
-    def _filter_crack_trades(self, trades: List[Trade]) -> List[Trade]:
+    def _filter_crack_trades(self, trades: list[Trade]) -> list[Trade]:
         """Filter trades to only include crack trades.
 
         Args:
@@ -139,8 +139,8 @@ class CrackMatcher(BaseMatcher):
         return crack_trades
 
     def _build_exchange_index(
-        self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> Dict[Tuple, List[Trade]]:
+        self, exchange_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> dict[tuple[SignatureValue, ...], list[Trade]]:
         """Build optimized index from exchange trades for fast lookup.
 
         Args:
@@ -150,7 +150,7 @@ class CrackMatcher(BaseMatcher):
         Returns:
             Dictionary mapping match keys to lists of candidate exchange trades
         """
-        index: Dict[Tuple, List[Trade]] = defaultdict(list)
+        index: dict[tuple[SignatureValue, ...], list[Trade]] = defaultdict(list)
 
         for trade in exchange_trades:
             # CRITICAL: Only index unmatched trades (prevents duplicates)
@@ -161,7 +161,7 @@ class CrackMatcher(BaseMatcher):
         logger.debug(f"Built exchange index with {len(index)} unique match keys")
         return index
 
-    def _build_match_key(self, trade: Trade) -> Tuple:
+    def _build_match_key(self, trade: Trade) -> tuple[SignatureValue, ...]:
         """Build consistent match key for indexing and lookup.
 
         For crack matches, trades must match exactly on:
@@ -180,7 +180,7 @@ class CrackMatcher(BaseMatcher):
             Tuple key for consistent matching
         """
         # Rule-specific fields
-        rule_specific_fields = [
+        rule_specific_fields: list[SignatureValue] = [
             trade.product_name,
             trade.contract_month,
             trade.price,
@@ -278,7 +278,7 @@ class CrackMatcher(BaseMatcher):
             )
 
         # No differing fields for successful crack matches
-        differing_fields: List[str] = []
+        differing_fields: list[str] = []
 
         return MatchResult(
             match_id=match_id,

@@ -1,7 +1,7 @@
 """Aggregation matcher for Rule 7 - Aggregation matching (split/combined trades)."""
 
 import logging
-from typing import List, Optional
+from typing import Optional, Any
 
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
@@ -35,7 +35,7 @@ class AggregationMatcher(AggregationBaseMatcher):
             f"Initialized AggregationMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find aggregation matches between trader and exchange data.
 
         Args:
@@ -102,7 +102,7 @@ class AggregationMatcher(AggregationBaseMatcher):
         return matches
 
     def _create_aggregation_match_result(
-        self, aggregated_trades: List[Trade], single_trade: Trade, direction: str
+        self, aggregated_trades: list[Trade], single_trade: Trade, direction: str
     ) -> Optional[MatchResult]:
         """Create aggregation match result using base class method.
 
@@ -142,7 +142,7 @@ class AggregationMatcher(AggregationBaseMatcher):
             logger.error(f"Error creating aggregation match: {e}")
             return None
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule.
 
         Returns:

@@ -3,7 +3,8 @@
 import json
 from pathlib import Path
 from decimal import Decimal
-from typing import Dict, Any, Optional, List
+from typing import Any, Optional
+from ...unified_recon.types.json_types import NormalizerConfig
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -31,7 +32,7 @@ class MatchingConfig(BaseModel):
     # This allows for easy customization without code changes
 
     # Confidence levels for each rule (from rules.md) - implemented rules
-    rule_confidence_levels: Dict[int, Decimal] = Field(
+    rule_confidence_levels: dict[int, Decimal] = Field(
         default={
             1: Decimal("100"),  # Exact match
             2: Decimal("95"),  # Spread match
@@ -51,7 +52,7 @@ class MatchingConfig(BaseModel):
     )
 
     # Tier-specific confidence levels for SpreadMatcher (Rule 2)
-    spread_tier_confidence_levels: Dict[str, Decimal] = Field(
+    spread_tier_confidence_levels: dict[str, Decimal] = Field(
         default={
             "tier1": Decimal("95"),  # DealID/TradeID-based (most accurate)
             "tier2": Decimal("92"),  # Time-based with price calculation
@@ -108,16 +109,18 @@ class ConfigManager:
             config: Optional custom configuration, uses defaults if None
         """
         self._config = config or MatchingConfig()
-        self._normalizer_config: Dict[str, Any] = {}
+        self._normalizer_config: NormalizerConfig
         self._load_normalizer_config()
 
-    def _load_normalizer_config(self):
+    def _load_normalizer_config(self) -> None:
         """Load normalizer configuration from JSON file."""
         config_dir = Path(__file__).parent
         normalizer_config_path = config_dir / "normalizer_config.json"
         try:
             with open(normalizer_config_path, "r") as f:
-                self._normalizer_config = json.load(f)
+                # Load as Any first, then assign to typed structure
+                raw_config: Any = json.load(f)
+                self._normalizer_config = raw_config
         except FileNotFoundError:
             raise FileNotFoundError(
                 f"Normalizer config file not found: {normalizer_config_path}"
@@ -213,7 +216,7 @@ class ConfigManager:
         """Get complex crack matching quantity tolerance in MT (deprecated - use get_universal_tolerance_mt)."""
         return self.get_universal_tolerance_mt()
 
-    def get_universal_matching_fields(self) -> List[str]:
+    def get_universal_matching_fields(self) -> list[str]:
         """Get universal matching fields that must match across ALL rules.
 
         Loads from normalizer_config.json under universal_matching_fields.required_fields
@@ -230,7 +233,7 @@ class ConfigManager:
         except KeyError as e:
             raise KeyError(f"Missing required key in normalizer_config.json: {e}")
 
-    def get_universal_field_mappings(self) -> Dict[str, str]:
+    def get_universal_field_mappings(self) -> dict[str, str]:
         """Get universal field mappings from config (config field name -> Trade attribute name).
 
         Returns:
@@ -245,32 +248,36 @@ class ConfigManager:
         except KeyError as e:
             raise KeyError(f"Missing required key in normalizer_config.json: {e}")
 
-    def get_product_mappings(self) -> Dict[str, str]:
+    def get_product_mappings(self) -> dict[str, str]:
         """Get product name normalization mappings."""
-        return self._normalizer_config.get("product_mappings", {})
+        return self._normalizer_config["product_mappings"]
 
-    def get_month_patterns(self) -> Dict[str, str]:
+    def get_month_patterns(self) -> dict[str, str]:
         """Get contract month normalization regex patterns."""
-        return self._normalizer_config.get("month_patterns", {})
+        return self._normalizer_config["month_patterns"]
 
-    def get_product_conversion_ratios(self) -> Dict[str, float]:
+    def get_product_conversion_ratios(self) -> dict[str, float]:
         """Get product-specific MT to BBL conversion ratios."""
         return self._normalizer_config.get("product_conversion_ratios", {})
 
-    def get_traders_product_unit_defaults(self) -> Dict[str, str]:
+    def get_traders_product_unit_defaults(self) -> dict[str, str]:
         """Get default units for trader products."""
         return self._normalizer_config.get("traders_product_unit_defaults", {})
 
-    def get_buy_sell_mappings(self) -> Dict[str, str]:
+    def get_buy_sell_mappings(self) -> dict[str, str]:
         """Get buy/sell indicator mappings for normalization.
 
         Returns:
             Dictionary mapping buy/sell values to standardized B/S format
         """
         buy_sell_config = self._normalizer_config.get("buy_sell_mappings", {})
-        return buy_sell_config.get("mappings", {})
+        # ICE has a nested structure for buy_sell mappings
+        if isinstance(buy_sell_config, dict) and "mappings" in buy_sell_config:
+            mappings = buy_sell_config["mappings"]
+            return mappings if isinstance(mappings, dict) else {}
+        return {}
 
-    def update_config(self, **kwargs) -> "ConfigManager":
+    def update_config(self, **kwargs: Any) -> "ConfigManager":
         """Create new ConfigManager with updated values.
 
         Args:
@@ -285,7 +292,7 @@ class ConfigManager:
         new_config = MatchingConfig(**current_dict)
         return ConfigManager(new_config)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary.
 
         Returns:
@@ -294,7 +301,7 @@ class ConfigManager:
         return self._config.model_dump()
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "ConfigManager":
+    def from_dict(cls, config_dict: dict[str, Any]) -> "ConfigManager":
         """Create ConfigManager from dictionary.
 
         Args:
@@ -315,7 +322,7 @@ class ConfigManager:
         """
         return cls()
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get configuration summary for display.
 
         Returns:
