@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import List, Optional
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
@@ -85,7 +86,9 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
                         f"{crack_trade.contract_month} {crack_trade.quantityunit}"
                     )
                 else:
-                    logger.error(f"Failed to record aggregated complex crack match: {match.match_id}")
+                    logger.error(
+                        f"Failed to record aggregated complex crack match: {match.match_id}"
+                    )
 
         logger.info(f"Found {len(matches)} aggregated complex crack matches")
         return matches
@@ -262,6 +265,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             match_id=match_id,
             match_type=MatchType.AGGREGATED_COMPLEX_CRACK,
             confidence=self.confidence,
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=crack_trade,
             exchange_trade=primary_base_trade,
             additional_exchange_trades=additional_trades,

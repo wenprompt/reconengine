@@ -4,6 +4,7 @@ from typing import List, Dict, Tuple
 import logging
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
@@ -283,6 +284,7 @@ class CrackMatcher(BaseMatcher):
             match_id=match_id,
             match_type=MatchType.CRACK,
             confidence=self.confidence,
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=trader_trade,
             exchange_trade=exchange_trade,
             matched_fields=matched_fields,

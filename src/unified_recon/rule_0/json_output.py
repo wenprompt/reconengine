@@ -147,7 +147,7 @@ class FieldExtractor:
         """Extract ICE-specific MT/BBL fields."""
         # Check if this is a unified comparison (has trader_quantity/exchange_quantity)
         # or an ICE-specific comparison (has trader_mt/trader_bbl)
-        
+
         # First try unified fields (used by unified Rule 0)
         if hasattr(comp, "trader_quantity"):
             return {
@@ -156,7 +156,7 @@ class FieldExtractor:
                 "difference": float(getattr(comp, "difference", 0)),
                 "unit": getattr(comp, "unit", "MT"),
             }
-        
+
         # Fall back to ICE-specific fields for backward compatibility
         trader_mt = float(getattr(comp, "trader_mt", 0))
         trader_bbl = float(getattr(comp, "trader_bbl", 0))
@@ -236,7 +236,7 @@ class Rule0JSONOutput:
         self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]]
     ) -> None:
         """Match trader and exchange trades with optional external match IDs.
-        
+
         If external match IDs are provided (from reconciliation engine), use them exclusively.
         Otherwise, use position-based matching for /poscheck endpoint.
         """
@@ -253,7 +253,7 @@ class Rule0JSONOutput:
                     t_trade["matched"] = True
                     t_trade["match_id"] = external_match_id
                 # If no match from reconciliation engine, trade remains unmatched
-            
+
             for e_trade in exchange_trades:
                 e_id = str(e_trade.get("internal_trade_id", ""))
                 external_match_id = self.external_match_ids.get(f"E_{e_id}")
@@ -261,23 +261,27 @@ class Rule0JSONOutput:
                     e_trade["matched"] = True
                     e_trade["match_id"] = external_match_id
                 # If no match from reconciliation engine, trade remains unmatched
-            
+
             # Validate for orphaned match IDs (only one side has the match)
-            trader_match_ids = {t["match_id"] for t in trader_trades if t.get("matched")}
-            exchange_match_ids = {e["match_id"] for e in exchange_trades if e.get("matched")}
-            
+            trader_match_ids = {
+                t["match_id"] for t in trader_trades if t.get("matched")
+            }
+            exchange_match_ids = {
+                e["match_id"] for e in exchange_trades if e.get("matched")
+            }
+
             orphaned_trader_only = trader_match_ids - exchange_match_ids
             orphaned_exchange_only = exchange_match_ids - trader_match_ids
-            
+
             if orphaned_trader_only:
                 logger.debug(
                     "Match IDs found only in trader trades (no exchange counterpart): %s",
-                    orphaned_trader_only
+                    orphaned_trader_only,
                 )
             if orphaned_exchange_only:
                 logger.debug(
-                    "Match IDs found only in exchange trades (no trader counterpart): %s", 
-                    orphaned_exchange_only
+                    "Match IDs found only in exchange trades (no trader counterpart): %s",
+                    orphaned_exchange_only,
                 )
         else:
             # Use position-based matching for /poscheck endpoint

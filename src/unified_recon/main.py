@@ -420,7 +420,9 @@ def main() -> int:
                 logger.exception(
                     f"Unable to process exchange group {group_id}. Continuing with remaining groups."
                 )
-                display.display_error(f"Failed to process group {group_id}", "See logs for details")
+                display.display_error(
+                    f"Failed to process group {group_id}", "See logs for details"
+                )
                 continue
 
         # Display results

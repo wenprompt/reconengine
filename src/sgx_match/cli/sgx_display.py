@@ -109,7 +109,7 @@ class SGXDisplay:
         single_leg_matches = []
         spread_matches = []
         product_spread_matches = []
-        
+
         for match in matches:
             if match.additional_trader_trades or match.additional_exchange_trades:
                 if match.match_type.value == "spread":
@@ -126,7 +126,7 @@ class SGXDisplay:
         # Show spread matches
         if spread_matches:
             self._show_spread_matches(spread_matches)
-        
+
         # Show product spread matches
         if product_spread_matches:
             self._show_product_spread_matches(product_spread_matches)
@@ -143,6 +143,7 @@ class SGXDisplay:
         table.add_column("B/S", justify="center")
         table.add_column("Trade ID (T)", style="dim")
         table.add_column("Trade ID (E)", style="dim")
+        table.add_column("Status", style="yellow")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -156,6 +157,7 @@ class SGXDisplay:
                 match.trader_trade.buy_sell,
                 match.trader_trade.display_id,
                 match.exchange_trade.display_id,
+                match.status.value.title() if match.status else "Matched",
                 f"{match.confidence}%",
             )
 
@@ -166,7 +168,7 @@ class SGXDisplay:
         """Show multi-leg match results (spreads)."""
         # Import here to avoid circular imports
         from ..utils.trade_helpers import get_month_order_tuple
-        
+
         table = Table(title=f"Spread Matches ({len(matches)} found)", box=box.ROUNDED)
         table.add_column("Match ID", style="cyan")
         table.add_column("Rule", justify="center")
@@ -177,6 +179,7 @@ class SGXDisplay:
         table.add_column("Directions", justify="center")
         table.add_column("Trade IDs (T)", style="dim")
         table.add_column("Trade IDs (E)", style="dim")
+        table.add_column("Status", style="yellow")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -190,8 +193,10 @@ class SGXDisplay:
             # Handle None return values by providing a fallback sort key
             def sort_key(trade):
                 order_tuple = get_month_order_tuple(trade.contract_month)
-                return order_tuple if order_tuple is not None else (9999, 99)  # Put invalid dates last
-            
+                return (
+                    order_tuple if order_tuple is not None else (9999, 99)
+                )  # Put invalid dates last
+
             all_trader_trades.sort(key=sort_key)
             all_exchange_trades.sort(key=sort_key)
 
@@ -227,6 +232,7 @@ class SGXDisplay:
                 directions,
                 trader_ids,
                 exchange_ids,
+                match.status.value.title() if match.status else "Matched",
                 f"{match.confidence}%",
             )
 
@@ -236,8 +242,10 @@ class SGXDisplay:
     def _show_product_spread_matches(self, matches: List[SGXMatchResult]) -> None:
         """Show product spread match results."""
         # Import here to avoid circular imports
-        
-        table = Table(title=f"Product Spread Matches ({len(matches)} found)", box=box.ROUNDED)
+
+        table = Table(
+            title=f"Product Spread Matches ({len(matches)} found)", box=box.ROUNDED
+        )
         table.add_column("Match ID", style="cyan")
         table.add_column("Rule", justify="center")
         table.add_column("Products", style="green")
@@ -247,6 +255,7 @@ class SGXDisplay:
         table.add_column("Directions", justify="center")
         table.add_column("Trade IDs (T)", style="dim")
         table.add_column("Trade IDs (E)", style="dim")
+        table.add_column("Status", style="yellow")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -281,7 +290,7 @@ class SGXDisplay:
 
             # Use spread price from trader (should be same for both legs in product spread)
             spread_price = match.trader_trade.price
-            
+
             # Contract month should be same for all trades
             contract_month = match.trader_trade.contract_month
 
@@ -295,6 +304,7 @@ class SGXDisplay:
                 directions,
                 trader_ids,
                 exchange_ids,
+                match.status.value.title() if match.status else "Matched",
                 f"{match.confidence}%",
             )
 

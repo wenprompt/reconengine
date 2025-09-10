@@ -195,8 +195,10 @@ class UnifiedDisplay:
             return ""
 
     def _match_trades(
-        self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]],
-        external_match_ids: Optional[Dict[str, str]] = None
+        self,
+        trader_trades: List[Dict[str, Any]],
+        exchange_trades: List[Dict[str, Any]],
+        external_match_ids: Optional[Dict[str, str]] = None,
     ) -> None:
         """Match trader and exchange trades based on quantity, broker, and clearing account.
 
@@ -223,7 +225,7 @@ class UnifiedDisplay:
                     t_trade["matched"] = True
                     t_trade["match_id"] = external_match_id
                 # If no match from reconciliation engine, trade remains unmatched (EMPTY)
-            
+
             for e_trade in exchange_trades:
                 e_id = str(e_trade.get("internal_trade_id", ""))
                 external_match_id = external_match_ids.get(f"E_{e_id}")
@@ -337,15 +339,15 @@ class UnifiedDisplay:
         """
         # Format quantities using their specific units
         # Use trader_unit/exchange_unit if available, fallback to shared unit for backward compatibility
-        trader_unit_to_use = getattr(comp, 'trader_unit', None)
-        exchange_unit_to_use = getattr(comp, 'exchange_unit', None)
-        
+        trader_unit_to_use = getattr(comp, "trader_unit", None)
+        exchange_unit_to_use = getattr(comp, "exchange_unit", None)
+
         # If specific units not available (old code), fall back to shared unit
         if trader_unit_to_use is None:
             trader_unit_to_use = comp.unit
         if exchange_unit_to_use is None:
             exchange_unit_to_use = comp.unit
-        
+
         trader_str = self._format_quantity(
             comp.trader_quantity,
             trader_unit_to_use if comp.trader_quantity != 0 else None,
@@ -403,11 +405,13 @@ class UnifiedDisplay:
             self.console.print()  # Add spacing between products
 
     def show_position_details(
-        self, trader_matrix: PositionMatrix, exchange_matrix: PositionMatrix,
-        external_match_ids: Optional[Dict[str, str]] = None
+        self,
+        trader_matrix: PositionMatrix,
+        exchange_matrix: PositionMatrix,
+        external_match_ids: Optional[Dict[str, str]] = None,
     ) -> None:
         """Show detailed trade breakdown for each position.
-        
+
         Args:
             trader_matrix: Trader position matrix
             exchange_matrix: Exchange position matrix
@@ -460,7 +464,9 @@ class UnifiedDisplay:
 
                 # Perform matching if there are trades on both sides
                 if trader_trades and exchange_trades:
-                    self._match_trades(trader_trades, exchange_trades, external_match_ids)
+                    self._match_trades(
+                        trader_trades, exchange_trades, external_match_ids
+                    )
 
                 # Helper function to add trade rows
                 def add_trade_row(detail: Dict[str, Any], source_code: str) -> None:

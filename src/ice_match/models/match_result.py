@@ -5,42 +5,55 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field, ConfigDict
+from ...unified_recon.models.recon_status import ReconStatus
 from .trade import Trade
 
 
 class MatchType(str, Enum):
     """Type of matching rule that produced this match."""
+
     EXACT = "exact"  # Rule 1 - Exact 6-field match
     SPREAD = "spread"  # Rule 2 - Spread matching
     CRACK = "crack"  # Rule 3 - Crack spread matching with unit conversion
-    COMPLEX_CRACK = "complex_crack"  # Rule 4 - Complex crack matching (base product + brent swap)
-    PRODUCT_SPREAD = "product_spread"  # Rule 5 - Product spread matching (hyphenated products)
+    COMPLEX_CRACK = (
+        "complex_crack"  # Rule 4 - Complex crack matching (base product + brent swap)
+    )
+    PRODUCT_SPREAD = (
+        "product_spread"  # Rule 5 - Product spread matching (hyphenated products)
+    )
     FLY = "fly"  # Rule 6 - Fly matching (butterfly spread)
     AGGREGATION = "aggregation"  # Rule 7 - Aggregation matching
-    AGGREGATED_COMPLEX_CRACK = "aggregated_complex_crack"  # Rule 8 - Aggregated complex crack matching
+    AGGREGATED_COMPLEX_CRACK = (
+        "aggregated_complex_crack"  # Rule 8 - Aggregated complex crack matching
+    )
     AGGREGATED_SPREAD = "aggregated_spread"  # Rule 9 - Aggregated spread matching
     MULTILEG_SPREAD = "multileg_spread"  # Rule 10 - Multileg spread matching
     AGGREGATED_CRACK = "aggregated_crack"  # Rule 11 - Aggregated crack matching
     COMPLEX_CRACK_ROLL = "complex_crack_roll"  # Rule 12 - Complex Crack Roll Matching
-    AGGREGATED_PRODUCT_SPREAD = "aggregated_product_spread"  # Rule 13 - Aggregated product spread matching
+    AGGREGATED_PRODUCT_SPREAD = (
+        "aggregated_product_spread"  # Rule 13 - Aggregated product spread matching
+    )
 
 
 class MatchResult(BaseModel):
-    """Represents a successful match between two trades. 
-    
+    """Represents a successful match between two trades.
+
     Contains information about which trades matched, the rule used,
     confidence level, and audit trail information.
     """
 
     model_config = ConfigDict(
         frozen=True,  # Immutable for thread safety
-        validate_assignment=True
+        validate_assignment=True,
     )
 
     # Match identification
     match_id: str = Field(..., description="Unique identifier for this match")
     match_type: MatchType = Field(..., description="Type of matching rule used")
-    confidence: Decimal = Field(..., ge=0, le=100, description="Match confidence percentage")
+    confidence: Decimal = Field(
+        ..., ge=0, le=100, description="Match confidence percentage"
+    )
+    status: ReconStatus = Field(default=ReconStatus.MATCHED, description="Match status")
 
     # Matched trades
     trader_trade: Trade = Field(..., description="Primary trade from trader source")
@@ -48,35 +61,44 @@ class MatchResult(BaseModel):
 
     # Additional trades for spread matches (Rule 2)
     additional_trader_trades: List[Trade] = Field(
-        default_factory=list,
-        description="Additional trader trades for spread matches"
+        default_factory=list, description="Additional trader trades for spread matches"
     )
     additional_exchange_trades: List[Trade] = Field(
         default_factory=list,
-        description="Additional exchange trades for spread matches"
+        description="Additional exchange trades for spread matches",
     )
 
     # Match details
     matched_fields: List[str] = Field(..., description="Fields that matched exactly")
-    differing_fields: List[str] = Field(default_factory=list, description="Fields that differed")
-    tolerances_applied: dict = Field(default_factory=dict, description="Tolerances applied during matching")
+    differing_fields: List[str] = Field(
+        default_factory=list, description="Fields that differed"
+    )
+    tolerances_applied: dict = Field(
+        default_factory=dict, description="Tolerances applied during matching"
+    )
 
     # Metadata
-    matched_at: datetime = Field(default_factory=datetime.now, description="When match was created")
-    rule_order: int = Field(..., ge=1, le=13, description="Order of rule that created this match (1-13)")
+    matched_at: datetime = Field(
+        default_factory=datetime.now, description="When match was created"
+    )
+    rule_order: int = Field(
+        ..., ge=1, le=13, description="Order of rule that created this match (1-13)"
+    )
 
     def __str__(self) -> str:
         """Human-readable string representation."""
         return (
-                f"Match({self.match_id}: {self.trader_trade.internal_trade_id} <-> "
-                f"{self.exchange_trade.internal_trade_id} via {self.match_type.value} "
-                f"@ {self.confidence}%")
+            f"Match({self.match_id}: {self.trader_trade.internal_trade_id} <-> "
+            f"{self.exchange_trade.internal_trade_id} via {self.match_type.value} "
+            f"@ {self.confidence}%"
+        )
 
     def __repr__(self) -> str:
         """Developer string representation."""
         return (
-                f"MatchResult(id={self.match_id}, type={self.match_type.value}, "
-                f"confidence={self.confidence}, rule={self.rule_order})")
+            f"MatchResult(id={self.match_id}, type={self.match_type.value}, "
+            f"confidence={self.confidence}, rule={self.rule_order})"
+        )
 
     @property
     def match_quality(self) -> str:
@@ -111,15 +133,17 @@ class MatchResult(BaseModel):
     def is_spread_match(self) -> bool:
         """Check if this is a spread match with multiple trades."""
         return self.match_type == MatchType.SPREAD and (
-            len(self.additional_trader_trades) > 0 or
-            len(self.additional_exchange_trades) > 0
+            len(self.additional_trader_trades) > 0
+            or len(self.additional_exchange_trades) > 0
         )
 
     @property
     def is_multi_leg_match(self) -> bool:
         """Check if this match involves multiple legs (additional trades)."""
-        return len(self.additional_trader_trades) > 0 or \
-               len(self.additional_exchange_trades) > 0
+        return (
+            len(self.additional_trader_trades) > 0
+            or len(self.additional_exchange_trades) > 0
+        )
 
     @property
     def all_trader_trades(self) -> List[Trade]:
@@ -133,7 +157,7 @@ class MatchResult(BaseModel):
 
     def get_summary(self) -> dict:
         """Get a summary dictionary of match information.
-        
+
         Returns:
             Dictionary with match summary including trades, differences, and metadata
         """
@@ -143,13 +167,14 @@ class MatchResult(BaseModel):
             "confidence": float(self.confidence),
             "quality": self.match_quality,
             "rule_order": self.rule_order,
+            "status": self.status,
             "trader_trade": {
                 "id": self.trader_trade.internal_trade_id,
                 "product": self.trader_trade.product_name,
                 "quantity_mt": float(self.trader_trade.quantity_mt),
                 "price": float(self.trader_trade.price),
                 "side": self.trader_trade.buy_sell,
-                "contract": self.trader_trade.contract_month
+                "contract": self.trader_trade.contract_month,
             },
             "exchange_trade": {
                 "id": self.exchange_trade.internal_trade_id,
@@ -157,14 +182,14 @@ class MatchResult(BaseModel):
                 "quantity_mt": float(self.exchange_trade.quantity_mt),
                 "price": float(self.exchange_trade.price),
                 "side": self.exchange_trade.buy_sell,
-                "contract": self.exchange_trade.contract_month
+                "contract": self.exchange_trade.contract_month,
             },
             "differences": {
                 "quantity_mt": float(self.quantity_difference),
                 "price": float(self.price_difference),
-                "differing_fields": self.differing_fields
+                "differing_fields": self.differing_fields,
             },
             "tolerances_applied": self.tolerances_applied,
             "matched_fields": self.matched_fields,
-            "matched_at": self.matched_at.isoformat()
+            "matched_at": self.matched_at.isoformat(),
         }

@@ -8,13 +8,14 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class TradeSource(str, Enum):
     """Source of trade data."""
+
     TRADER = "trader"
     EXCHANGE = "exchange"
 
 
 class Trade(BaseModel):
     """Represents a single ice trade with normalized fields.
-    
+
     This model handles both trader and exchange data with unified field names
     and normalization for matching purposes.
     """
@@ -24,7 +25,7 @@ class Trade(BaseModel):
     model_config = ConfigDict(
         frozen=True,  # Immutable for thread safety
         validate_assignment=True,
-        str_strip_whitespace=True
+        str_strip_whitespace=True,
     )
 
     # Core identification
@@ -33,23 +34,33 @@ class Trade(BaseModel):
 
     # Trading details
     product_name: str = Field(..., description="Normalized product name")
-    quantityunit: Decimal = Field(..., gt=0, description="Trade quantity (matches CSV column)")
+    quantityunit: Decimal = Field(
+        ..., gt=0, description="Trade quantity (matches CSV column)"
+    )
     unit: str = Field(..., description="Quantity unit (mt or bbl)")
-    price: Decimal = Field(..., description="Trade price (can be negative for crack spreads)")
+    price: Decimal = Field(
+        ..., description="Trade price (can be negative for crack spreads)"
+    )
     contract_month: str = Field(..., description="Normalized contract month")
     buy_sell: str = Field(..., pattern=r"^[BS]$", description="Buy (B) or Sell (S)")
 
     # Additional fields
     broker_group_id: Optional[int] = Field(None, description="Broker group identifier")
-    exchange_group_id: Optional[int] = Field(None, description="Exchange group identifier")
-    exch_clearing_acct_id: Optional[int] = Field(None, description="Clearing account identifier")
+    exchange_group_id: Optional[int] = Field(
+        None, description="Exchange group identifier"
+    )
+    exch_clearing_acct_id: Optional[int] = Field(
+        None, description="Clearing account identifier"
+    )
 
     # Metadata
     trade_date: Optional[str] = Field(default=None, description="Trade date")
     trade_time: Optional[str] = Field(default=None, description="Trade time")
 
     # Special fields
-    special_comms: Optional[str] = Field(default=None, description="Special commissions")
+    special_comms: Optional[str] = Field(
+        default=None, description="Special commissions"
+    )
     spread: Optional[str] = Field(default=None, description="Spread information")
 
     # Raw data for audit trail
@@ -62,16 +73,20 @@ class Trade(BaseModel):
 
     def __str__(self) -> str:
         """Human-readable string representation."""
-        return (f"Trade({self.internal_trade_id}: {self.product_name} "
-                f"{self.quantityunit}{self.unit} @ {self.price} "
-                f"{self.contract_month} {self.buy_sell})")
+        return (
+            f"Trade({self.internal_trade_id}: {self.product_name} "
+            f"{self.quantityunit}{self.unit} @ {self.price} "
+            f"{self.contract_month} {self.buy_sell})"
+        )
 
     def __repr__(self) -> str:
         """Developer string representation."""
-        return (f"Trade(id={self.internal_trade_id}, source={self.source.value}, "
-                f"product={self.product_name}, qty={self.quantityunit}, "
-                f"price={self.price}, month={self.contract_month}, "
-                f"side={self.buy_sell})")
+        return (
+            f"Trade(id={self.internal_trade_id}, source={self.source.value}, "
+            f"product={self.product_name}, qty={self.quantityunit}, "
+            f"price={self.price}, month={self.contract_month}, "
+            f"side={self.buy_sell})"
+        )
 
     @property
     def is_buy(self) -> bool:
@@ -100,7 +115,7 @@ class Trade(BaseModel):
     @property
     def matching_signature(self) -> tuple[str, Decimal, Decimal, str, str]:
         """Get a signature for exact matching (excluding universal fields).
-        
+
         Returns:
             Tuple containing core matching fields for consistency with SGX/CME
         """
@@ -109,15 +124,15 @@ class Trade(BaseModel):
             self.quantity_mt,
             self.price,
             self.contract_month,
-            self.buy_sell
+            self.buy_sell,
         )
 
     def can_match_opposite_side(self, other: "Trade") -> bool:
         """Check if this trade can potentially match with another on opposite side.
-        
+
         Args:
             other: The other trade to check
-            
+
         Returns:
             True if trades are on opposite sides (one buy, one sell)
         """

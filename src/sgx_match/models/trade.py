@@ -38,7 +38,9 @@ class SGXTrade(BaseModel):
     quantitylot: Optional[Decimal] = Field(
         None, ge=0, description="Trade quantity in lots (matches CSV column)"
     )
-    quantityunit: Decimal = Field(..., gt=0, description="Trade quantity in units (matches CSV column)")
+    quantityunit: Decimal = Field(
+        ..., gt=0, description="Trade quantity in units (matches CSV column)"
+    )
     unit: Optional[str] = Field(None, description="Quantity unit (MT, Day, etc.)")
     price: Decimal = Field(..., description="Trade price")
     contract_month: str = Field(..., description="Contract month (e.g., Oct25)")

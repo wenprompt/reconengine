@@ -215,7 +215,7 @@ class UnifiedPositionMatrixBuilder:
             # DataFrames convert field names to lowercase
             has_internal_id = False
             internal_id_value = None
-            
+
             # Check both camelCase and lowercase versions
             if "internalTradeId" in trade:
                 has_internal_id = True
@@ -225,11 +225,13 @@ class UnifiedPositionMatrixBuilder:
                 internal_id_value = trade["internaltradeid"]
                 # Normalize to camelCase for consistency
                 trade["internalTradeId"] = internal_id_value
-                
+
             # Debug logging for first few trades
             if index <= 3:
-                logger.debug(f"Trade {index}: has internal ID? {has_internal_id}, value: {internal_id_value}")
-                
+                logger.debug(
+                    f"Trade {index}: has internal ID? {has_internal_id}, value: {internal_id_value}"
+                )
+
             # If no internal trade ID (CSV file), assign the index
             if not has_internal_id:
                 trade["internalTradeId"] = index
@@ -336,7 +338,7 @@ class UnifiedPositionMatrixBuilder:
             # Only handle pandas NaN, leave everything else as-is
             if original_unit.upper() == "NAN":
                 original_unit = ""
-        
+
         return quantity, original_unit
 
     def _create_trade_detail(
@@ -362,12 +364,14 @@ class UnifiedPositionMatrixBuilder:
         # Get internal trade ID - check both camelCase and lowercase versions
         # DataFrames convert field names to lowercase
         internal_id = trade.get("internalTradeId", trade.get("internaltradeid", ""))
-        
+
         # Debug log for first few trades
         if not hasattr(self, "_logged_trade_ids"):
             self._logged_trade_ids = 0
         if self._logged_trade_ids < 3:
-            logger.debug(f"Creating trade detail: internal_id={internal_id}, product={product_name}")
+            logger.debug(
+                f"Creating trade detail: internal_id={internal_id}, product={product_name}"
+            )
             self._logged_trade_ids += 1
 
         # Get additional fields using field mapping helper

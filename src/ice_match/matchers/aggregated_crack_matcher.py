@@ -121,7 +121,9 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
                             f"Found aggregated crack match: {crack_trade.product_name} {crack_trade.contract_month} {crack_trade.quantityunit}"
                         )
                     else:
-                        logger.error(f"Failed to record aggregated crack match: {match.match_id}")
+                        logger.error(
+                            f"Failed to record aggregated crack match: {match.match_id}"
+                        )
 
         logger.info(f"Found {len(matches)} aggregated crack matches")
         return matches

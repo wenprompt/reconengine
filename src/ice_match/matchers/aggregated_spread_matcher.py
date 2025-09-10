@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
@@ -295,7 +296,10 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             # NOTE: This matcher handles calendar spreads (same product, different months),
             # so all trades use the same configured unit (MT or BBL) - no unit conversions needed
             total_quantity = sum(
-                (self._get_quantity_for_grouping(trade, self.normalizer) for trade in trades_group),
+                (
+                    self._get_quantity_for_grouping(trade, self.normalizer)
+                    for trade in trades_group
+                ),
                 start=Decimal("0"),
             )
 
@@ -328,7 +332,9 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
         # Validate quantities match in configured unit
         # NOTE: Calendar spreads use same product, so both legs use the same unit (no conversions)
         price_trader_qty = self._get_quantity_for_grouping(price_trade, self.normalizer)
-        zero_trader_qty = self._get_quantity_for_grouping(zero_price_trade, self.normalizer)
+        zero_trader_qty = self._get_quantity_for_grouping(
+            zero_price_trade, self.normalizer
+        )
         if (price_ex_qty != price_trader_qty) or (zero_ex_qty != zero_trader_qty):
             logger.debug("Quantity mismatch in aggregated spread validation")
             return False
@@ -404,6 +410,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             match_id=match_id,
             match_type=MatchType.AGGREGATED_SPREAD,
             confidence=self.confidence,
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=price_trade,  # Primary trader trade (with non-zero price)
             exchange_trade=all_exchange_trades[0],  # Primary exchange trade
             additional_trader_trades=[zero_price_trade],  # Zero price trader trade

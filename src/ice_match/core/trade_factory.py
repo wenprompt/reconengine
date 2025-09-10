@@ -407,7 +407,7 @@ class ICETradeFactory:
             # Exchange data now has tradetime column (standardized)
             trade_time = self._safe_str(row.get("tradetime"))
 
-            # Use internaltradeid from JSON mapping or fallback to index  
+            # Use internaltradeid from JSON mapping or fallback to index
             internal_trade_id_raw = self._safe_str(row.get("internaltradeid"))
             internal_trade_id = (
                 internal_trade_id_raw if internal_trade_id_raw else str(index)

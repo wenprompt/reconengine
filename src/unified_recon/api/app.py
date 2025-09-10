@@ -17,13 +17,14 @@ logger = logging.getLogger(__name__)
 def handle_api_errors(operation_name: str) -> Callable:
     """
     Decorator to handle common API exceptions with consistent error responses.
-    
+
     Args:
         operation_name: Name of the operation for logging purposes
-        
+
     Returns:
         Decorated function with standardized error handling
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -31,31 +32,40 @@ def handle_api_errors(operation_name: str) -> Callable:
                 return await func(*args, **kwargs)
             except ValueError as e:
                 logger.warning(f"{operation_name} - Request validation error: {e}")
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e),
+                ) from e
             except DataValidationError as e:
                 logger.warning(f"{operation_name} - Data validation error: {e}")
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e),
+                ) from e
             except FileNotFoundError as e:
                 logger.error(f"{operation_name} - Configuration file not found: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Configuration file not found",
-                )
+                ) from e
             except KeyError as e:
                 logger.error(f"{operation_name} - Configuration error: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Invalid configuration or missing required data",
-                )
+                ) from e
             except Exception as e:
                 # Log the error internally but don't expose details for security
                 logger.error(f"{operation_name} - Internal error: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Internal server error during {operation_name.lower()}",
-                )
+                ) from e
+
         return wrapper
+
     return decorator
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -161,11 +171,11 @@ async def analyze_positions_with_match(request: Rule0Request) -> Rule0Response:
 
     Similar to /poscheck but uses actual reconciliation match IDs from the matching engines
     instead of simple position-based matching. This provides:
-    
+
     - Real match IDs from ICE/SGX/CME/EEX matching rules
     - Position decomposition and aggregation
     - Integration of reconciliation results with position analysis
-    
+
     The match IDs in the output correspond to actual matched trades from the reconciliation
     engine, providing full traceability between position analysis and trade matching.
     """

@@ -30,7 +30,7 @@ from .models.match_result import SGXMatchResult, SGXMatchType
 
 __all__ = [
     "SGXTrade",
-    "SGXTradeSource", 
+    "SGXTradeSource",
     "SGXMatchResult",
     "SGXMatchType",
 ]

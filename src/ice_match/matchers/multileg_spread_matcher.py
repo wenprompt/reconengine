@@ -7,6 +7,7 @@ from collections import defaultdict
 from itertools import combinations, permutations
 from dataclasses import dataclass
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
@@ -36,7 +37,7 @@ class ExchangeSpread:
     @property
     def quantity(self) -> Decimal:
         """Quantity (both legs should be same).
-        
+
         Note: Multileg spreads are always in MT units (never BBL - no brent swap spreads).
         """
         return self.leg1.quantity_mt
@@ -47,13 +48,9 @@ class ExchangeSpread:
         return self.leg1.broker_group_id
 
     @property
-    def exch_clearing_acct_id(self) -> Optional[str]:
+    def exch_clearing_acct_id(self) -> Optional[int]:
         """Exchange clearing account ID (both legs should be same)."""
-        return (
-            str(self.leg1.exch_clearing_acct_id)
-            if self.leg1.exch_clearing_acct_id is not None
-            else None
-        )
+        return self.leg1.exch_clearing_acct_id
 
     @property
     def all_trades(self) -> List[Trade]:
@@ -683,6 +680,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             match_id=match_id,
             match_type=MatchType.MULTILEG_SPREAD,
             confidence=self.confidence,
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=primary_trader,
             exchange_trade=primary_exchange,
             additional_trader_trades=additional_trader,
