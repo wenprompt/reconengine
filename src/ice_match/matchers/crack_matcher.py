@@ -283,6 +283,7 @@ class CrackMatcher(BaseMatcher):
             match_id=match_id,
             match_type=MatchType.CRACK,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=trader_trade,
             exchange_trade=exchange_trade,
             matched_fields=matched_fields,

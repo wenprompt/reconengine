@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class TradeNormalizer:
     """Normalizes trade data for consistent matching across different sources.
-    
+
     Handles product name normalization, contract month standardization,
     quantity unit conversions, and other data standardization tasks.
     Loads normalization mappings from the central ConfigManager.
@@ -24,17 +24,22 @@ class TradeNormalizer:
         # Load mappings from the central configuration manager
         self.product_mappings = self.config_manager.get_product_mappings()
         self.month_patterns = self.config_manager.get_month_patterns()
-        self.product_conversion_ratios = self.config_manager.get_product_conversion_ratios()
+        self.product_conversion_ratios = (
+            self.config_manager.get_product_conversion_ratios()
+        )
         # Get default conversion ratio from product_conversion_ratios
         self.BBL_TO_MT_RATIO = Decimal(str(self.product_conversion_ratios["default"]))
-        self.traders_product_unit_defaults = self.config_manager.get_traders_product_unit_defaults()
+        self.traders_product_unit_defaults = (
+            self.config_manager.get_traders_product_unit_defaults()
+        )
         self.buy_sell_mappings = self.config_manager.get_buy_sell_mappings()
 
-
-        logger.info(f"Loaded {len(self.product_mappings)} product mappings, "
-                   f"{len(self.month_patterns)} month patterns, "
-                   f"{len(self.traders_product_unit_defaults)} trader unit defaults, "
-                   f"{len(self.buy_sell_mappings)} buy/sell mappings from ConfigManager")
+        logger.info(
+            f"Loaded {len(self.product_mappings)} product mappings, "
+            f"{len(self.month_patterns)} month patterns, "
+            f"{len(self.traders_product_unit_defaults)} trader unit defaults, "
+            f"{len(self.buy_sell_mappings)} buy/sell mappings from ConfigManager"
+        )
 
     def normalize_product_name(self, product_name: str) -> str:
         """Normalize product name for consistent matching."""
@@ -47,7 +52,6 @@ class TradeNormalizer:
         logger.debug(f"No mapping found for product '{product_name}', returning as-is")
         return product_lower
 
-
     def normalize_contract_month(self, contract_month: str) -> str:
         """Normalize contract month to standard format."""
         if not contract_month:
@@ -56,9 +60,13 @@ class TradeNormalizer:
         for pattern, replacement in self.month_patterns.items():
             if re.match(pattern, month_clean, re.IGNORECASE):
                 result = re.sub(pattern, replacement, month_clean, flags=re.IGNORECASE)
-                logger.debug(f"Normalized contract month '{contract_month}' -> '{result}'")
+                logger.debug(
+                    f"Normalized contract month '{contract_month}' -> '{result}'"
+                )
                 return result
-        logger.warning(f"No normalization pattern for contract month: '{contract_month}'")
+        logger.warning(
+            f"No normalization pattern for contract month: '{contract_month}'"
+        )
         return contract_month.strip()
 
     def normalize_buy_sell(self, buy_sell: str) -> str:
@@ -77,11 +85,15 @@ class TradeNormalizer:
         # Fallback: try first character for B/S detection
         first_char = value_clean[0].upper() if value_clean else ""
         if first_char in ["B", "S"]:
-            logger.debug(f"Normalized buy/sell via first character: '{buy_sell}' -> '{first_char}'")
+            logger.debug(
+                f"Normalized buy/sell via first character: '{buy_sell}' -> '{first_char}'"
+            )
             return first_char
 
         # Final fallback for unmapped values
-        logger.warning(f"Invalid trade direction '{buy_sell}'. Expected values: Buy, Sell, B, or S. Using original value.")
+        logger.warning(
+            f"Invalid trade direction '{buy_sell}'. Expected values: Buy, Sell, B, or S. Using original value."
+        )
         return buy_sell.strip().upper()
 
     def convert_quantity_to_mt(self, quantity: Decimal, unit: str) -> Decimal:
@@ -110,13 +122,12 @@ class TradeNormalizer:
             logger.warning(f"Unknown unit '{unit}', treating as BBL")
             return quantity
 
-
     def get_trader_product_unit_default(self, product_name: str) -> str:
         """Get default unit for trader product based on configuration.
-        
+
         Args:
             product_name: Normalized product name
-            
+
         Returns:
             Default unit for the product ("mt" or "bbl")
         """

@@ -22,16 +22,16 @@ logger = logging.getLogger(__name__)
 
 def extract_base_product(crack_product: str) -> Optional[str]:
     """Extract base product name from crack product name.
-    
+
     Used by complex crack matching to identify the underlying base product
     from crack products like "380cst crack" → "380cst".
-    
+
     Args:
         crack_product: Crack product name (e.g., "380cst crack", "naphtha crack")
-        
+
     Returns:
         Base product name without "crack" suffix, or None if not a crack product
-        
+
     Examples:
         >>> extract_base_product("380cst crack")
         "380cst"
@@ -51,18 +51,17 @@ def extract_base_product(crack_product: str) -> Optional[str]:
     return None
 
 
-
 def extract_month_year(contract_month: str) -> Optional[Tuple[str, int]]:
     """Extract month name and year from contract month.
-    
+
     Parses normalized contract month strings into components for further processing.
-    
+
     Args:
         contract_month: Normalized contract month (e.g., "Mar-25", "Balmo")
-        
+
     Returns:
         Tuple of (month_name, full_year) or None if parsing fails
-        
+
     Examples:
         >>> extract_month_year("Mar-25")
         ("Mar", 2025)
@@ -74,7 +73,7 @@ def extract_month_year(contract_month: str) -> Optional[Tuple[str, int]]:
     if not contract_month or contract_month == "Balmo":
         return None
     # This regex assumes the month is already normalized to MMM-YY
-    match = re.match(r'^([A-Za-z]{3})-(\d{2})$', contract_month)
+    match = re.match(r"^([A-Za-z]{3})-(\d{2})$", contract_month)
     if match:
         month_name = match.group(1)
         year_short = int(match.group(2))
@@ -85,20 +84,20 @@ def extract_month_year(contract_month: str) -> Optional[Tuple[str, int]]:
 
 def get_month_order_tuple(contract_month: str) -> Optional[Tuple[int, int]]:
     """Parse contract month into a comparable (year, month_order) tuple.
-    
+
     Converts contract months into sortable tuples for chronological ordering.
     Used by complex crack roll matching to determine month precedence.
-    
+
     Note: This function expects already normalized contract months.
     For full normalization, use TradeNormalizer.normalize_contract_month() first.
-    
+
     Args:
         contract_month: Normalized contract month (e.g., "Mar-25", "Balmo")
-        
+
     Returns:
         Tuple of (year, month_number) for sorting, or None if parsing fails
         Special case: "Balmo" returns (0, 0) to sort before all other months
-        
+
     Examples:
         >>> get_month_order_tuple("Mar-25")
         (2025, 3)
@@ -122,8 +121,18 @@ def get_month_order_tuple(contract_month: str) -> Optional[Tuple[int, int]]:
 
     month_abbr, year = month_year_parts
     month_order_map = {
-        'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-        'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+        "Jan": 1,
+        "Feb": 2,
+        "Mar": 3,
+        "Apr": 4,
+        "May": 5,
+        "Jun": 6,
+        "Jul": 7,
+        "Aug": 8,
+        "Sep": 9,
+        "Oct": 10,
+        "Nov": 11,
+        "Dec": 12,
     }
     month_num = month_order_map.get(month_abbr)
 

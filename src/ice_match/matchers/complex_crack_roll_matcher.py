@@ -519,6 +519,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.COMPLEX_CRACK_ROLL,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=trader1,
             exchange_trade=exchange_trades[0],
             matched_fields=matched_fields,

@@ -23,6 +23,7 @@ from src.unified_recon.utils.rule0_trade_utils import create_match_id_mapping
 try:
     from src.unified_recon.api.service import ReconciliationService
     from src.unified_recon.api.models import ReconciliationRequest
+
     RECONCILIATION_AVAILABLE = True
 except ImportError:
     RECONCILIATION_AVAILABLE = False
@@ -35,17 +36,19 @@ logger = logging.getLogger(__name__)
 def get_reconciliation_match_ids(json_data: Dict[str, Any]) -> Optional[Dict[str, str]]:
     """
     Get match IDs from reconciliation engine (reusing PosMatchService logic).
-    
+
     Args:
         json_data: Dictionary with traderTrades and exchangeTrades
-        
+
     Returns:
         Dictionary mapping internal trade IDs to match IDs, or None if unavailable
     """
     if not RECONCILIATION_AVAILABLE:
-        logger.warning("Reconciliation service not available. Using position-based match IDs.")
+        logger.warning(
+            "Reconciliation service not available. Using position-based match IDs."
+        )
         return None
-        
+
     try:
         # Create reconciliation service with error handling
         try:
@@ -53,26 +56,28 @@ def get_reconciliation_match_ids(json_data: Dict[str, Any]) -> Optional[Dict[str
         except Exception:
             logger.exception("Failed to initialize reconciliation service")
             return None
-            
+
         # Create reconciliation request with validation
         try:
             recon_request = ReconciliationRequest(
                 traderTrades=json_data["traderTrades"],
-                exchangeTrades=json_data["exchangeTrades"]
+                exchangeTrades=json_data["exchangeTrades"],
             )
         except Exception:
             logger.exception("Failed to create reconciliation request")
             return None
-        
+
         # Run reconciliation to get match IDs
         reconciliation_results = recon_service._process_sync(recon_request)
-        
+
         # Create match ID mapping using shared utility function
         match_id_mapping = create_match_id_mapping(reconciliation_results)
-        
-        logger.info(f"Retrieved {len(match_id_mapping)} match ID mappings from reconciliation engine")
+
+        logger.info(
+            f"Retrieved {len(match_id_mapping)} match ID mappings from reconciliation engine"
+        )
         return match_id_mapping
-        
+
     except Exception:
         logger.exception("Failed to get reconciliation match IDs")
         return None
@@ -138,7 +143,7 @@ def load_json_data(file_path: str) -> tuple[List[Dict[str, Any]], List[Dict[str,
 
     Returns:
         Tuple of (trader_trades, exchange_trades)
-        
+
     Raises:
         FileNotFoundError: If JSON file doesn't exist
         json.JSONDecodeError: If JSON file is malformed
@@ -164,7 +169,7 @@ def load_json_data(file_path: str) -> tuple[List[Dict[str, Any]], List[Dict[str,
     # Handle different JSON structures
     trader_trades = data.get("traderTrades", data.get("trader_trades", []))
     exchange_trades = data.get("exchangeTrades", data.get("exchange_trades", []))
-    
+
     # Validate data types
     if not isinstance(trader_trades, list):
         raise ValueError("traderTrades must be a list")
@@ -372,24 +377,28 @@ def save_json_output(
     first_key = list(exchange_results.keys())[0]
     tolerances = exchange_results.get(first_key, {}).get("tolerance_dict", {})
     json_output = Rule0JSONOutput(
-        tolerances=tolerances, 
+        tolerances=tolerances,
         unified_config=unified_config,
-        external_match_ids=external_match_ids
+        external_match_ids=external_match_ids,
     )
     json_str = json_output.to_json_string(exchange_results)
 
     # Save to json_output directory from config
     # Use absolute path relative to project root to avoid nested directories
-    json_output_dir_name = unified_config.get("output_settings", {}).get("json_output_dir", "json_output")
-    
+    json_output_dir_name = unified_config.get("output_settings", {}).get(
+        "json_output_dir", "json_output"
+    )
+
     # Find project root (where pyproject.toml or src/ directory exists)
     current_dir = Path(__file__).resolve().parent
     project_root = current_dir
     while project_root.parent != project_root:
-        if (project_root / "pyproject.toml").exists() or (project_root / "src").exists():
+        if (project_root / "pyproject.toml").exists() or (
+            project_root / "src"
+        ).exists():
             break
         project_root = project_root.parent
-    
+
     json_output_dir = project_root / json_output_dir_name
     json_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -435,12 +444,16 @@ def process_exchange(
 
         # Build position matrices with field mappings
         builder = UnifiedPositionMatrixBuilder(exchange_name, config, field_mappings)
-        
+
         # Debug logging for API calls
         if trader_trades and isinstance(trader_trades[0], dict):
-            logger.debug(f"First trader trade keys: {list(trader_trades[0].keys())[:5]}")
-            logger.debug(f"First trader trade internalTradeId: {trader_trades[0].get('internalTradeId', 'MISSING')}")
-        
+            logger.debug(
+                f"First trader trade keys: {list(trader_trades[0].keys())[:5]}"
+            )
+            logger.debug(
+                f"First trader trade internalTradeId: {trader_trades[0].get('internalTradeId', 'MISSING')}"
+            )
+
         trader_matrix = builder.build_matrix(trader_trades, source="trader")
         exchange_matrix = builder.build_matrix(exchange_trades, source="exchange")
 
@@ -462,7 +475,9 @@ def process_exchange(
 
             # Show detailed breakdown if requested
             if show_details:
-                display.show_position_details(trader_matrix, exchange_matrix, external_match_ids)
+                display.show_position_details(
+                    trader_matrix, exchange_matrix, external_match_ids
+                )
 
         # Return data for JSON output if requested
         if return_data:
@@ -649,26 +664,35 @@ def main():
                 "exchangeTrades": exchange_trades,
             }
             external_match_ids = get_reconciliation_match_ids(json_data)
-            
+
             if external_match_ids:
                 logger.info(f"Using {len(external_match_ids)} reconciliation match IDs")
             else:
-                logger.warning("Failed to get reconciliation match IDs, using position-based match IDs")
+                logger.warning(
+                    "Failed to get reconciliation match IDs, using position-based match IDs"
+                )
         elif args.with_reconcile_ids and not args.json_file:
-            logger.warning("--with-reconcile-ids flag requires --json-file. Ignoring flag.")
+            logger.warning(
+                "--with-reconcile-ids flag requires --json-file. Ignoring flag."
+            )
 
         # Process all exchanges
         exchange_results = process_exchanges(
-            exchanges_to_process, trader_trades, exchange_trades, unified_config, args, external_match_ids
+            exchanges_to_process,
+            trader_trades,
+            exchange_trades,
+            unified_config,
+            args,
+            external_match_ids,
         )
 
         # Save JSON output if requested
         if args.json_output and exchange_results:
             save_json_output(
-                exchange_results, 
-                unified_config, 
+                exchange_results,
+                unified_config,
                 debug_mode=(args.log_level == "DEBUG"),
-                external_match_ids=external_match_ids
+                external_match_ids=external_match_ids,
             )
 
         # Exit 0 for successful processing

@@ -28,11 +28,15 @@ from .matchers import (
     AggregatedProductSpreadMatcher,
 )
 from .cli import MatchDisplayer
-from .utils.dataframe_output import create_reconciliation_dataframe, display_reconciliation_dataframe
+from .utils.dataframe_output import (
+    create_reconciliation_dataframe,
+    display_reconciliation_dataframe,
+)
 
 
 class MatcherProtocol(Protocol):
     """Protocol for matcher classes with a find_matches method."""
+
     def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]: ...
 
 
@@ -65,7 +69,7 @@ def setup_logging(log_level: str = "NONE") -> None:
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()]
+        handlers=[logging.StreamHandler()],
     )
 
 
@@ -87,7 +91,9 @@ class ICEMatchingEngine:
         """
         self.config_manager = config_manager or ConfigManager.default()
         self.normalizer = TradeNormalizer(self.config_manager)
-        self.trade_factory = ICETradeFactory(self.normalizer)  # Trade factory for flexible input
+        self.trade_factory = ICETradeFactory(
+            self.normalizer
+        )  # Trade factory for flexible input
         self.displayer = MatchDisplayer(self.config_manager)
 
         # Setup logging
@@ -133,8 +139,12 @@ class ICEMatchingEngine:
                 task = progress.add_task("Loading...", total=None)
 
                 # Use trade factory for consistency
-                trader_trades = self.trade_factory.from_csv(trader_csv_path, TradeSource.TRADER)
-                exchange_trades = self.trade_factory.from_csv(exchange_csv_path, TradeSource.EXCHANGE)
+                trader_trades = self.trade_factory.from_csv(
+                    trader_csv_path, TradeSource.TRADER
+                )
+                exchange_trades = self.trade_factory.from_csv(
+                    exchange_csv_path, TradeSource.EXCHANGE
+                )
 
                 progress.remove_task(task)
 
@@ -183,9 +193,7 @@ class ICEMatchingEngine:
             product_spread_matcher = ProductSpreadMatcher(
                 self.config_manager, self.normalizer
             )
-            product_spread_matches = product_spread_matcher.find_matches(
-                pool_manager
-            )
+            product_spread_matches = product_spread_matcher.find_matches(pool_manager)
             all_matches.extend(product_spread_matches)
 
             # Rule 6: Fly matching
@@ -205,7 +213,9 @@ class ICEMatchingEngine:
             aggregated_complex_crack_matcher = AggregatedComplexCrackMatcher(
                 self.config_manager, self.normalizer
             )
-            aggregated_complex_crack_matches = aggregated_complex_crack_matcher.find_matches(pool_manager)
+            aggregated_complex_crack_matches = (
+                aggregated_complex_crack_matcher.find_matches(pool_manager)
+            )
             all_matches.extend(aggregated_complex_crack_matches)
 
             # Rule 9: Aggregated spread matching
@@ -223,9 +233,7 @@ class ICEMatchingEngine:
             multileg_spread_matcher = MultilegSpreadMatcher(
                 self.config_manager, self.normalizer
             )
-            multileg_spread_matches = multileg_spread_matcher.find_matches(
-                pool_manager
-            )
+            multileg_spread_matches = multileg_spread_matcher.find_matches(pool_manager)
             all_matches.extend(multileg_spread_matches)
 
             # Rule 11: Aggregated crack matching
@@ -243,7 +251,9 @@ class ICEMatchingEngine:
             complex_crack_roll_matcher = ComplexCrackRollMatcher(
                 self.config_manager, self.normalizer
             )
-            complex_crack_roll_matches = complex_crack_roll_matcher.find_matches(pool_manager)
+            complex_crack_roll_matches = complex_crack_roll_matcher.find_matches(
+                pool_manager
+            )
             all_matches.extend(complex_crack_roll_matches)
 
             # Rule 13: Aggregated product spread matching
@@ -251,8 +261,8 @@ class ICEMatchingEngine:
             aggregated_product_spread_matcher = AggregatedProductSpreadMatcher(
                 self.config_manager, self.normalizer
             )
-            aggregated_product_spread_matches = aggregated_product_spread_matcher.find_matches(
-                pool_manager
+            aggregated_product_spread_matches = (
+                aggregated_product_spread_matcher.find_matches(pool_manager)
             )
             all_matches.extend(aggregated_product_spread_matches)
 
@@ -278,10 +288,14 @@ class ICEMatchingEngine:
 
             # Generate and display standardized reconciliation DataFrame
             try:
-                recon_df = create_reconciliation_dataframe(all_matches, pool_manager, execution_datetime)
+                recon_df = create_reconciliation_dataframe(
+                    all_matches, pool_manager, execution_datetime
+                )
                 display_reconciliation_dataframe(recon_df)
             except Exception as df_error:
-                self.logger.warning(f"Could not generate reconciliation DataFrame: {df_error}")
+                self.logger.warning(
+                    f"Could not generate reconciliation DataFrame: {df_error}"
+                )
 
             # Validate pool integrity
             if not pool_manager.validate_integrity():
@@ -325,41 +339,47 @@ class ICEMatchingEngine:
             "avg_confidence": float(avg_confidence),
         }
 
-    def run_matching_from_dataframes(self, trader_df, exchange_df) -> tuple[List[MatchResult], Dict[str, Any]]:
+    def run_matching_from_dataframes(
+        self, trader_df, exchange_df
+    ) -> tuple[List[MatchResult], Dict[str, Any]]:
         """Run ICE matching process directly from DataFrames without CSV files.
-        
+
         Args:
             trader_df: DataFrame containing trader trades
             exchange_df: DataFrame containing exchange trades
-            
+
         Returns:
             Tuple of (matches, statistics) for unified system integration
         """
         from datetime import datetime
         from .utils.dataframe_output import create_reconciliation_dataframe
-        
+
         start_time = time.time()
         execution_datetime = datetime.now()
-        
+
         try:
             # Set default conversion ratio from config
             conversion_ratios = self.config_manager.get_product_conversion_ratios()
             default_ratio = Decimal(str(conversion_ratios["default"]))
             Trade.set_conversion_ratio(default_ratio)
-            
+
             # Create trades directly from DataFrames using trade factory
-            trader_trades = self.trade_factory.from_dataframe(trader_df, TradeSource.TRADER)
-            exchange_trades = self.trade_factory.from_dataframe(exchange_df, TradeSource.EXCHANGE)
-            
+            trader_trades = self.trade_factory.from_dataframe(
+                trader_df, TradeSource.TRADER
+            )
+            exchange_trades = self.trade_factory.from_dataframe(
+                exchange_df, TradeSource.EXCHANGE
+            )
+
             # Initialize pool manager
             pool_manager = UnmatchedPoolManager(trader_trades, exchange_trades)
-            
+
             # Run all matching rules in sequence
             all_matches = []
-            
+
             # Get processing order from config
             processing_order = self.config_manager.get_processing_order()
-            
+
             # Create matcher instances based on config
             matchers: Dict[int, MatcherProtocol] = {
                 1: ExactMatcher(self.config_manager),
@@ -374,55 +394,65 @@ class ICEMatchingEngine:
                 10: MultilegSpreadMatcher(self.config_manager, self.normalizer),
                 11: AggregatedCrackMatcher(self.config_manager, self.normalizer),
                 12: ComplexCrackRollMatcher(self.config_manager, self.normalizer),
-                13: AggregatedProductSpreadMatcher(self.config_manager, self.normalizer)
+                13: AggregatedProductSpreadMatcher(
+                    self.config_manager, self.normalizer
+                ),
             }
-            
+
             # Process through all rules in sequence
             for rule_num in processing_order:
                 if rule_num in matchers:
                     matcher = matchers[rule_num]
                     rule_matches = matcher.find_matches(pool_manager)
                     all_matches.extend(rule_matches)
-            
+
             processing_time = time.time() - start_time
-            
+
             # Get statistics from pool manager
             pool_stats = pool_manager.get_statistics()
-            
+
             # Extract match rates
-            trader_match_rate = float(pool_stats['match_rates']['trader'].replace('%', ''))
-            exchange_match_rate = float(pool_stats['match_rates']['exchange'].replace('%', ''))
-            overall_match_rate = float(pool_stats['match_rates']['overall'].replace('%', ''))
-            
+            trader_match_rate = float(
+                pool_stats["match_rates"]["trader"].replace("%", "")
+            )
+            exchange_match_rate = float(
+                pool_stats["match_rates"]["exchange"].replace("%", "")
+            )
+            overall_match_rate = float(
+                pool_stats["match_rates"]["overall"].replace("%", "")
+            )
+
             # Get rule breakdown
             rule_breakdown: Dict[int, int] = {}
             for match in all_matches:
                 rule_num = match.rule_order
                 rule_breakdown[rule_num] = rule_breakdown.get(rule_num, 0) + 1
-            
+
             # Generate DataFrame output
-            df = create_reconciliation_dataframe(all_matches, pool_manager, execution_datetime)
-            
+            df = create_reconciliation_dataframe(
+                all_matches, pool_manager, execution_datetime
+            )
+
             # Get unmatched trades
             unmatched_trader = pool_manager.get_unmatched_trader_trades()
             unmatched_exchange = pool_manager.get_unmatched_exchange_trades()
-            
+
             # Prepare statistics dictionary
             statistics = {
-                'matches_found': len(all_matches),
-                'match_rate': overall_match_rate,
-                'trader_match_rate': trader_match_rate,
-                'exchange_match_rate': exchange_match_rate,
-                'processing_time': processing_time,
-                'rule_breakdown': rule_breakdown,
-                'reconciliation_dataframe': df,
-                'pool_statistics': pool_stats,
-                'unmatched_trader_trades': unmatched_trader,
-                'unmatched_exchange_trades': unmatched_exchange
+                "matches_found": len(all_matches),
+                "match_rate": overall_match_rate,
+                "trader_match_rate": trader_match_rate,
+                "exchange_match_rate": exchange_match_rate,
+                "processing_time": processing_time,
+                "rule_breakdown": rule_breakdown,
+                "reconciliation_dataframe": df,
+                "pool_statistics": pool_stats,
+                "unmatched_trader_trades": unmatched_trader,
+                "unmatched_exchange_trades": unmatched_exchange,
             }
-            
+
             return all_matches, statistics
-            
+
         except Exception as e:
             self.logger.error(f"ICE DataFrame matching failed: {e}")
             raise RuntimeError(f"ICE matching failed: {e}") from e
@@ -431,7 +461,7 @@ class ICEMatchingEngine:
 def main():
     """Main entry point for command line execution."""
     import argparse
-    
+
     # Set up logger for main function
     logger = logging.getLogger(__name__)
 
@@ -486,11 +516,15 @@ Examples:
 
     # Validate file paths
     if not args.trader_csv.exists():
-        logger.error(f"Trader data file not found at '{args.trader_csv}'. Please check the file path and try again.")
+        logger.error(
+            f"Trader data file not found at '{args.trader_csv}'. Please check the file path and try again."
+        )
         return 1
 
     if not args.exchange_csv.exists():
-        logger.error(f"Exchange data file not found at '{args.exchange_csv}'. Please check the file path and try again.")
+        logger.error(
+            f"Exchange data file not found at '{args.exchange_csv}'. Please check the file path and try again."
+        )
         return 1
 
     # Handle --show-rules argument
@@ -514,7 +548,9 @@ Examples:
         multileg_spread_matcher = MultilegSpreadMatcher(config_manager, normalizer)
         aggregated_crack_matcher = AggregatedCrackMatcher(config_manager, normalizer)
         complex_crack_roll_matcher = ComplexCrackRollMatcher(config_manager, normalizer)
-        aggregated_product_spread_matcher = AggregatedProductSpreadMatcher(config_manager, normalizer)
+        aggregated_product_spread_matcher = AggregatedProductSpreadMatcher(
+            config_manager, normalizer
+        )
 
         # Collect all matchers that have a get_rule_info method
         all_matchers = [

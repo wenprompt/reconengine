@@ -192,7 +192,6 @@ class FlyMatcher(BaseMatcher):
 
         return True
 
-
     def _find_exchange_fly_groups(
         self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
     ) -> List[List[Trade]]:
@@ -239,7 +238,6 @@ class FlyMatcher(BaseMatcher):
                                 )
 
         return fly_groups
-
 
     def _get_month_order_tuple_cached(self, contract_month: str) -> Optional[MonthKey]:
         """Cache month parsing for better performance (per-instance cache)."""
@@ -423,6 +421,7 @@ class FlyMatcher(BaseMatcher):
             match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.FLY,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=trader_trades[0],  # Primary trade (earliest month)
             exchange_trade=exchange_trades[0],  # Primary trade (earliest month)
             matched_fields=matched_fields,

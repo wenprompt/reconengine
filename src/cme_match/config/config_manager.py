@@ -15,7 +15,8 @@ class CMEMatchingConfig(BaseModel):
     """
 
     model_config = ConfigDict(
-        frozen=True, validate_assignment=True  # Immutable configuration
+        frozen=True,
+        validate_assignment=True,  # Immutable configuration
     )
 
     # Confidence levels for CME matching rules - only exact matching

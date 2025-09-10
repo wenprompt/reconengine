@@ -377,6 +377,7 @@ class AggregationBaseMatcher(BaseMatcher):
                 match_id=match_id,
                 match_type=match_type,
                 confidence=confidence,
+                status="matched",  # ICE always returns matched status
                 trader_trade=aggregated_trades[0],  # Primary trader trade
                 exchange_trade=single_trade,  # Single exchange trade
                 additional_trader_trades=aggregated_trades[
@@ -395,6 +396,7 @@ class AggregationBaseMatcher(BaseMatcher):
                 match_id=match_id,
                 match_type=match_type,
                 confidence=confidence,
+                status="matched",  # ICE always returns matched status
                 trader_trade=single_trade,  # Single trader trade
                 exchange_trade=aggregated_trades[0],  # Primary exchange trade
                 additional_exchange_trades=aggregated_trades[

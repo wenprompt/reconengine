@@ -25,14 +25,14 @@ def main():
     setup_logging()
 
     logger = logging.getLogger(__name__)
-    
+
     # Get configuration from environment variables with defaults
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "7777"))
     reload = os.getenv("API_RELOAD", "true").lower() == "true"
-    
+
     logger.info(f"Starting Trade Reconciliation API server on {host}:{port}...")
-    
+
     uvicorn.run(
         "src.unified_recon.api.app:app",
         host=host,

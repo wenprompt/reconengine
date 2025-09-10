@@ -276,9 +276,19 @@ class UnifiedTradeRouter:
             trader_df = self._trades_to_dataframe(all_trader_trades)
             exchange_df = self._trades_to_dataframe(all_exchange_trades)
 
+            # Normalize column names to lowercase for consistency
+            trader_df.columns = trader_df.columns.str.lower()
+            exchange_df.columns = exchange_df.columns.str.lower()
+
             logger.info(
                 f"Successfully processed JSON data: {len(trader_df)} trader trades, {len(exchange_df)} exchange trades"
             )
+            logger.debug(f"Trader DF columns: {trader_df.columns.tolist()}")
+            logger.debug(f"Exchange DF columns: {exchange_df.columns.tolist()}")
+            if len(trader_df) > 0:
+                logger.debug(f"Sample trader row: {trader_df.iloc[0].to_dict()}")
+            if len(exchange_df) > 0:
+                logger.debug(f"Sample exchange row: {exchange_df.iloc[0].to_dict()}")
             return trader_df, exchange_df
 
         except Exception as e:
@@ -503,28 +513,46 @@ class UnifiedTradeRouter:
                 records.append(trade.raw_data)
             else:
                 # Fallback: convert trade object to dict without any mutations
-                # Just extract the fields as they exist in the trade object
+                # Extract ALL fields from the trade object to ensure nothing is lost
                 record = {
                     "internaltradeid": trade.internal_trade_id,
-                    "exchangegroupid": trade.exchange_group_id,
-                    "brokergroupid": trade.broker_group_id,
-                    "exchclearingacctid": trade.exch_clearing_acct_id,
+                    "exchangegroupid": getattr(trade, "exchange_group_id", None),
+                    "brokergroupid": getattr(trade, "broker_group_id", None),
+                    "exchclearingacctid": getattr(trade, "exch_clearing_acct_id", None),
                     "productname": trade.product_name,
                     "price": float(trade.price),
                     "contractmonth": trade.contract_month,
                     "b_s": trade.buy_sell,
-                    "unit": getattr(trade, "unit", None),  # Optional field
-                    "tradedate": getattr(trade, "trade_date", None),  # Optional field
-                    "tradetime": getattr(trade, "trade_time", None),  # Optional field
+                    "unit": getattr(trade, "unit", None),
+                    "tradedate": getattr(trade, "trade_date", None),
+                    "tradetime": getattr(trade, "trade_time", None),
+                    # Additional fields that might exist
+                    "traderid": getattr(trade, "trader_id", None),
+                    "productid": getattr(trade, "product_id", None),
+                    "productgroupid": getattr(trade, "product_group_id", None),
+                    "specialcomms": getattr(trade, "special_comms", None),
+                    "dealid": getattr(trade, "deal_id", None),
+                    "clearingstatus": getattr(trade, "clearing_status", None),
+                    "tradingsession": getattr(trade, "trading_session", None),
+                    "cleareddate": getattr(trade, "cleared_date", None),
+                    "strike": float(trade.strike)
+                    if hasattr(trade, "strike") and trade.strike
+                    else None,
+                    "put_call": getattr(trade, "put_call", None),
+                    "spread": getattr(trade, "spread", None),
                 }
 
                 # Add quantityunit if present (SGX, ICE, EEX trades)
                 if hasattr(trade, "quantityunit") and trade.quantityunit is not None:
                     record["quantityunit"] = float(trade.quantityunit)
 
-                # Add quantitylot if present (CME trades, optional for SGX)
+                # Add quantitylot if present (CME trades, SGX optional)
                 if hasattr(trade, "quantitylot") and trade.quantitylot is not None:
                     record["quantitylot"] = float(trade.quantitylot)
+
+                # Add quantitylots if present (ICE trades use plural)
+                if hasattr(trade, "quantitylots") and trade.quantitylots is not None:
+                    record["quantitylots"] = float(trade.quantitylots)
 
                 records.append(record)
 

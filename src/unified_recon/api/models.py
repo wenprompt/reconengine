@@ -96,7 +96,7 @@ class Rule0Request(BaseModel):
 
 class TradeDetail(BaseModel):
     """Trade detail in Rule 0 response."""
-    
+
     contractMonth: str
     source: str  # "1" for trader, "2" for exchange
     internalId: str
@@ -111,7 +111,7 @@ class TradeDetail(BaseModel):
 
 class PositionSummary(BaseModel):
     """Position summary for a product and contract month."""
-    
+
     contractMonth: str
     traderQuantity: float
     exchangeQuantity: float
@@ -124,26 +124,26 @@ class PositionSummary(BaseModel):
 
 class ProductResult(BaseModel):
     """Result for a single product."""
-    
+
     positionSummary: List[PositionSummary]
     tradeDetails: List[TradeDetail]
 
 
 class ExchangeResult(BaseModel):
     """Result for a single exchange group."""
-    
+
     products: Dict[str, ProductResult]
 
 
 class Rule0Response(BaseModel):
     """Response model for Rule 0 position analysis API."""
-    
+
     # Exchange group ID to results mapping
     # e.g., {"1": {...}, "4": {...}}
     root: Dict[str, ExchangeResult] = Field(
         ..., description="Position analysis results by exchange group ID"
     )
-    
+
     model_config = ConfigDict(
         json_encoders={
             Decimal: lambda v: float(v),

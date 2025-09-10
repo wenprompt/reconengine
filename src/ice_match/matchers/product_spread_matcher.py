@@ -141,7 +141,9 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                     matches.append(match)
                     logger.debug(f"Found hyphenated product spread match: {match}")
                 else:
-                    logger.error(f"Failed to record hyphenated product spread match: {match.match_id}")
+                    logger.error(
+                        f"Failed to record hyphenated product spread match: {match.match_id}"
+                    )
 
         logger.info(f"Found {len(matches)} hyphenated product spread matches")
         return matches
@@ -202,7 +204,9 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
                         logger.debug(f"Found 2-leg product spread match: {match}")
                         break  # Move to next trader pair
                     else:
-                        logger.error(f"Failed to record 2-leg product spread match: {match.match_id}")
+                        logger.error(
+                            f"Failed to record 2-leg product spread match: {match.match_id}"
+                        )
 
         logger.info(f"Found {len(matches)} 2-leg product spread matches")
         return matches
@@ -597,6 +601,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             match_id=match_id,
             match_type=MatchType.PRODUCT_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=exchange1_ordered,  # Primary exchange trade
             additional_trader_trades=[trader2],  # Additional trader trade
@@ -748,6 +753,7 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
             match_id=match_id,
             match_type=MatchType.PRODUCT_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=exchange_trade,
             additional_trader_trades=[

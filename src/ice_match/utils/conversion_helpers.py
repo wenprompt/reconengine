@@ -26,21 +26,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_product_conversion_ratio(product_name: str, config_manager: 'ConfigManager') -> Decimal:
+def get_product_conversion_ratio(
+    product_name: str, config_manager: "ConfigManager"
+) -> Decimal:
     """Get product-specific MT to BBL conversion ratio from configuration.
-    
+
     Used by crack matching rules to get accurate conversion ratios for different products.
     Marine 0.5%/380cst crack uses 6.35, naphtha japan/nwe crack uses 8.9, default is 7.0.
-    
+
     Since product names are already normalized, we can use exact matching.
-    
+
     Args:
         product_name: Normalized product name to get conversion ratio for
         config_manager: Configuration manager with product conversion ratios
-        
+
     Returns:
         Product-specific conversion ratio, fallback to default 7.0
-        
+
     Examples:
         >>> get_product_conversion_ratio("marine 0.5% crack", config_manager)
         Decimal('6.35')
@@ -62,21 +64,21 @@ def get_product_conversion_ratio(product_name: str, config_manager: 'ConfigManag
 
 
 def convert_mt_to_bbl_with_product_ratio(
-    quantity_mt: Decimal, product_name: str, config_manager: 'ConfigManager'
+    quantity_mt: Decimal, product_name: str, config_manager: "ConfigManager"
 ) -> Decimal:
     """Convert MT quantity to BBL using product-specific conversion ratio.
-    
+
     This is the shared MT→BBL conversion method used by Rules 3, 4, and 10.
     Essential for accurate quantity matching when trader data is in MT and exchange data is in BBL.
-    
+
     Args:
         quantity_mt: Quantity in metric tons
         product_name: Product name to determine conversion ratio
         config_manager: Configuration manager with product conversion ratios
-        
+
     Returns:
         Converted quantity in barrels (BBL)
-        
+
     Examples:
         >>> convert_mt_to_bbl_with_product_ratio(Decimal('1000'), "marine 0.5% crack", config_manager)
         Decimal('6350.0')  # 1000 * 6.35
@@ -97,23 +99,23 @@ def validate_mt_to_bbl_quantity_match(
     exchange_quantity_bbl: Decimal,
     product_name: str,
     bbl_tolerance: Decimal,
-    config_manager: 'ConfigManager'
+    config_manager: "ConfigManager",
 ) -> bool:
     """Validate MT vs BBL quantity match using product-specific conversion.
-    
+
     This is the shared validation method used by Rules 3, 4, and 10.
     Converts trader MT to BBL using product-specific ratios, then compares with exchange BBL data.
-    
+
     Args:
         trader_quantity_mt: Trader quantity in MT
         exchange_quantity_bbl: Exchange quantity in BBL
         product_name: Product name for conversion ratio
         bbl_tolerance: BBL tolerance (dynamically loaded from config)
         config_manager: Configuration manager with product conversion ratios
-        
+
     Returns:
         True if quantities match within BBL tolerance after conversion
-        
+
     Examples:
         >>> validate_mt_to_bbl_quantity_match(
         ...     Decimal('1000'), Decimal('6300'), "marine 0.5% crack", Decimal('500'), config_manager

@@ -21,30 +21,32 @@ class UnifiedDisplay:
     def __init__(self) -> None:
         """Initialize unified display with existing components."""
         self.console = Console()
-    
-    def _create_result_panel(self, result: SystemResult, title: str, border_style: str) -> Panel:
+
+    def _create_result_panel(
+        self, result: SystemResult, title: str, border_style: str
+    ) -> Panel:
         """Create a result panel with consistent formatting.
-        
+
         Args:
             result: System result data
             title: Panel title
             border_style: Border color style
-            
+
         Returns:
             Formatted panel
         """
         content = f"📊 Matches: {result.matches_found} | 📈 Rate: {result.match_rate:.1f}% | ⏱️  Time: {result.processing_time:.2f}s"
         return Panel(content, title=title, border_style=border_style)
-    
+
     def _display_unmatched_trades_generic(
         self,
         result: SystemResult,
         show_unmatched: bool,
         trader_display_func,
-        exchange_display_func
+        exchange_display_func,
     ) -> None:
         """Generic method to display unmatched trades.
-        
+
         Args:
             result: System result with statistics
             show_unmatched: Whether to show unmatched trades
@@ -54,7 +56,7 @@ class UnifiedDisplay:
         if show_unmatched and result.statistics:
             unmatched_trader = result.statistics.get("unmatched_trader_trades", [])
             unmatched_exchange = result.statistics.get("unmatched_exchange_trades", [])
-            
+
             if unmatched_trader:
                 trader_display_func(unmatched_trader)
             if unmatched_exchange:
@@ -136,9 +138,7 @@ class UnifiedDisplay:
     ) -> None:
         """Display ICE group results using existing ICE display component."""
         panel = self._create_result_panel(
-            result,
-            f"🧊 Group {result.group_id} - ICE Match Results",
-            "green"
+            result, f"🧊 Group {result.group_id} - ICE Match Results", "green"
         )
         self.console.print(panel)
 
@@ -157,7 +157,7 @@ class UnifiedDisplay:
                 result,
                 show_unmatched,
                 lambda trades: ice_display._show_unmatched_trades("Trader", trades),
-                lambda trades: ice_display._show_unmatched_trades("Exchange", trades)
+                lambda trades: ice_display._show_unmatched_trades("Exchange", trades),
             )
 
     def _display_sgx_group_result(
@@ -165,9 +165,7 @@ class UnifiedDisplay:
     ) -> None:
         """Display SGX group results using existing SGX display component."""
         panel = self._create_result_panel(
-            result,
-            f"🏛️  Group {result.group_id} - SGX Match Results",
-            "blue"
+            result, f"🏛️  Group {result.group_id} - SGX Match Results", "blue"
         )
         self.console.print(panel)
 
@@ -184,7 +182,7 @@ class UnifiedDisplay:
                 result,
                 show_unmatched,
                 lambda trades: sgx_display._show_unmatched_trader_table(trades),
-                lambda trades: sgx_display._show_unmatched_exchange_table(trades)
+                lambda trades: sgx_display._show_unmatched_exchange_table(trades),
             )
 
     def _display_cme_group_result(
@@ -192,9 +190,7 @@ class UnifiedDisplay:
     ) -> None:
         """Display CME group results using existing CME display component."""
         panel = self._create_result_panel(
-            result,
-            f"🌽 Group {result.group_id} - CME Match Results",
-            "yellow"
+            result, f"🌽 Group {result.group_id} - CME Match Results", "yellow"
         )
         self.console.print(panel)
 
@@ -211,7 +207,7 @@ class UnifiedDisplay:
                 result,
                 show_unmatched,
                 lambda trades: cme_display._show_unmatched_trader_trades(trades),
-                lambda trades: cme_display._show_unmatched_exchange_trades(trades)
+                lambda trades: cme_display._show_unmatched_exchange_trades(trades),
             )
 
     def _display_eex_group_result(
@@ -219,9 +215,7 @@ class UnifiedDisplay:
     ) -> None:
         """Display EEX group results using existing EEX display component."""
         panel = self._create_result_panel(
-            result,
-            f"⚡ Group {result.group_id} - EEX Match Results",
-            "magenta"
+            result, f"⚡ Group {result.group_id} - EEX Match Results", "magenta"
         )
         self.console.print(panel)
 
@@ -238,7 +232,7 @@ class UnifiedDisplay:
                 result,
                 show_unmatched,
                 lambda trades: eex_display._show_unmatched_trader_table(trades),
-                lambda trades: eex_display._show_unmatched_exchange_table(trades)
+                lambda trades: eex_display._show_unmatched_exchange_table(trades),
             )
 
     def display_unified_summary(self, unified_result: UnifiedResult) -> None:

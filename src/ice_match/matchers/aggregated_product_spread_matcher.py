@@ -598,9 +598,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         # Use the aggregated quantity, not individual trade quantity
         aggregated_quantity = product1_exchange.quantity_mt  # Should be 3000
 
-        display_trade = all_trader_trades[
-            0
-        ].model_copy(
+        display_trade = all_trader_trades[0].model_copy(
             update={
                 "product_name": f"{product1_name}/{product2_name}",
                 "quantityunit": aggregated_quantity,  # Update base quantity field
@@ -622,6 +620,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             match_id=match_id,
             match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=display_trade,
             exchange_trade=product1_exchange,
             additional_trader_trades=all_trader_trades[1:],
@@ -954,6 +953,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             match_id=match_id,
             match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=aggregated_exchange_trades[0],  # Primary exchange trade
             additional_trader_trades=[zero_trade],  # Zero price trader trade
@@ -1108,6 +1108,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             match_id=match_id,
             match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=all_exchange_trades[0],  # Primary exchange trade
             additional_trader_trades=[zero_trade],  # Zero price trader trade
@@ -1383,6 +1384,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             match_id=match_id,
             match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=all_exchange_trades[0],  # Primary exchange trade
             additional_trader_trades=[zero_trade],  # Zero price trader trade
@@ -1433,6 +1435,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             match_id=match_id,
             match_type=MatchType.AGGREGATED_PRODUCT_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=display_trade,  # Display trade showing spread format
             exchange_trade=exchange_spread,
             additional_trader_trades=all_trader_trades[1:],  # Remaining trader trades

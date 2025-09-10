@@ -81,7 +81,9 @@ class ComplexCrackMatcher(BaseMatcher):
                         f"{crack_trade.contract_month} {crack_trade.quantityunit}"
                     )
                 else:
-                    logger.error(f"Failed to record complex crack match: {match.match_id}")
+                    logger.error(
+                        f"Failed to record complex crack match: {match.match_id}"
+                    )
 
         logger.info(f"Found {len(self.matches_found)} complex crack matches")
         return self.matches_found
@@ -147,7 +149,8 @@ class ComplexCrackMatcher(BaseMatcher):
                     return MatchResult(
                         match_id=self.generate_match_id(self.rule_number),
                         match_type=MatchType.COMPLEX_CRACK,
-                        confidence=self.confidence,  # Get confidence from config
+                        confidence=self.confidence,
+                        status="matched",  # ICE always returns matched status  # Get confidence from config
                         trader_trade=crack_trade,
                         exchange_trade=base_trade,  # Primary exchange trade (base product)
                         additional_exchange_trades=[

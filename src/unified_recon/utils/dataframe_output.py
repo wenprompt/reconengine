@@ -50,7 +50,7 @@ def create_unified_dataframe(unified_result: Any) -> pd.DataFrame:
                     "matchId": match_dict.get("match_id", ""),
                     "traderTradeIds": trader_ids,
                     "exchangeTradeIds": exchange_ids,
-                    "status": ReconStatus.MATCHED.value,
+                    "status": match_dict.get("status", ReconStatus.MATCHED.value),
                     "remarks": f"{system_name}_rule{match_dict.get('rule_order', 1)}",
                     "confidence": float(match_dict.get("confidence", 0)),
                 }
@@ -149,7 +149,13 @@ def _normalize_to_dict(item: Any) -> Dict[str, Any]:
     result = {}
 
     # Handle standard fields
-    for field in ["match_id", "rule_order", "confidence", "internal_trade_id"]:
+    for field in [
+        "match_id",
+        "rule_order",
+        "confidence",
+        "internal_trade_id",
+        "status",
+    ]:
         if hasattr(item, field):
             result[field] = getattr(item, field)
 
@@ -303,8 +309,9 @@ def display_dataframe_summary(df: pd.DataFrame) -> None:
         percentage = (count / len(df)) * 100
         print(f"  {status}: {count} ({percentage:.1f}%)")
 
-    # Average confidence for matched trades
-    matched_df = df[df["status"] == ReconStatus.MATCHED.value]
+    # Average confidence for matched and pending trades
+    matched_statuses = [ReconStatus.MATCHED.value, ReconStatus.PENDING_EXCHANGE.value]
+    matched_df = df[df["status"].isin(matched_statuses)]
     if not matched_df.empty:
         avg_confidence = matched_df["confidence"].mean()
         print(f"\nAverage Match Confidence: {avg_confidence:.1f}%")

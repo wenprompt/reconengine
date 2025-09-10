@@ -180,7 +180,6 @@ class ConfigManager:
         """
         return self._config.quantity_tolerance_percentage
 
-
     def get_universal_tolerance_bbl(self) -> Decimal:
         """Get universal BBL tolerance used by all matching rules.
 

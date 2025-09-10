@@ -15,7 +15,8 @@ class EEXMatchingConfig(BaseModel):
     """
 
     model_config = ConfigDict(
-        frozen=True, validate_assignment=True  # Immutable configuration
+        frozen=True,
+        validate_assignment=True,  # Immutable configuration
     )
 
     # Confidence levels for EEX matching rules - only exact matching
@@ -136,7 +137,6 @@ class EEXConfigManager:
             Dict mapping raw buy/sell values to normalized values
         """
         return self.normalizer_config.get("buy_sell_mappings", {})
-
 
     def reload_config(self) -> None:
         """Reload configuration from files.

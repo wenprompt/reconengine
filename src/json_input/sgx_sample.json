@@ -3376,7 +3376,7 @@
       "price": 102.25,
       "contractMonth": "Sep25",
       "b/s": "B",
-      "clearingStatus": "Cleared",
+      "clearingStatus": "Pending Counterparty",
       "tradingSession": "T+1",
       "exchangeGroupId": 12,
       "brokerGroupId": 7,

@@ -976,6 +976,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.SPREAD,
             confidence=confidence if confidence is not None else self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=trader_trades[0],
             exchange_trade=exchange_trades[0],
             matched_fields=matched_fields,

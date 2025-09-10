@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DecomposedProduct:
     """Represents a decomposed product component."""
-    
+
     base_product: str
     quantity: Decimal
     unit: str
@@ -22,73 +22,69 @@ class DecomposedProduct:
 
 class ProductDecomposer:
     """Decomposes complex products into their base components."""
-    
+
     def __init__(self) -> None:
         """Initialize the product decomposer."""
         # No need for specific patterns - we'll handle generically
         pass
-    
+
     def decompose(
-        self, 
-        product_name: str, 
-        quantity: Decimal, 
-        unit: str,
-        buy_sell: str
+        self, product_name: str, quantity: Decimal, unit: str, buy_sell: str
     ) -> List[DecomposedProduct]:
         """Decompose a product into its base components.
-        
+
         Args:
             product_name: The product name to decompose
             quantity: The quantity of the product
             unit: The unit (mt or bbl)
             buy_sell: Buy (B) or Sell (S) indicator
-            
+
         Returns:
             List of decomposed products. If not decomposable, returns the original.
         """
         product_lower = product_name.lower().strip()
-        
+
         # Check for crack products using shared extractor for correctness
         if extract_base_product(product_name) is not None:
             return self._decompose_crack(product_name, quantity, unit, buy_sell)
-        
+
         # Check for spread products (hyphenated)
         if "-" in product_lower:
             return self._decompose_spread(product_lower, quantity, unit, buy_sell)
-        
+
         # Return original product if no decomposition needed
-        return [DecomposedProduct(
-            base_product=product_name,
-            quantity=quantity,
-            unit=unit,
-            is_synthetic=False
-        )]
-    
+        return [
+            DecomposedProduct(
+                base_product=product_name,
+                quantity=quantity,
+                unit=unit,
+                is_synthetic=False,
+            )
+        ]
+
     def _decompose_crack(
-        self, 
-        product_name: str, 
-        quantity: Decimal, 
-        unit: str,
-        _buy_sell: str
+        self, product_name: str, quantity: Decimal, unit: str, _buy_sell: str
     ) -> List[DecomposedProduct]:
         """Decompose a crack product into base product and brent swap.
-        
+
         For a crack trade:
         - If buying crack: buying base product, selling brent swap
         - If selling crack: selling base product, buying brent swap
         """
         # Use shared helper to extract base product
         base_product = extract_base_product(product_name)
-        
+
         if not base_product:
             # If we can't extract, return as-is
-            return [DecomposedProduct(
-                base_product=product_name,
-                quantity=quantity,
-                unit=unit,
-                is_synthetic=False
-            )]
-        
+            return [
+                DecomposedProduct(
+                    base_product=product_name,
+                    quantity=quantity,
+                    unit=unit,
+                    is_synthetic=False,
+                )
+            ]
+
         # Create components
         components = [
             # Base product follows the crack direction
@@ -96,32 +92,26 @@ class ProductDecomposer:
                 base_product=base_product,
                 quantity=quantity,
                 unit=unit,
-                is_synthetic=True
+                is_synthetic=True,
             ),
             # Brent swap has opposite direction (handled in matrix builder)
             DecomposedProduct(
                 base_product="brent swap",
                 quantity=quantity,
                 unit=unit,
-                is_synthetic=True
-            )
+                is_synthetic=True,
+            ),
         ]
-        
-        logger.debug(
-            f"Decomposed '{product_name}' into {base_product} and brent swap"
-        )
-        
+
+        logger.debug(f"Decomposed '{product_name}' into {base_product} and brent swap")
+
         return components
-    
+
     def _decompose_spread(
-        self, 
-        product_name: str, 
-        quantity: Decimal, 
-        unit: str,
-        _buy_sell: str
+        self, product_name: str, quantity: Decimal, unit: str, _buy_sell: str
     ) -> List[DecomposedProduct]:
         """Decompose a spread product into its components.
-        
+
         For a spread trade (e.g., 0.5% marine-380cst):
         - If buying spread: buying first product, selling second product
         - If selling spread: selling first product, buying second product
@@ -130,61 +120,62 @@ class ProductDecomposer:
         parts = product_name.split("-", 1)
         if len(parts) != 2:
             # Can't decompose if not properly hyphenated
-            return [DecomposedProduct(
-                base_product=product_name,
-                quantity=quantity,
-                unit=unit,
-                is_synthetic=False
-            )]
-        
+            return [
+                DecomposedProduct(
+                    base_product=product_name,
+                    quantity=quantity,
+                    unit=unit,
+                    is_synthetic=False,
+                )
+            ]
+
         first_product = parts[0].strip()
         second_product = parts[1].strip()
-        
+
         components = [
             # First product follows spread direction
             DecomposedProduct(
                 base_product=first_product,
                 quantity=quantity,
                 unit=unit,
-                is_synthetic=True
+                is_synthetic=True,
             ),
             # Second product has opposite direction (handled in matrix builder)
             DecomposedProduct(
                 base_product=second_product,
                 quantity=quantity,
                 unit=unit,
-                is_synthetic=True
-            )
+                is_synthetic=True,
+            ),
         ]
-        
+
         logger.debug(
             f"Decomposed '{product_name}' into {first_product} and {second_product}"
         )
-        
+
         return components
-    
-    
+
     def get_decomposition_summary(self, product_name: str) -> str:
         """Get a summary of how a product would be decomposed.
-        
+
         Args:
             product_name: The product to analyze
-            
+
         Returns:
             String description of the decomposition with direction indicators
         """
         product_lower = product_name.lower().strip()
-        
+
         if "crack" in product_lower:
             # For cracks: base product same direction, brent swap opposite
             base = extract_base_product(product_lower)
             if base:
                 return f"{product_name} → {base} (same direction) - brent swap (opposite direction)"
-        
+
         if "-" in product_lower and "crack" not in product_lower:
             # For spreads: first product same direction, second opposite
             parts = product_lower.split("-", 1)
             if len(parts) == 2:
                 return f"{product_name} → {parts[0].strip()} (same direction) - {parts[1].strip()} (opposite direction)"
-        
+
         return f"{product_name} → No decomposition"

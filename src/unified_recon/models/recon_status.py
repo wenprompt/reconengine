@@ -7,5 +7,6 @@ class ReconStatus(Enum):
     """Reconciliation status for unified trade matching results."""
 
     MATCHED = "matched"
+    PENDING_EXCHANGE = "pending_exchange"  # Exchange trade has pending clearing status
     UNMATCHED_TRADERS = "unmatched_traders"
     UNMATCHED_EXCH = "unmatched_exch"

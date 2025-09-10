@@ -172,6 +172,7 @@ class SGXTradeFactory:
             "exchangeGroupId": "exchangegroupid",
             "brokerGroupId": "brokergroupid",
             "exchangeClearingAccountId": "exchclearingacctid",
+            "clearingStatus": "clearingstatus",
             "productName": "productname",
             "contractMonth": "contractmonth",
             "quantityUnit": "quantityunit",

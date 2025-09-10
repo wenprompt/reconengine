@@ -20,11 +20,14 @@ from ..main import (
 )
 from .models import ReconciliationRequest, Rule0Request, Rule0Response
 
+
 # Constants for trade source identification
 class TradeSource:
     """Constants for trade source types."""
+
     TRADER = "1"
     EXCHANGE = "2"
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,17 +42,15 @@ class BaseRule0Service:
         self.config: Dict[str, Any] = load_unified_config()
 
     def _process_rule0_analysis(
-        self, 
-        request: Rule0Request, 
-        external_match_ids: Optional[Dict[str, str]] = None
+        self, request: Rule0Request, external_match_ids: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         Common Rule 0 processing logic.
-        
+
         Args:
             request: Rule 0 request with trade data
             external_match_ids: Optional mapping of internal trade IDs to match IDs
-            
+
         Returns:
             Dictionary of exchange results
         """
@@ -69,68 +70,63 @@ class BaseRule0Service:
 
         # Get processable groups from router (single source of truth)
         processable_groups = self.router.get_processable_groups(grouped_trades)
-        
+
         if not processable_groups:
             logger.warning("No processable trade groups found for Rule 0 analysis")
             return {}
 
         # Process through Rule 0 for each processable exchange
         all_results = {}
-        
+
         for group_id in processable_groups:
             group_info = grouped_trades[group_id]
             # Get system name for this group
             system_name = group_info["system"]
-            
+
             # Check if Rule 0 is configured for this system
             if system_name not in self.config.get("rule_0_config", {}):
                 logger.info(
                     f"Skipping Rule 0 for {system_name} (not configured in rule_0_config)"
                 )
                 continue
-            
+
             # Prepare data for the exchange
-            prepared_data = self.router.prepare_data_for_system(
-                group_info, system_name
-            )
-            
+            prepared_data = self.router.prepare_data_for_system(group_info, system_name)
+
             # Create a namespace to simulate command line args
-            args = argparse.Namespace(
-                json_output=True,
-                show_details=False
-            )
-            
+            args = argparse.Namespace(json_output=True, show_details=False)
+
             # Process Rule 0 analysis
-            trader_records = prepared_data["trader_data"].to_dict('records')
-            exchange_records = prepared_data["exchange_data"].to_dict('records')
-            
+            trader_records = prepared_data["trader_data"].to_dict("records")
+            exchange_records = prepared_data["exchange_data"].to_dict("records")
+
             exchange_results = process_exchanges(
                 [system_name],  # exchanges_to_process
                 trader_records,  # trader_trades
                 exchange_records,  # exchange_trades
                 self.config,  # unified_config
                 args,  # args
-                external_match_ids  # Pass external match IDs for consistent matching
+                external_match_ids,  # Pass external match IDs for consistent matching
             )
-            
+
             # Merge results
             all_results.update(exchange_results)
-        
+
         # Generate JSON output using the JSON output generator
         # Get tolerances from first result (they're the same for all)
         first_key = list(all_results.keys())[0] if all_results else None
         tolerances = {}
         if first_key:
-            tolerances = all_results.get(first_key, {}).get('tolerance_dict', {})
-        
+            tolerances = all_results.get(first_key, {}).get("tolerance_dict", {})
+
         # Pass external match IDs if provided
         json_output = Rule0JSONOutput(
-            tolerances=tolerances, 
+            tolerances=tolerances,
             unified_config=self.config,
-            external_match_ids=external_match_ids
+            external_match_ids=external_match_ids,
         )
         json_dict = json_output.generate_multi_exchange_json(all_results)
-        
+
         return json_dict
 
 
@@ -216,7 +212,7 @@ class ReconciliationService:
             # Convert DataFrame to JSON records format (same as CLI --json-output)
             # Reuses the same logic as save_dataframe_to_json
             records_data = df.to_dict(orient="records")
-            
+
             # Cast to ensure proper typing (DataFrame columns are always strings)
             typed_records: List[Dict[str, Any]] = records_data  # type: ignore[assignment]
 
@@ -268,11 +264,11 @@ class Rule0Service(BaseRule0Service):
         """
         try:
             json_dict = self._process_rule0_analysis(request)
-            
+
             # If no results, return empty response
             if not json_dict:
                 return Rule0Response(root={})
-            
+
             # Convert to Rule0Response format
             return Rule0Response(root=json_dict)
 
@@ -302,21 +298,20 @@ class PosMatchService(BaseRule0Service):
         try:
             # Step 1: Run reconciliation to get match IDs
             recon_request = ReconciliationRequest(
-                traderTrades=request.traderTrades,
-                exchangeTrades=request.exchangeTrades
+                traderTrades=request.traderTrades, exchangeTrades=request.exchangeTrades
             )
             reconciliation_results = self.recon_service._process_sync(recon_request)
-            
+
             # Step 2: Create mapping of internal_trade_id to match_id
             match_id_mapping = create_match_id_mapping(reconciliation_results)
-            
+
             # Step 3: Run Rule 0 analysis with external match IDs
             json_dict = self._process_rule0_analysis(request, match_id_mapping)
-            
+
             # If no results, return empty response
             if not json_dict:
                 return Rule0Response(root={})
-            
+
             # Convert to Rule0Response format
             return Rule0Response(root=json_dict)
 

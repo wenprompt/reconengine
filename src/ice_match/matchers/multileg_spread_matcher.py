@@ -36,7 +36,7 @@ class ExchangeSpread:
     @property
     def quantity(self) -> Decimal:
         """Quantity (both legs should be same).
-        
+
         Note: Multileg spreads are always in MT units (never BBL - no brent swap spreads).
         """
         return self.leg1.quantity_mt
@@ -683,6 +683,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             match_id=match_id,
             match_type=MatchType.MULTILEG_SPREAD,
             confidence=self.confidence,
+            status="matched",  # ICE always returns matched status
             trader_trade=primary_trader,
             exchange_trade=primary_exchange,
             additional_trader_trades=additional_trader,

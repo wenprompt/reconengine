@@ -18,26 +18,26 @@ from ..config import ConfigManager
 
 class MatchDisplayer:
     """Rich CLI display for ice trade matching results.
-    
+
     Provides comprehensive, colored display of matches, unmatched trades,
     statistics, and configuration information.
     """
 
     def __init__(self, config_manager: ConfigManager):
         """Initialize the display manager.
-        
+
         Args:
             config_manager: Configuration manager for display settings
         """
         self.config_manager = config_manager
         self.console = Console()
-    
+
     def _format_confidence(self, confidence: Decimal) -> str:
         """Format confidence percentage with color based on value.
-        
+
         Args:
             confidence: Confidence percentage (0-100)
-            
+
         Returns:
             Formatted confidence string with color
         """
@@ -48,13 +48,13 @@ class MatchDisplayer:
             return f"[yellow]{confidence_str}[/yellow]"
         else:
             return f"[red]{confidence_str}[/red]"
-    
+
     def _format_side(self, buy_sell: str) -> str:
         """Format buy/sell side with appropriate color.
-        
+
         Args:
             buy_sell: "B" for buy or "S" for sell
-            
+
         Returns:
             Formatted side string with color
         """
@@ -62,19 +62,19 @@ class MatchDisplayer:
             return f"[green]{buy_sell}[/green]"
         else:
             return f"[red]{buy_sell}[/red]"
-    
+
     def _format_match_rate(self, rate_str: str) -> str:
         """Format match rate percentage with color based on value.
-        
+
         Args:
             rate_str: Match rate string with % sign
-            
+
         Returns:
             Formatted rate string with color
         """
         if "%" not in rate_str:
             return rate_str
-        
+
         rate_value = float(rate_str.replace("%", ""))
         if rate_value >= 80:
             return f"[green]{rate_str}[/green]"
@@ -86,11 +86,7 @@ class MatchDisplayer:
     def show_header(self):
         """Display application header."""
         header_text = Text("🔋 ICE Trade Matching System", style="bold blue")
-        header_panel = Panel(
-            Align.center(header_text),
-            box=box.DOUBLE,
-            style="blue"
-        )
+        header_panel = Panel(Align.center(header_text), box=box.DOUBLE, style="blue")
         self.console.print(header_panel)
         self.console.print()
 
@@ -112,7 +108,7 @@ class MatchDisplayer:
 
     def show_data_summary(self, trader_count: int, exchange_count: int):
         """Display data loading summary.
-        
+
         Args:
             trader_count: Number of trader trades loaded
             exchange_count: Number of exchange trades loaded
@@ -123,14 +119,16 @@ class MatchDisplayer:
 
         data_table.add_row("Trader Trades", str(trader_count))
         data_table.add_row("Exchange Trades", str(exchange_count))
-        data_table.add_row("[bold]Total[/bold]", f"[bold]{trader_count + exchange_count}[/bold]")
+        data_table.add_row(
+            "[bold]Total[/bold]", f"[bold]{trader_count + exchange_count}[/bold]"
+        )
 
         self.console.print(data_table)
         self.console.print()
 
     def show_matches_by_type(self, matches: List[MatchResult]):
         """Display matches grouped by matching type.
-        
+
         Args:
             matches: List of all matches found
         """
@@ -152,7 +150,7 @@ class MatchDisplayer:
 
     def _show_match_type_section(self, match_type: str, matches: List[MatchResult]):
         """Display matches for a specific match type.
-        
+
         Args:
             match_type: Type of matches to display
             matches: List of matches of this type
@@ -179,13 +177,19 @@ class MatchDisplayer:
                 all_exchange_trades = match.all_exchange_trades
 
                 # Format trader IDs (show all trades)
-                trader_ids = " + ".join([trade.internal_trade_id for trade in all_trader_trades])
+                trader_ids = " + ".join(
+                    [trade.internal_trade_id for trade in all_trader_trades]
+                )
 
                 # Format exchange IDs (show all trades)
-                exchange_ids = " + ".join([trade.internal_trade_id for trade in all_exchange_trades])
+                exchange_ids = " + ".join(
+                    [trade.internal_trade_id for trade in all_exchange_trades]
+                )
 
                 # Format contract months (show all legs)
-                trader_months = sorted(set(trade.contract_month for trade in all_trader_trades))
+                trader_months = sorted(
+                    set(trade.contract_month for trade in all_trader_trades)
+                )
                 contract_display = "/".join(trader_months)
 
                 # Format sides (show all combinations)
@@ -216,7 +220,7 @@ class MatchDisplayer:
                 f"{primary_trade.price:,.2f}",
                 contract_display,
                 sides,
-                confidence_str
+                confidence_str,
             )
 
         self.console.print(match_table)
@@ -224,7 +228,7 @@ class MatchDisplayer:
 
     def show_unmatched_summary(self, pool_manager: UnmatchedPoolManager):
         """Display summary of unmatched trades.
-        
+
         Args:
             pool_manager: Pool manager with unmatched trade information
         """
@@ -242,7 +246,9 @@ class MatchDisplayer:
         unmatched_table.add_column("Sample Products", style="white")
 
         # Trader unmatched
-        trader_products = list(set(trade.product_name for trade in trader_unmatched[:5]))
+        trader_products = list(
+            set(trade.product_name for trade in trader_unmatched[:5])
+        )
         trader_sample = ", ".join(trader_products[:3])
         if len(trader_products) > 3:
             trader_sample += f" (+{len(trader_products) - 3} more)"
@@ -250,11 +256,13 @@ class MatchDisplayer:
         unmatched_table.add_row(
             "Trader",
             str(len(trader_unmatched)),
-            trader_sample if trader_unmatched else "None"
+            trader_sample if trader_unmatched else "None",
         )
 
         # Exchange unmatched
-        exchange_products = list(set(trade.product_name for trade in exchange_unmatched[:5]))
+        exchange_products = list(
+            set(trade.product_name for trade in exchange_unmatched[:5])
+        )
         exchange_sample = ", ".join(exchange_products[:3])
         if len(exchange_products) > 3:
             exchange_sample += f" (+{len(exchange_products) - 3} more)"
@@ -262,15 +270,17 @@ class MatchDisplayer:
         unmatched_table.add_row(
             "Exchange",
             str(len(exchange_unmatched)),
-            exchange_sample if exchange_unmatched else "None"
+            exchange_sample if exchange_unmatched else "None",
         )
 
         self.console.print(unmatched_table)
         self.console.print()
 
-    def show_detailed_unmatched(self, pool_manager: UnmatchedPoolManager, limit: Optional[int] = None):
+    def show_detailed_unmatched(
+        self, pool_manager: UnmatchedPoolManager, limit: Optional[int] = None
+    ):
         """Display detailed unmatched trades.
-        
+
         Args:
             pool_manager: Pool manager with unmatched trades
             limit: Maximum number of trades to show per source (None for all)
@@ -280,17 +290,21 @@ class MatchDisplayer:
 
         # Show trader unmatched
         if trader_unmatched:
-            trades_to_show = trader_unmatched if limit is None else trader_unmatched[:limit]
+            trades_to_show = (
+                trader_unmatched if limit is None else trader_unmatched[:limit]
+            )
             self._show_unmatched_trades("Trader", trades_to_show)
 
         # Show exchange unmatched
         if exchange_unmatched:
-            trades_to_show = exchange_unmatched if limit is None else exchange_unmatched[:limit]
+            trades_to_show = (
+                exchange_unmatched if limit is None else exchange_unmatched[:limit]
+            )
             self._show_unmatched_trades("Exchange", trades_to_show)
 
     def _show_unmatched_trades(self, source: str, trades: List[Trade]):
         """Display unmatched trades for a specific source.
-        
+
         Args:
             source: Source name (Trader or Exchange)
             trades: List of unmatched trades
@@ -319,15 +333,17 @@ class MatchDisplayer:
                 f"{trade.price:,.2f}",
                 trade.contract_month,
                 side_str,
-                str(trade.broker_group_id) if trade.broker_group_id else "N/A"
+                str(trade.broker_group_id) if trade.broker_group_id else "N/A",
             )
 
         self.console.print(trade_table)
         self.console.print()
 
-    def show_statistics(self, pool_manager: UnmatchedPoolManager, matches: List[MatchResult]):
+    def show_statistics(
+        self, pool_manager: UnmatchedPoolManager, matches: List[MatchResult]
+    ):
         """Display comprehensive matching statistics.
-        
+
         Args:
             pool_manager: Pool manager with trade statistics
             matches: List of all matches found
@@ -377,7 +393,7 @@ class MatchDisplayer:
                 rule_table.add_row(
                     rule_type.replace("_", " ").title(),
                     str(count),
-                    f"{percentage:.1f}%"
+                    f"{percentage:.1f}%",
                 )
 
             self.console.print()
@@ -387,45 +403,40 @@ class MatchDisplayer:
 
     def show_processing_complete(self, processing_time: float):
         """Display processing completion message.
-        
+
         Args:
             processing_time: Time taken for processing in seconds
         """
-        completion_text = Text(f"✅ Processing completed in {processing_time:.2f} seconds",
-                             style="bold green")
+        completion_text = Text(
+            f"✅ Processing completed in {processing_time:.2f} seconds",
+            style="bold green",
+        )
         completion_panel = Panel(
-            Align.center(completion_text),
-            box=box.ROUNDED,
-            style="green"
+            Align.center(completion_text), box=box.ROUNDED, style="green"
         )
         self.console.print(completion_panel)
 
     def show_error(self, error_message: str):
         """Display error message.
-        
+
         Args:
             error_message: Error message to display
         """
         error_text = Text(f"❌ Error: {error_message}", style="bold red")
-        error_panel = Panel(
-            error_text,
-            box=box.ROUNDED,
-            style="red",
-            title="Error"
-        )
+        error_panel = Panel(error_text, box=box.ROUNDED, style="red", title="Error")
         self.console.print(error_panel)
 
     def create_progress_context(self, description: str):
         """Create a progress context for long-running operations.
-        
+
         Args:
             description: Description of the operation
-            
+
         Returns:
             Progress context manager
         """
         return Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=self.console
+            console=self.console,
         )

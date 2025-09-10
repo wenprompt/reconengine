@@ -10,7 +10,7 @@ from .cli import CMEDisplay
 __version__ = "0.1.0"
 __all__ = [
     "CMETrade",
-    "CMETradeSource", 
+    "CMETradeSource",
     "CMEMatchResult",
     "CMEMatchType",
     "ExactMatcher",

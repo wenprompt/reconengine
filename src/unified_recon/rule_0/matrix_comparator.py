@@ -122,7 +122,7 @@ class UnifiedMatrixComparator:
         # Get units from each side
         trader_unit = trader_pos.unit if trader_pos and trader_pos.unit else ""
         exchange_unit = exchange_pos.unit if exchange_pos and exchange_pos.unit else ""
-        
+
         # For backward compatibility, prefer trader's unit if available
         unit = trader_unit if trader_unit else exchange_unit
 

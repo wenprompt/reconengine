@@ -15,7 +15,8 @@ class SGXMatchingConfig(BaseModel):
     """
 
     model_config = ConfigDict(
-        frozen=True, validate_assignment=True  # Immutable configuration
+        frozen=True,
+        validate_assignment=True,  # Immutable configuration
     )
 
     # Confidence levels for SGX matching rules - ALL 100% for exact matching
