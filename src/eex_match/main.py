@@ -2,9 +2,10 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any, Tuple, Dict
 import argparse
 import sys
+import pandas as pd
 
 from .config import EEXConfigManager
 from .core import EEXUnmatchedPool, EEXTradeFactory
@@ -24,6 +25,13 @@ logger = logging.getLogger(__name__)
 
 class EEXMatchingEngine:
     """Main EEX trade matching engine."""
+
+    config_manager: EEXConfigManager
+    normalizer: EEXTradeNormalizer
+    trade_factory: EEXTradeFactory
+    display: EEXDisplay
+    exact_matcher: ExactMatcher
+    matchers: Dict[int, ExactMatcher]
 
     def __init__(self, config_manager: Optional[EEXConfigManager] = None):
         """Initialize EEX matching engine.
@@ -110,7 +118,7 @@ class EEXMatchingEngine:
 
         except Exception as e:
             logger.error(f"Error in EEX matching process: {e}")
-            self.display.show_error(str(e))
+            self.display.show_error(f"{e!s}")
             return []
 
     def _get_matcher_for_rule(self, rule_number: int):
@@ -124,7 +132,9 @@ class EEXMatchingEngine:
         """
         return self.matchers.get(rule_number)
 
-    def run_matching_from_dataframes(self, trader_df, exchange_df) -> tuple:
+    def run_matching_from_dataframes(
+        self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
+    ) -> Tuple[List[EEXMatchResult], dict[str, Any]]:
         """Run EEX matching process directly from DataFrames without CSV files.
 
         Args:

@@ -5,6 +5,7 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import SGXTrade, SGXMatchResult, SGXMatchType, SGXTradeSource
 from ..core import SGXUnmatchedPool
 from ..config import SGXConfigManager
@@ -478,20 +479,14 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         # Calculate confidence using tier-based adjustments
         tier_confidence = self._calculate_tier_confidence(confidence_tier)
 
-        # Create temporary result to compute status
-        temp_result = SGXMatchResult(
-            match_id=self.generate_match_id(self.rule_number),
-            match_type=SGXMatchType.PRODUCT_SPREAD,
-            confidence=tier_confidence,
-            trader_trade=trader_trades[0],
-            exchange_trade=exchange_trades[0],
-            matched_fields=matched_fields,
-            rule_order=self.rule_number,
-            additional_trader_trades=trader_trades[1:],
-            additional_exchange_trades=exchange_trades[1:],
-        )
+        # Determine status based on exchange trade's clearing status
+        status = ReconStatus.MATCHED
+        if (
+            exchange_trades[0].clearing_status
+            and "pending" in exchange_trades[0].clearing_status.lower()
+        ):
+            status = ReconStatus.PENDING_EXCHANGE
 
-        # Return result with computed status
         return SGXMatchResult(
             match_id=self.generate_match_id(self.rule_number),
             match_type=SGXMatchType.PRODUCT_SPREAD,
@@ -502,7 +497,7 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             rule_order=self.rule_number,
             additional_trader_trades=trader_trades[1:],
             additional_exchange_trades=exchange_trades[1:],
-            status=temp_result.computed_status,
+            status=status,
         )
 
     def _calculate_tier_confidence(self, confidence_tier: int) -> Decimal:

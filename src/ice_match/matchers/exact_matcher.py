@@ -3,6 +3,7 @@
 from typing import List, Optional, Dict
 import logging
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, TradeSource, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
@@ -207,7 +208,7 @@ class ExactMatcher(BaseMatcher):
             match_id=match_id,
             match_type=MatchType.EXACT,
             confidence=self.confidence,
-            status="matched",  # ICE always returns matched status
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=trader_trade,
             exchange_trade=exchange_trade,
             matched_fields=matched_fields,

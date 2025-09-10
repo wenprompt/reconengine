@@ -120,6 +120,7 @@ class CMEDisplay:
         table.add_column("B/S", justify="center")
         table.add_column("Trade ID (T)", style="dim")
         table.add_column("Trade ID (E)", style="dim")
+        table.add_column("Status", style="yellow")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -133,6 +134,7 @@ class CMEDisplay:
                 match.trader_trade.buy_sell,
                 match.trader_trade.display_id,
                 match.exchange_trade.display_id,
+                match.status.value.title() if match.status else "Matched",
                 f"{match.confidence}%",
             )
 

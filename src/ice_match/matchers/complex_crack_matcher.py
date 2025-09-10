@@ -3,6 +3,7 @@
 import logging
 from typing import List, Tuple, Optional
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager  # Added import
@@ -150,7 +151,7 @@ class ComplexCrackMatcher(BaseMatcher):
                         match_id=self.generate_match_id(self.rule_number),
                         match_type=MatchType.COMPLEX_CRACK,
                         confidence=self.confidence,
-                        status="matched",  # ICE always returns matched status  # Get confidence from config
+                        status=ReconStatus.MATCHED,  # ICE always returns matched status  # Get confidence from config
                         trader_trade=crack_trade,
                         exchange_trade=base_trade,  # Primary exchange trade (base product)
                         additional_exchange_trades=[

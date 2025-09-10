@@ -33,32 +33,34 @@ def handle_api_errors(operation_name: str) -> Callable:
             except ValueError as e:
                 logger.warning(f"{operation_name} - Request validation error: {e}")
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-                )
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e),
+                ) from e
             except DataValidationError as e:
                 logger.warning(f"{operation_name} - Data validation error: {e}")
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-                )
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e),
+                ) from e
             except FileNotFoundError as e:
                 logger.error(f"{operation_name} - Configuration file not found: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Configuration file not found",
-                )
+                ) from e
             except KeyError as e:
                 logger.error(f"{operation_name} - Configuration error: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Invalid configuration or missing required data",
-                )
+                ) from e
             except Exception as e:
                 # Log the error internally but don't expose details for security
                 logger.error(f"{operation_name} - Internal error: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Internal server error during {operation_name.lower()}",
-                )
+                ) from e
 
         return wrapper
 

@@ -1,4 +1,3 @@
-
 import csv
 import json
 import os
@@ -8,23 +7,34 @@ from datetime import datetime
 
 console = Console()
 
+
 def get_cme_month_code_mapping():
     return {
-        'F': 'Jan', 'G': 'Feb', 'H': 'Mar', 'J': 'Apr', 'K': 'May',
-        'M': 'Jun', 'N': 'Jul', 'Q': 'Aug', 'U': 'Sep', 'V': 'Oct',
-        'X': 'Nov', 'Z': 'Dec'
+        "F": "Jan",
+        "G": "Feb",
+        "H": "Mar",
+        "J": "Apr",
+        "K": "May",
+        "M": "Jun",
+        "N": "Jul",
+        "Q": "Aug",
+        "U": "Sep",
+        "V": "Oct",
+        "X": "Nov",
+        "Z": "Dec",
     }
+
 
 def parse_security(security):
     month_codes = get_cme_month_code_mapping()
     put_call = None
     strike = None
 
-    if '_' in security:
-        parts = security.split('_')
+    if "_" in security:
+        parts = security.split("_")
         security = parts[0]
         pc_part = parts[1]
-        if pc_part.startswith('P') or pc_part.startswith('C'):
+        if pc_part.startswith("P") or pc_part.startswith("C"):
             put_call = pc_part[0]
             strike = pc_part[1:]
 
@@ -32,7 +42,7 @@ def parse_security(security):
     symbol = security[:-3]
     month_char = security[-3]
     year = security[-2:]
-    
+
     month = month_codes.get(month_char)
     if month:
         return symbol, f"{month}-{year}", put_call, strike
@@ -41,7 +51,7 @@ def parse_security(security):
 
 
 def remap_row(row, old_headers, target_headers, product_mapping):
-    mapped_row = [''] * len(target_headers)
+    mapped_row = [""] * len(target_headers)
     old_header_map = {header.strip(): idx for idx, header in enumerate(old_headers)}
 
     def get_value(header_name):
@@ -59,10 +69,14 @@ def remap_row(row, old_headers, target_headers, product_mapping):
     print(f"trade_execution_datetime_str: {trade_execution_datetime_str}")
     if trade_execution_datetime_str:
         try:
-            dt_obj = datetime.strptime(trade_execution_datetime_str, '%d/%m/%Y %I:%M %p')
+            dt_obj = datetime.strptime(
+                trade_execution_datetime_str, "%d/%m/%Y %I:%M %p"
+            )
             print(f"dt_obj: {dt_obj}")
-            mapped_row[target_headers.index("tradedate")] = dt_obj.strftime('%Y-%m-%d')
-            mapped_row[target_headers.index("tradedatetime")] = trade_execution_datetime_str
+            mapped_row[target_headers.index("tradedate")] = dt_obj.strftime("%Y-%m-%d")
+            mapped_row[target_headers.index("tradedatetime")] = (
+                trade_execution_datetime_str
+            )
         except ValueError as e:
             print(f"ValueError: {e}")
             mapped_row[target_headers.index("tradedate")] = ""
@@ -70,8 +84,10 @@ def remap_row(row, old_headers, target_headers, product_mapping):
 
     # Handle security to get productname and contractmonth
     security = get_value("Security")
-    symbol, contract_month_from_security, put_call, strike_from_security = parse_security(security)
-    
+    symbol, contract_month_from_security, put_call, strike_from_security = (
+        parse_security(security)
+    )
+
     productname = product_mapping.get(symbol, symbol)
     mapped_row[target_headers.index("productname")] = productname
 
@@ -80,7 +96,9 @@ def remap_row(row, old_headers, target_headers, product_mapping):
     if expiry:
         mapped_row[target_headers.index("contractmonth")] = expiry
     else:
-        mapped_row[target_headers.index("contractmonth")] = contract_month_from_security if contract_month_from_security else ''
+        mapped_row[target_headers.index("contractmonth")] = (
+            contract_month_from_security if contract_month_from_security else ""
+        )
 
     # strike from security if not present in its own column
     strike = get_value("Strike")
@@ -128,15 +146,21 @@ if __name__ == "__main__":
     output_csv_path = os.path.join(output_dir, "sourceExchange.csv")
     mapping_path = os.path.join(script_dir, "mapping.json")
 
-    available_files = [f for f in os.listdir(input_dir) if f.endswith(".csv") and "titan-otc-trade-export" in f]
-    
+    available_files = [
+        f
+        for f in os.listdir(input_dir)
+        if f.endswith(".csv") and "titan-otc-trade-export" in f
+    ]
+
     if not available_files:
-        console.print("[bold red]Error:[/bold red] No 'titan-otc-trade-export' CSV files found in the input directory.")
+        console.print(
+            "[bold red]Error:[/bold red] No 'titan-otc-trade-export' CSV files found in the input directory."
+        )
     else:
         console.print("\nSelect a Titan OTC Trade Export CSV file to process:")
         for i, fname in enumerate(available_files):
-            console.print(f"{i+1}. {fname}")
-        
+            console.print(f"{i + 1}. {fname}")
+
         # Check for command line argument or use default
         if len(sys.argv) > 1:
             try:
@@ -145,39 +169,65 @@ if __name__ == "__main__":
                     selected_file = available_files[choice_idx]
                     console.print(f"Using file: {selected_file}")
                 else:
-                    console.print(f"[bold red]Invalid choice {sys.argv[1]}. Using first file.[/bold red]")
+                    console.print(
+                        f"[bold red]Invalid choice {sys.argv[1]}. Using first file.[/bold red]"
+                    )
                     selected_file = available_files[0]
             except ValueError:
-                console.print(f"[bold red]Invalid choice '{sys.argv[1]}'. Using first file.[/bold red]")
+                console.print(
+                    f"[bold red]Invalid choice '{sys.argv[1]}'. Using first file.[/bold red]"
+                )
                 selected_file = available_files[0]
         else:
             # Default to first file if no argument provided
             selected_file = available_files[0]
             console.print(f"No file specified, using: {selected_file}")
-            console.print("Hint: You can specify a file by running: python sgx_reportparser.py [1-3]")
+            console.print(
+                "Hint: You can specify a file by running: python sgx_reportparser.py [1-3]"
+            )
 
         csv_file_path = os.path.join(input_dir, selected_file)
 
         try:
-            with open(mapping_path, 'r') as f:
+            with open(mapping_path, "r") as f:
                 product_mapping = json.load(f)
         except FileNotFoundError:
             product_mapping = {}
-            console.print(f"[bold yellow]Warning:[/bold yellow] {mapping_path} not found. Product names will not be remapped.")
+            console.print(
+                f"[bold yellow]Warning:[/bold yellow] {mapping_path} not found. Product names will not be remapped."
+            )
 
         target_headers = [
-            "tradedate", "tradedatetime", "dealid", "tradeid", "productname", 
-            "contractmonth", "quantitylots", "quantityunits", "price", 
-            "clearingstatus", "exchclearingacctid", "traderid", "brokergroupid", "exchangegroupid",
-            "tradingsession", "cleareddate", "strike", "unit", "put/call", "b/s"
+            "tradedate",
+            "tradedatetime",
+            "dealid",
+            "tradeid",
+            "productname",
+            "contractmonth",
+            "quantitylots",
+            "quantityunits",
+            "price",
+            "clearingstatus",
+            "exchclearingacctid",
+            "traderid",
+            "brokergroupid",
+            "exchangegroupid",
+            "tradingsession",
+            "cleareddate",
+            "strike",
+            "unit",
+            "put/call",
+            "b/s",
         ]
-        
+
         remapped_deals = []
-        with open(csv_file_path, "r", newline='') as infile:
+        with open(csv_file_path, "r", newline="") as infile:
             reader = csv.reader(infile)
             old_headers = next(reader)
             for row in reader:
-                remapped_row = remap_row(row, old_headers, target_headers, product_mapping)
+                remapped_row = remap_row(
+                    row, old_headers, target_headers, product_mapping
+                )
                 if remapped_row:
                     remapped_deals.append(remapped_row)
 
@@ -185,5 +235,7 @@ if __name__ == "__main__":
             writer = csv.writer(outfile)
             writer.writerow(target_headers)
             writer.writerows(remapped_deals)
-            
-        console.print(f"[bold green]Extracted and remapped data saved to {output_csv_path}[/bold green]")
+
+        console.print(
+            f"[bold green]Extracted and remapped data saved to {output_csv_path}[/bold green]"
+        )

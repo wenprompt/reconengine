@@ -4,6 +4,7 @@ from typing import List, Dict, Tuple
 from collections import defaultdict
 import logging
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import EEXTrade, EEXMatchResult, EEXMatchType, EEXTradeSource
 from ..config import EEXConfigManager
 from ..core import EEXUnmatchedPool
@@ -137,16 +138,14 @@ class ExactMatcher(BaseMatcher):
         Returns:
             Tuple of fields that must match exactly
         """
-        # Flip buy/sell for matching (trader Buy matches exchange Sell)
-        opposite_buy_sell = "S" if trade.buy_sell == "B" else "B"
-
         # Create signature with rule-specific fields
+        # Buy matches with Buy, Sell matches with Sell
         rule_fields = [
             trade.product_name,
             trade.contract_month,
             trade.quantityunit,
             trade.price,
-            opposite_buy_sell,  # Use opposite for matching
+            trade.buy_sell,  # Same side matching
             # Include options fields to ensure options match only with options
             trade.strike,  # Will be None for futures
             trade.put_call,  # Will be None for futures
@@ -186,7 +185,7 @@ class ExactMatcher(BaseMatcher):
             match_type=EEXMatchType.EXACT,
             rule_order=1,
             confidence=self.confidence,
-            status="matched",  # EEX always returns matched status
+            status=ReconStatus.MATCHED,  # EEX always returns matched status
             trader_trade=trader_trade,
             exchange_trade=exchange_trade,
             matched_fields=matched_fields,
@@ -208,7 +207,7 @@ class ExactMatcher(BaseMatcher):
                 "contract_month",
                 "quantityunit",
                 "price",
-                "buy_sell (opposite)",
+                "buy_sell",
                 "strike (for options)",
                 "put_call (for options)",
                 "broker_group_id",

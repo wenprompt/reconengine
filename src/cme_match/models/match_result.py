@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field, ConfigDict
+from ...unified_recon.models.recon_status import ReconStatus
 from .trade import CMETrade
 
 
@@ -35,8 +36,8 @@ class CMEMatchResult(BaseModel):
     confidence: Decimal = Field(
         ..., ge=0, le=100, description="Confidence level (0-100%)"
     )
-    status: str = Field(
-        default="matched", description="Match status (always matched for CME)"
+    status: ReconStatus = Field(
+        default=ReconStatus.MATCHED, description="Match status (always matched for CME)"
     )
 
     # Matched trades

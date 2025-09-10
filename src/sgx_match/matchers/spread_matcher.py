@@ -5,6 +5,7 @@ from decimal import Decimal
 import logging
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import SGXTrade, SGXMatchResult, SGXMatchType, SGXTradeSource
 from ..core import SGXUnmatchedPool
 from ..config import SGXConfigManager
@@ -667,20 +668,14 @@ class SpreadMatcher(MultiLegBaseMatcher):
         # Get complete matched fields with universal fields
         matched_fields = self.get_universal_matched_fields(rule_specific_fields)
 
-        # Create temporary result to compute status
-        temp_result = SGXMatchResult(
-            match_id=self.generate_match_id(self.rule_number),
-            match_type=SGXMatchType.SPREAD,
-            confidence=self.confidence,
-            trader_trade=trader_trades[0],
-            exchange_trade=exchange_trades[0],
-            matched_fields=matched_fields,
-            rule_order=self.rule_number,
-            additional_trader_trades=trader_trades[1:],
-            additional_exchange_trades=exchange_trades[1:],
-        )
+        # Determine status based on exchange trade's clearing status
+        status = ReconStatus.MATCHED
+        if (
+            exchange_trades[0].clearing_status
+            and "pending" in exchange_trades[0].clearing_status.lower()
+        ):
+            status = ReconStatus.PENDING_EXCHANGE
 
-        # Return result with computed status
         return SGXMatchResult(
             match_id=self.generate_match_id(self.rule_number),
             match_type=SGXMatchType.SPREAD,
@@ -691,7 +686,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             rule_order=self.rule_number,
             additional_trader_trades=trader_trades[1:],
             additional_exchange_trades=exchange_trades[1:],
-            status=temp_result.computed_status,
+            status=status,
         )
 
     def get_rule_info(self) -> dict:

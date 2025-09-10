@@ -100,6 +100,10 @@ class UnifiedTradeRouter:
         except Exception as e:
             raise DataValidationError(f"Failed to load CSV files: {e}") from e
 
+        # Normalize column names to lowercase for consistency across CSV and JSON paths
+        trader_df.columns = trader_df.columns.str.lower()
+        exchange_df.columns = exchange_df.columns.str.lower()
+
         # Validate structure
         self.validator.validate_csv_structure(trader_df, "trader", trader_file)
         self.validator.validate_csv_structure(exchange_df, "exchange", exchange_file)
@@ -541,6 +545,16 @@ class UnifiedTradeRouter:
                     "put_call": getattr(trade, "put_call", None),
                     "spread": getattr(trade, "spread", None),
                 }
+
+                # Add pending_exchange flag for SGX trades based on clearing_status
+                # This ensures parity with raw_data path for SGX matching logic
+                if hasattr(trade, "clearing_status") and trade.clearing_status:
+                    if "pending" in str(trade.clearing_status).lower():
+                        record["pending_exchange"] = True
+                    else:
+                        record["pending_exchange"] = False
+                else:
+                    record["pending_exchange"] = False
 
                 # Add quantityunit if present (SGX, ICE, EEX trades)
                 if hasattr(trade, "quantityunit") and trade.quantityunit is not None:

@@ -227,14 +227,15 @@ class UnmatchedPoolManager:
                 del self._exchange_pool[trade_id]
                 self._matched_exchange_ids.add(trade_id)
 
-        # Record in history (using the primary trader and exchange trade for simplicity in history)
-        self._match_history.append(
-            (
-                match_result.trader_trade.internal_trade_id,
-                match_result.exchange_trade.internal_trade_id,
-                match_result.match_type.value,
+        # Record in history only if all removals succeeded
+        if success:
+            self._match_history.append(
+                (
+                    match_result.trader_trade.internal_trade_id,
+                    match_result.exchange_trade.internal_trade_id,
+                    match_result.match_type.value,
+                )
             )
-        )
 
         logger.debug(
             f"Recorded match {match_result.match_id}. Removed {len(trades_to_remove)} trades from pools."
@@ -259,6 +260,8 @@ class UnmatchedPoolManager:
         self._exchange_pool = {
             trade.internal_trade_id: trade for trade in exchange_trades
         }
+        self._original_trader_count = len(trader_trades)
+        self._original_exchange_count = len(exchange_trades)
         self._matched_trader_ids.clear()
         self._matched_exchange_ids.clear()
         self._match_history.clear()

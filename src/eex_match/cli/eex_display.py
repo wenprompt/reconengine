@@ -109,6 +109,7 @@ class EEXDisplay:
             table.add_column("Qty", justify="right", width=8)
             table.add_column("Price", justify="right", width=10)
             table.add_column("B/S", width=5)
+            table.add_column("Status", style="yellow", width=10)
 
             for match in exact_matches[:20]:  # Show first 20 matches
                 table.add_row(
@@ -120,6 +121,7 @@ class EEXDisplay:
                     str(match.matched_quantity),
                     str(match.trader_trade.price),
                     f"{match.trader_trade.buy_sell}/{match.exchange_trade.buy_sell}",
+                    match.status.value.title() if match.status else "Matched",
                 )
 
             self.console.print(table)

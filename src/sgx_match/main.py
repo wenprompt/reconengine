@@ -2,9 +2,10 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any, Tuple, Dict
 import argparse
 import sys
+import pandas as pd
 
 from .config import SGXConfigManager
 from .core import SGXUnmatchedPool
@@ -27,6 +28,15 @@ logger = logging.getLogger(__name__)
 
 class SGXMatchingEngine:
     """Main SGX trade matching engine."""
+
+    config_manager: SGXConfigManager
+    normalizer: SGXTradeNormalizer
+    trade_factory: SGXTradeFactory
+    display: SGXDisplay
+    exact_matcher: ExactMatcher
+    spread_matcher: SpreadMatcher
+    product_spread_matcher: ProductSpreadMatcher
+    matchers: Dict[int, Any]
 
     def __init__(self, config_manager: Optional[SGXConfigManager] = None):
         """Initialize SGX matching engine.
@@ -124,10 +134,12 @@ class SGXMatchingEngine:
 
         except Exception as e:
             logger.error(f"SGX matching failed: {e}")
-            self.display.show_error(str(e))
+            self.display.show_error(f"{e!s}")
             raise RuntimeError(f"SGX matching failed: {e}") from e
 
-    def run_matching_from_dataframes(self, trader_df, exchange_df) -> tuple:
+    def run_matching_from_dataframes(
+        self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
+    ) -> Tuple[List[SGXMatchResult], dict[str, Any]]:
         """Run SGX matching process directly from DataFrames without CSV files.
 
         Args:

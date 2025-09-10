@@ -3,7 +3,7 @@
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Callable
 
 from ..core.result_aggregator import UnifiedResult, SystemResult
 
@@ -35,15 +35,19 @@ class UnifiedDisplay:
         Returns:
             Formatted panel
         """
-        content = f"📊 Matches: {result.matches_found} | 📈 Rate: {result.match_rate:.1f}% | ⏱️  Time: {result.processing_time:.2f}s"
+        content = (
+            f"📊 Matches: {result.matches_found} | "
+            f"📈 Rate: {result.match_rate:.1f}% | "
+            f"⏱️  Time: {(result.processing_time or 0.0):.2f}s"
+        )
         return Panel(content, title=title, border_style=border_style)
 
     def _display_unmatched_trades_generic(
         self,
         result: SystemResult,
         show_unmatched: bool,
-        trader_display_func,
-        exchange_display_func,
+        trader_display_func: Callable[[List[Any]], None],
+        exchange_display_func: Callable[[List[Any]], None],
     ) -> None:
         """Generic method to display unmatched trades.
 

@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field, ConfigDict
+from ...unified_recon.models.recon_status import ReconStatus
 from .trade import SGXTrade
 
 
@@ -37,8 +38,9 @@ class SGXMatchResult(BaseModel):
     confidence: Decimal = Field(
         ..., ge=0, le=100, description="Confidence level (0-100%)"
     )
-    status: str = Field(
-        default="matched", description="Match status (matched or pending_exchange)"
+    status: ReconStatus = Field(
+        default=ReconStatus.MATCHED,
+        description="Match status (matched or pending_exchange for SGX)",
     )
 
     # Matched trades
@@ -108,19 +110,6 @@ class SGXMatchResult(BaseModel):
         return self.price_difference == Decimal(
             "0"
         ) and self.quantity_difference == Decimal("0")
-
-    @property
-    def computed_status(self) -> str:
-        """Compute status based on exchange trade's clearing status.
-
-        Returns:
-            'pending_exchange' if clearing status contains 'pending' (case-insensitive),
-            'matched' otherwise
-        """
-        if self.exchange_trade.clearing_status:
-            if "pending" in self.exchange_trade.clearing_status.lower():
-                return "pending_exchange"
-        return "matched"
 
     @property
     def summary_line(self) -> str:

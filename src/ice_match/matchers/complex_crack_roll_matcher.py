@@ -4,6 +4,7 @@ import logging
 from decimal import Decimal
 from typing import List, Tuple, Dict, Optional
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
@@ -519,7 +520,7 @@ class ComplexCrackRollMatcher(MultiLegBaseMatcher):
             match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.COMPLEX_CRACK_ROLL,
             confidence=self.confidence,
-            status="matched",  # ICE always returns matched status
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=trader1,
             exchange_trade=exchange_trades[0],
             matched_fields=matched_fields,

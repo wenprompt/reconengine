@@ -157,7 +157,12 @@ def _normalize_to_dict(item: Any) -> Dict[str, Any]:
         "status",
     ]:
         if hasattr(item, field):
-            result[field] = getattr(item, field)
+            value = getattr(item, field)
+            # Convert enum to its value if needed
+            if hasattr(value, "value"):
+                result[field] = value.value
+            else:
+                result[field] = value
 
     # Handle nested trade objects
     for trade_type in ["trader", "exchange"]:

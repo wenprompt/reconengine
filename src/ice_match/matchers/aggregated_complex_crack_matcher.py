@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import List, Optional
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager
@@ -264,7 +265,7 @@ class AggregatedComplexCrackMatcher(ComplexCrackMatcher):
             match_id=match_id,
             match_type=MatchType.AGGREGATED_COMPLEX_CRACK,
             confidence=self.confidence,
-            status="matched",  # ICE always returns matched status
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=crack_trade,
             exchange_trade=primary_base_trade,
             additional_exchange_trades=additional_trades,

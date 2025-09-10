@@ -4,6 +4,7 @@ from typing import List, Dict
 import logging
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import SGXTrade, SGXTradeSource, SGXMatchResult, SGXMatchType
 from ..core import SGXUnmatchedPool
 from ..config import SGXConfigManager
@@ -175,18 +176,14 @@ class ExactMatcher(BaseMatcher):
         ]
         matched_fields = self.get_universal_matched_fields(rule_fields)
 
-        # Create temporary result to compute status
-        temp_result = SGXMatchResult(
-            match_id=match_id,
-            match_type=SGXMatchType.EXACT,
-            rule_order=self.rule_number,
-            confidence=self.confidence,
-            trader_trade=trader_trade,
-            exchange_trade=exchange_trade,
-            matched_fields=matched_fields,
-        )
+        # Determine status based on exchange trade's clearing status
+        status = ReconStatus.MATCHED
+        if (
+            exchange_trade.clearing_status
+            and "pending" in exchange_trade.clearing_status.lower()
+        ):
+            status = ReconStatus.PENDING_EXCHANGE
 
-        # Return result with computed status
         return SGXMatchResult(
             match_id=match_id,
             match_type=SGXMatchType.EXACT,
@@ -195,7 +192,7 @@ class ExactMatcher(BaseMatcher):
             trader_trade=trader_trade,
             exchange_trade=exchange_trade,
             matched_fields=matched_fields,
-            status=temp_result.computed_status,
+            status=status,
         )
 
     def get_rule_info(self) -> dict:

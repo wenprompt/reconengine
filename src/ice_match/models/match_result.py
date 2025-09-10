@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field, ConfigDict
+from ...unified_recon.models.recon_status import ReconStatus
 from .trade import Trade
 
 
@@ -52,9 +53,7 @@ class MatchResult(BaseModel):
     confidence: Decimal = Field(
         ..., ge=0, le=100, description="Match confidence percentage"
     )
-    status: str = Field(
-        default="matched", description="Match status (always matched for ICE)"
-    )
+    status: ReconStatus = Field(default=ReconStatus.MATCHED, description="Match status")
 
     # Matched trades
     trader_trade: Trade = Field(..., description="Primary trade from trader source")

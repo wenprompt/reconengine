@@ -143,6 +143,7 @@ class SGXDisplay:
         table.add_column("B/S", justify="center")
         table.add_column("Trade ID (T)", style="dim")
         table.add_column("Trade ID (E)", style="dim")
+        table.add_column("Status", style="yellow")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -156,6 +157,7 @@ class SGXDisplay:
                 match.trader_trade.buy_sell,
                 match.trader_trade.display_id,
                 match.exchange_trade.display_id,
+                match.status.value.title() if match.status else "Matched",
                 f"{match.confidence}%",
             )
 
@@ -177,6 +179,7 @@ class SGXDisplay:
         table.add_column("Directions", justify="center")
         table.add_column("Trade IDs (T)", style="dim")
         table.add_column("Trade IDs (E)", style="dim")
+        table.add_column("Status", style="yellow")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -229,6 +232,7 @@ class SGXDisplay:
                 directions,
                 trader_ids,
                 exchange_ids,
+                match.status.value.title() if match.status else "Matched",
                 f"{match.confidence}%",
             )
 
@@ -251,6 +255,7 @@ class SGXDisplay:
         table.add_column("Directions", justify="center")
         table.add_column("Trade IDs (T)", style="dim")
         table.add_column("Trade IDs (E)", style="dim")
+        table.add_column("Status", style="yellow")
         table.add_column("Confidence", justify="right", style="bold green")
 
         for match in matches:
@@ -299,6 +304,7 @@ class SGXDisplay:
                 directions,
                 trader_ids,
                 exchange_ids,
+                match.status.value.title() if match.status else "Matched",
                 f"{match.confidence}%",
             )
 

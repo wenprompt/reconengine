@@ -27,6 +27,15 @@ logger = logging.getLogger(__name__)
 class Rule0Analyzer:
     """Main analyzer for Rule 0 position decomposition."""
 
+    trader_file: Path
+    exchange_file: Path
+    config_manager: ConfigManager
+    normalizer: TradeNormalizer
+    trade_factory: ICETradeFactory
+    matrix_builder: PositionMatrixBuilder
+    comparator: MatrixComparator
+    display: PositionDisplay
+
     def __init__(
         self, trader_file: Path, exchange_file: Path, config_path: Optional[Path] = None
     ):
@@ -135,9 +144,6 @@ class Rule0Analyzer:
         Returns:
             List of trades
         """
-        if not filepath.exists():
-            raise FileNotFoundError(f"File not found: {filepath}")
-
         return self.trade_factory.from_csv(filepath, source)
 
 

@@ -2,9 +2,10 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any, Tuple, Dict
 import argparse
 import sys
+import pandas as pd
 
 from .config import CMEConfigManager
 from .core import CMEUnmatchedPool
@@ -25,6 +26,13 @@ logger = logging.getLogger(__name__)
 
 class CMEMatchingEngine:
     """Main CME trade matching engine."""
+
+    config_manager: CMEConfigManager
+    normalizer: CMETradeNormalizer
+    trade_factory: CMETradeFactory
+    display: CMEDisplay
+    exact_matcher: ExactMatcher
+    matchers: Dict[int, ExactMatcher]
 
     def __init__(self, config_manager: Optional[CMEConfigManager] = None):
         """Initialize CME matching engine.
@@ -111,7 +119,7 @@ class CMEMatchingEngine:
 
         except Exception as e:
             logger.error(f"Error in CME matching process: {e}")
-            self.display.show_error(str(e))
+            self.display.show_error(f"{e!s}")
             return []
 
     def _get_matcher_for_rule(self, rule_number: int):
@@ -125,7 +133,9 @@ class CMEMatchingEngine:
         """
         return self.matchers.get(rule_number)
 
-    def run_matching_from_dataframes(self, trader_df, exchange_df) -> tuple:
+    def run_matching_from_dataframes(
+        self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
+    ) -> Tuple[List[CMEMatchResult], dict[str, Any]]:
         """Run CME matching process directly from DataFrames without CSV files.
 
         Args:

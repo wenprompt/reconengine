@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..config import ConfigManager
 from ..normalizers import TradeNormalizer
@@ -409,7 +410,7 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             match_id=match_id,
             match_type=MatchType.AGGREGATED_SPREAD,
             confidence=self.confidence,
-            status="matched",  # ICE always returns matched status
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=price_trade,  # Primary trader trade (with non-zero price)
             exchange_trade=all_exchange_trades[0],  # Primary exchange trade
             additional_trader_trades=[zero_price_trade],  # Zero price trader trade

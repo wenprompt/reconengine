@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Protocol
 from decimal import Decimal
+import pandas as pd
 
 from .models import MatchResult, Trade, TradeSource
 from .normalizers import TradeNormalizer
@@ -79,6 +80,12 @@ class ICEMatchingEngine:
     Orchestrates the complete matching process from data loading through
     result display with proper non-duplication handling.
     """
+
+    config_manager: ConfigManager
+    normalizer: TradeNormalizer
+    trade_factory: ICETradeFactory
+    displayer: MatchDisplayer
+    logger: logging.Logger
 
     def __init__(
         self,
@@ -305,7 +312,7 @@ class ICEMatchingEngine:
 
         except Exception as e:
             self.logger.error(f"Error during matching process: {e}")
-            self.displayer.show_error(str(e))
+            self.displayer.show_error(f"{e!s}")
             raise
 
     def get_match_summary(self, matches: List[MatchResult]) -> dict:
@@ -340,7 +347,7 @@ class ICEMatchingEngine:
         }
 
     def run_matching_from_dataframes(
-        self, trader_df, exchange_df
+        self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
     ) -> tuple[List[MatchResult], Dict[str, Any]]:
         """Run ICE matching process directly from DataFrames without CSV files.
 

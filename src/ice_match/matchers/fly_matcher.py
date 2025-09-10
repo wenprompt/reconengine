@@ -5,6 +5,7 @@ from decimal import Decimal
 import logging
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import Trade, MatchResult, MatchType
 from ..core import UnmatchedPoolManager
 from ..config import ConfigManager
@@ -421,7 +422,7 @@ class FlyMatcher(BaseMatcher):
             match_id=self.generate_match_id(self.rule_number),
             match_type=MatchType.FLY,
             confidence=self.confidence,
-            status="matched",  # ICE always returns matched status
+            status=ReconStatus.MATCHED,  # ICE always returns matched status
             trader_trade=trader_trades[0],  # Primary trade (earliest month)
             exchange_trade=exchange_trades[0],  # Primary trade (earliest month)
             matched_fields=matched_fields,

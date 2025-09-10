@@ -158,7 +158,7 @@ class MatchDisplayer:
         # Create title with match count
         title = f"✅ {match_type.replace('_', ' ').title()} Matches ({len(matches)})"
 
-        match_table = Table(title=title, box=box.ROUNDED, width=140)
+        match_table = Table(title=title, box=box.ROUNDED, width=160)
         match_table.add_column("Match ID", style="cyan", no_wrap=True, width=14)
         match_table.add_column("Trade ID (T)", style="green", no_wrap=True, width=18)
         match_table.add_column("Trade ID (E)", style="blue", no_wrap=True, width=18)
@@ -167,6 +167,7 @@ class MatchDisplayer:
         match_table.add_column("Price", justify="right", style="white", width=8)
         match_table.add_column("Contract", style="white", width=18)
         match_table.add_column("Sides", style="white", width=8)
+        match_table.add_column("Status", style="yellow", width=10)
         match_table.add_column("Conf", justify="right", style="white", width=6)
 
         for match in matches:
@@ -220,6 +221,7 @@ class MatchDisplayer:
                 f"{primary_trade.price:,.2f}",
                 contract_display,
                 sides,
+                match.status.value.title() if match.status else "Matched",
                 confidence_str,
             )
 

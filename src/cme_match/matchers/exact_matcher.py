@@ -4,6 +4,7 @@ from typing import List, Dict
 import logging
 from collections import defaultdict
 
+from ...unified_recon.models.recon_status import ReconStatus
 from ..models import CMETrade, CMETradeSource, CMEMatchResult, CMEMatchType
 from ..core import CMEUnmatchedPool
 from ..config import CMEConfigManager
@@ -177,7 +178,7 @@ class ExactMatcher(BaseMatcher):
             match_type=CMEMatchType.EXACT,
             rule_order=self.rule_number,
             confidence=self.confidence,
-            status="matched",  # CME always returns matched status
+            status=ReconStatus.MATCHED,  # CME always returns matched status
             trader_trade=trader_trade,
             exchange_trade=exchange_trade,
             matched_fields=matched_fields,
