@@ -29,11 +29,13 @@ class PositionComparison:
     contract_month: str
     trader_quantity: Decimal
     exchange_quantity: Decimal
-    unit: str
+    unit: str  # Shared unit for backward compatibility
     status: MatchStatus
     difference: Decimal
     trader_trades: int = 0
     exchange_trades: int = 0
+    trader_unit: Optional[str] = None  # Trader-specific unit
+    exchange_unit: Optional[str] = None  # Exchange-specific unit
 
     @property
     def has_discrepancy(self) -> bool:
@@ -117,12 +119,12 @@ class UnifiedMatrixComparator:
         trader_qty = trader_pos.quantity if trader_pos else Decimal("0")
         exchange_qty = exchange_pos.quantity if exchange_pos else Decimal("0")
 
-        # Get unit (prefer trader's unit if available)
-        unit = ""
-        if trader_pos and trader_pos.unit:
-            unit = trader_pos.unit
-        elif exchange_pos and exchange_pos.unit:
-            unit = exchange_pos.unit
+        # Get units from each side
+        trader_unit = trader_pos.unit if trader_pos and trader_pos.unit else ""
+        exchange_unit = exchange_pos.unit if exchange_pos and exchange_pos.unit else ""
+        
+        # For backward compatibility, prefer trader's unit if available
+        unit = trader_unit if trader_unit else exchange_unit
 
         # Calculate difference
         diff = trader_qty - exchange_qty
@@ -140,6 +142,8 @@ class UnifiedMatrixComparator:
             difference=diff,
             trader_trades=trader_pos.trade_count if trader_pos else 0,
             exchange_trades=exchange_pos.trade_count if exchange_pos else 0,
+            trader_unit=trader_unit,
+            exchange_unit=exchange_unit,
         )
 
     def _determine_status(

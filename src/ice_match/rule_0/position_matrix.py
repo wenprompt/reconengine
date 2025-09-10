@@ -131,6 +131,9 @@ class PositionMatrixBuilder:
         """
         self.decomposer = ProductDecomposer()
         self.conversion_ratios = self._load_conversion_ratios(config_path)
+        # Declare private attributes for mypy
+        self._trade_keys_cache: Dict[int, Dict[str, str]] = {}
+        self._logged_first = False
         
     def _load_conversion_ratios(self, config_path: Optional[Path] = None) -> Dict[str, Decimal]:
         """Load product-specific conversion ratios from config.
@@ -209,6 +212,13 @@ class PositionMatrixBuilder:
             trade: Trade to process
             matrix: Matrix to update
         """
+        # Validate internal trade ID
+        if not trade.internal_trade_id:
+            raise ValueError(
+                f"Trade has invalid or missing internal_trade_id: {trade.internal_trade_id}. "
+                f"Product: {trade.product_name}, Month: {trade.contract_month}"
+            )
+        
         # Decompose the product
         decomposed = self.decomposer.decompose(
             trade.product_name,

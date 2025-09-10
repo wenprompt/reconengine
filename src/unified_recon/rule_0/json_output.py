@@ -4,12 +4,15 @@ from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from dataclasses import dataclass
 import json
+import logging
 from pathlib import Path
 
 from src.unified_recon.rule_0.position_matrix import PositionMatrix
 from src.unified_recon.rule_0.matrix_comparator import PositionComparison
 from src.unified_recon.utils import rule0_trade_utils as trade_utils
 from src.unified_recon.utils import rule0_json_utils as json_utils
+
+logger = logging.getLogger(__name__)
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -109,8 +112,13 @@ class FieldExtractor:
         if normalizer_path:
             path = Path(normalizer_path)
             if path.exists():
-                with open(path) as f:
-                    return json.load(f)
+                try:
+                    with open(path) as f:
+                        return json.load(f)
+                except (json.JSONDecodeError, OSError) as e:
+                    # Log error but don't raise - config is optional
+                    print(f"Warning: Failed to load normalizer config from {path}: {e}")
+                    return None
         return None
 
     def extract_quantities_and_unit(self, comp: Any) -> Dict[str, Any]:
@@ -137,7 +145,19 @@ class FieldExtractor:
 
     def _extract_ice_fields(self, comp: Any) -> Dict[str, Any]:
         """Extract ICE-specific MT/BBL fields."""
-        # ICE has both MT and BBL, need to determine which to use
+        # Check if this is a unified comparison (has trader_quantity/exchange_quantity)
+        # or an ICE-specific comparison (has trader_mt/trader_bbl)
+        
+        # First try unified fields (used by unified Rule 0)
+        if hasattr(comp, "trader_quantity"):
+            return {
+                "trader_quantity": float(getattr(comp, "trader_quantity", 0)),
+                "exchange_quantity": float(getattr(comp, "exchange_quantity", 0)),
+                "difference": float(getattr(comp, "difference", 0)),
+                "unit": getattr(comp, "unit", "MT"),
+            }
+        
+        # Fall back to ICE-specific fields for backward compatibility
         trader_mt = float(getattr(comp, "trader_mt", 0))
         trader_bbl = float(getattr(comp, "trader_bbl", 0))
         exchange_mt = float(getattr(comp, "exchange_mt", 0))
@@ -194,15 +214,18 @@ class Rule0JSONOutput:
         self,
         tolerances: Optional[Dict[str, float]] = None,
         unified_config: Optional[Dict[str, Any]] = None,
+        external_match_ids: Optional[Dict[str, str]] = None,
     ):
         """Initialize JSON output formatter.
 
         Args:
             tolerances: Optional tolerance values for matching
             unified_config: Optional unified configuration for field extraction
+            external_match_ids: Optional mapping of trade IDs to external match IDs
         """
         self.tolerances = tolerances or {}
         self.unified_config = unified_config or {}
+        self.external_match_ids = external_match_ids or {}
         self.field_extractors: Dict[str, FieldExtractor] = {}
 
     def _determine_trade_type(self, original_product: str, spread_flag: str) -> str:
@@ -212,28 +235,69 @@ class Rule0JSONOutput:
     def _match_trades(
         self, trader_trades: List[Dict[str, Any]], exchange_trades: List[Dict[str, Any]]
     ) -> None:
-        """Match trader and exchange trades (same logic as display.py)."""
+        """Match trader and exchange trades with optional external match IDs.
+        
+        If external match IDs are provided (from reconciliation engine), use them exclusively.
+        Otherwise, use position-based matching for /poscheck endpoint.
+        """
         # Reset match status
         trade_utils.reset_match_status(trader_trades + exchange_trades)
 
-        # Match each trader trade with best exchange trade
-        for t_trade in trader_trades:
-            t_unit = t_trade.get("unit", "").upper()
+        # If we have external match IDs, use them exclusively (no fallback)
+        if self.external_match_ids:
+            # Apply external match IDs from reconciliation engine
+            for t_trade in trader_trades:
+                t_id = str(t_trade.get("internal_trade_id", ""))
+                external_match_id = self.external_match_ids.get(f"T_{t_id}")
+                if external_match_id:
+                    t_trade["matched"] = True
+                    t_trade["match_id"] = external_match_id
+                # If no match from reconciliation engine, trade remains unmatched
+            
+            for e_trade in exchange_trades:
+                e_id = str(e_trade.get("internal_trade_id", ""))
+                external_match_id = self.external_match_ids.get(f"E_{e_id}")
+                if external_match_id:
+                    e_trade["matched"] = True
+                    e_trade["match_id"] = external_match_id
+                # If no match from reconciliation engine, trade remains unmatched
+            
+            # Validate for orphaned match IDs (only one side has the match)
+            trader_match_ids = {t["match_id"] for t in trader_trades if t.get("matched")}
+            exchange_match_ids = {e["match_id"] for e in exchange_trades if e.get("matched")}
+            
+            orphaned_trader_only = trader_match_ids - exchange_match_ids
+            orphaned_exchange_only = exchange_match_ids - trader_match_ids
+            
+            if orphaned_trader_only:
+                logger.debug(
+                    "Match IDs found only in trader trades (no exchange counterpart): %s",
+                    orphaned_trader_only
+                )
+            if orphaned_exchange_only:
+                logger.debug(
+                    "Match IDs found only in exchange trades (no trader counterpart): %s", 
+                    orphaned_exchange_only
+                )
+        else:
+            # Use position-based matching for /poscheck endpoint
+            for t_trade in trader_trades:
+                t_unit = t_trade.get("unit", "").upper()
 
-            # Determine tolerance
-            tolerance = trade_utils.determine_tolerance(t_unit, self.tolerances)
+                # Determine tolerance
+                tolerance = trade_utils.determine_tolerance(t_unit, self.tolerances)
 
-            # Find best matching exchange trade
-            best_match = trade_utils.find_best_match(
-                t_trade, exchange_trades, tolerance
-            )
+                # Find best matching exchange trade
+                best_match = trade_utils.find_best_match(
+                    t_trade, exchange_trades, tolerance
+                )
 
-            # Apply best match
-            if best_match:
-                t_id = t_trade.get("internal_trade_id", "NA")
-                e_id = best_match.get("internal_trade_id", "NA")
-                match_id = trade_utils.generate_match_id(t_id, e_id)
-                trade_utils.apply_match(t_trade, best_match, match_id)
+                # Apply best match
+                if best_match:
+                    t_id = t_trade.get("internal_trade_id", "NA")
+                    e_id = best_match.get("internal_trade_id", "NA")
+                    match_id = trade_utils.generate_match_id(t_id, e_id)
+                    trade_utils.apply_match(t_trade, best_match, match_id)
 
     def _get_field_extractor(self, exchange_group_id: str) -> FieldExtractor:
         """Get or create field extractor for exchange group."""
@@ -328,7 +392,7 @@ class Rule0JSONOutput:
 
                     trade_json = TradeDetailJSON(
                         contract_month=month,
-                        source="1",  # 1 = Trader
+                        source="1",  # Trader source
                         internal_id=str(detail.get("internal_trade_id", "N/A")),
                         quantity=float(detail.get("quantity", 0)),
                         unit=detail.get("unit", ""),
@@ -351,7 +415,7 @@ class Rule0JSONOutput:
 
                     trade_json = TradeDetailJSON(
                         contract_month=month,
-                        source="2",  # 2 = Exchange
+                        source="2",  # Exchange source
                         internal_id=str(detail.get("internal_trade_id", "N/A")),
                         quantity=float(detail.get("quantity", 0)),
                         unit=detail.get("unit", ""),

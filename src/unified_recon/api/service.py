@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 from ..core.group_router import UnifiedTradeRouter
 from ..core.result_aggregator import ResultAggregator
 from ..utils.dataframe_output import create_unified_dataframe
+from ..utils.rule0_trade_utils import create_match_id_mapping
 from ..rule_0.main import process_exchanges, load_unified_config
 from ..rule_0.json_output import Rule0JSONOutput
 from ..main import (
@@ -19,7 +20,118 @@ from ..main import (
 )
 from .models import ReconciliationRequest, Rule0Request, Rule0Response
 
+# Constants for trade source identification
+class TradeSource:
+    """Constants for trade source types."""
+    TRADER = "1"
+    EXCHANGE = "2"
+
 logger = logging.getLogger(__name__)
+
+
+class BaseRule0Service:
+    """Base class for Rule 0 services with common processing logic."""
+
+    def __init__(self) -> None:
+        # Use relative path from current file location
+        config_path = Path(__file__).parent.parent / "config" / "unified_config.json"
+        self.router: UnifiedTradeRouter = UnifiedTradeRouter(config_path)
+        self.config: Dict[str, Any] = load_unified_config()
+
+    def _process_rule0_analysis(
+        self, 
+        request: Rule0Request, 
+        external_match_ids: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Common Rule 0 processing logic.
+        
+        Args:
+            request: Rule 0 request with trade data
+            external_match_ids: Optional mapping of internal trade IDs to match IDs
+            
+        Returns:
+            Dictionary of exchange results
+        """
+        # Prepare data dictionary from request
+        json_data = {
+            "traderTrades": request.traderTrades,
+            "exchangeTrades": request.exchangeTrades,
+        }
+
+        # Load and validate using router (reuses existing validation)
+        trader_df, exchange_df = self.router.load_and_validate_json_dict(json_data)
+
+        # Group trades by exchange group ID
+        grouped_trades = self.router.group_trades_by_exchange_group(
+            trader_df, exchange_df
+        )
+
+        # Get processable groups from router (single source of truth)
+        processable_groups = self.router.get_processable_groups(grouped_trades)
+        
+        if not processable_groups:
+            logger.warning("No processable trade groups found for Rule 0 analysis")
+            return {}
+
+        # Process through Rule 0 for each processable exchange
+        all_results = {}
+        
+        for group_id in processable_groups:
+            group_info = grouped_trades[group_id]
+            # Get system name for this group
+            system_name = group_info["system"]
+            
+            # Check if Rule 0 is configured for this system
+            if system_name not in self.config.get("rule_0_config", {}):
+                logger.info(
+                    f"Skipping Rule 0 for {system_name} (not configured in rule_0_config)"
+                )
+                continue
+            
+            # Prepare data for the exchange
+            prepared_data = self.router.prepare_data_for_system(
+                group_info, system_name
+            )
+            
+            # Create a namespace to simulate command line args
+            args = argparse.Namespace(
+                json_output=True,
+                show_details=False
+            )
+            
+            # Process Rule 0 analysis
+            trader_records = prepared_data["trader_data"].to_dict('records')
+            exchange_records = prepared_data["exchange_data"].to_dict('records')
+            
+            exchange_results = process_exchanges(
+                [system_name],  # exchanges_to_process
+                trader_records,  # trader_trades
+                exchange_records,  # exchange_trades
+                self.config,  # unified_config
+                args,  # args
+                external_match_ids  # Pass external match IDs for consistent matching
+            )
+            
+            # Merge results
+            all_results.update(exchange_results)
+        
+        # Generate JSON output using the JSON output generator
+        # Get tolerances from first result (they're the same for all)
+        first_key = list(all_results.keys())[0] if all_results else None
+        tolerances = {}
+        if first_key:
+            tolerances = all_results.get(first_key, {}).get('tolerance_dict', {})
+        
+        # Pass external match IDs if provided
+        json_output = Rule0JSONOutput(
+            tolerances=tolerances, 
+            unified_config=self.config,
+            external_match_ids=external_match_ids
+        )
+        json_dict = json_output.generate_multi_exchange_json(all_results)
+        
+        return json_dict
 
 
 class ReconciliationService:
@@ -113,8 +225,8 @@ class ReconciliationService:
             )
             return typed_records
 
-        except Exception as e:
-            logger.error(f"Error during reconciliation processing: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error during reconciliation processing")
             raise
 
     def _call_matching_system(
@@ -141,16 +253,8 @@ class ReconciliationService:
         return caller(trader_data, exchange_data)
 
 
-class Rule0Service:
+class Rule0Service(BaseRule0Service):
     """Service layer for Rule 0 position analysis."""
-
-    def __init__(self) -> None:
-        # Use relative path from current file location
-        config_path = Path(__file__).parent.parent / "config" / "unified_config.json"
-        self.router: UnifiedTradeRouter = UnifiedTradeRouter(config_path)
-        self.config: Dict[str, Any] = load_unified_config()
-        # Get supported exchanges from config
-        self.supported_exchanges: List[str] = list(self.config.get("rule_0_config", {}).keys())
 
     async def process_rule0_analysis(self, request: Rule0Request) -> Rule0Response:
         """
@@ -163,77 +267,59 @@ class Rule0Service:
         Synchronous processing of Rule 0 analysis.
         """
         try:
-            # Prepare data dictionary from request
-            json_data = {
-                "traderTrades": request.traderTrades,
-                "exchangeTrades": request.exchangeTrades,
-            }
-
-            # Load and validate using router (reuses existing validation)
-            trader_df, exchange_df = self.router.load_and_validate_json_dict(json_data)
-
-            # Group trades by exchange group ID
-            grouped_trades = self.router.group_trades_by_exchange_group(
-                trader_df, exchange_df
-            )
-
-            # Process through Rule 0 for each exchange
-            all_results = {}
-            
-            for group_id, group_info in grouped_trades.items():
-                # Get system name for this group
-                system_name = group_info["system"]
-                
-                # Only process supported exchanges from config
-                if system_name not in self.supported_exchanges:
-                    logger.info(
-                        f"Skipping Rule 0 for {system_name} (not configured)"
-                    )
-                    continue
-                
-                # Prepare data for the exchange
-                prepared_data = self.router.prepare_data_for_system(
-                    group_info, system_name
-                )
-                
-                # Create a namespace to simulate command line args
-                args = argparse.Namespace(
-                    json_output=True,
-                    show_details=False
-                )
-                
-                # Process Rule 0 analysis
-                trader_records = prepared_data["trader_data"].to_dict('records')
-                exchange_records = prepared_data["exchange_data"].to_dict('records')
-                
-                exchange_results = process_exchanges(
-                    [system_name],  # exchanges_to_process
-                    trader_records,  # trader_trades
-                    exchange_records,  # exchange_trades
-                    self.config,  # unified_config
-                    args  # args
-                )
-                
-                # Merge results
-                all_results.update(exchange_results)
+            json_dict = self._process_rule0_analysis(request)
             
             # If no results, return empty response
-            if not all_results:
+            if not json_dict:
                 return Rule0Response(root={})
-            
-            # Generate JSON output using the JSON output generator
-            # Get tolerances from first result (they're the same for all)
-            first_key = list(all_results.keys())[0] if all_results else None
-            tolerances = {}
-            if first_key:
-                tolerances = all_results.get(first_key, {}).get('tolerance_dict', {})
-            
-            json_output = Rule0JSONOutput(tolerances=tolerances, unified_config=self.config)
-            json_dict = json_output.generate_multi_exchange_json(all_results)
             
             # Convert to Rule0Response format
             return Rule0Response(root=json_dict)
 
-        except Exception as e:
-            logger.error(f"Error during Rule 0 analysis: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error during Rule 0 analysis")
+            raise
+
+
+class PosMatchService(BaseRule0Service):
+    """Service layer for position analysis with reconciliation match IDs."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Also initialize reconciliation service for match IDs
+        self.recon_service = ReconciliationService()
+
+    async def process_posmatch_analysis(self, request: Rule0Request) -> Rule0Response:
+        """
+        Process position analysis with reconciliation match IDs.
+        """
+        return await asyncio.to_thread(self._process_sync, request)
+
+    def _process_sync(self, request: Rule0Request) -> Rule0Response:
+        """
+        Synchronous processing of position analysis with real match IDs.
+        """
+        try:
+            # Step 1: Run reconciliation to get match IDs
+            recon_request = ReconciliationRequest(
+                traderTrades=request.traderTrades,
+                exchangeTrades=request.exchangeTrades
+            )
+            reconciliation_results = self.recon_service._process_sync(recon_request)
+            
+            # Step 2: Create mapping of internal_trade_id to match_id
+            match_id_mapping = create_match_id_mapping(reconciliation_results)
+            
+            # Step 3: Run Rule 0 analysis with external match IDs
+            json_dict = self._process_rule0_analysis(request, match_id_mapping)
+            
+            # If no results, return empty response
+            if not json_dict:
+                return Rule0Response(root={})
+            
+            # Convert to Rule0Response format
+            return Rule0Response(root=json_dict)
+
+        except Exception:
+            logger.exception("Error during position match analysis")
             raise

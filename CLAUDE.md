@@ -273,6 +273,7 @@ uv run python -m src.eex_match.main
 uv run python -m src.unified_recon.rule_0.main  # Position analysis CLI
 uv run python -m src.unified_recon.rule_0.main --json-file src/json_input/ice_sample.json
 uv run python -m src.unified_recon.rule_0.main --json-file src/json_input/ice_sample.json --json-output
+uv run python -m src.unified_recon.rule_0.main --json-file src/json_input/ice_sample.json --show-details --with-reconcile-ids
 
 # BETA ICE-SPECIFIC RULE 0 (deprecated)
 uv run python -m src.ice_match.rule_0.main
@@ -292,6 +293,10 @@ curl -X POST http://localhost:7777/reconcile \
 
 # Position analysis API (Rule 0)
 curl -X POST http://localhost:7777/poscheck \
+  -H "Content-Type: application/json" \
+  -d @src/json_input/ice_sample.json
+
+curl -X POST http://localhost:7777/posmatch \
   -H "Content-Type: application/json" \
   -d @src/json_input/ice_sample.json
 

@@ -211,8 +211,27 @@ class UnifiedPositionMatrixBuilder:
 
         # Process trades with index assignment for CSV files
         for index, trade in enumerate(trades, start=1):
-            # If no internalTradeId (CSV file), assign the index
-            if "internalTradeId" not in trade:
+            # Check for internal trade ID in a case-insensitive manner
+            # DataFrames convert field names to lowercase
+            has_internal_id = False
+            internal_id_value = None
+            
+            # Check both camelCase and lowercase versions
+            if "internalTradeId" in trade:
+                has_internal_id = True
+                internal_id_value = trade["internalTradeId"]
+            elif "internaltradeid" in trade:
+                has_internal_id = True
+                internal_id_value = trade["internaltradeid"]
+                # Normalize to camelCase for consistency
+                trade["internalTradeId"] = internal_id_value
+                
+            # Debug logging for first few trades
+            if index <= 3:
+                logger.debug(f"Trade {index}: has internal ID? {has_internal_id}, value: {internal_id_value}")
+                
+            # If no internal trade ID (CSV file), assign the index
+            if not has_internal_id:
                 trade["internalTradeId"] = index
             self._process_trade(trade, matrix, source)
             # Clear cached key-map for this trade to prevent unbounded memory growth
@@ -317,7 +336,7 @@ class UnifiedPositionMatrixBuilder:
             # Only handle pandas NaN, leave everything else as-is
             if original_unit.upper() == "NAN":
                 original_unit = ""
-
+        
         return quantity, original_unit
 
     def _create_trade_detail(
@@ -340,8 +359,16 @@ class UnifiedPositionMatrixBuilder:
         Returns:
             Trade detail dictionary
         """
-        # Get internal trade ID (from JSON) or use empty string for CSV (will be assigned index later)
-        internal_id = trade.get("internalTradeId", "")
+        # Get internal trade ID - check both camelCase and lowercase versions
+        # DataFrames convert field names to lowercase
+        internal_id = trade.get("internalTradeId", trade.get("internaltradeid", ""))
+        
+        # Debug log for first few trades
+        if not hasattr(self, "_logged_trade_ids"):
+            self._logged_trade_ids = 0
+        if self._logged_trade_ids < 3:
+            logger.debug(f"Creating trade detail: internal_id={internal_id}, product={product_name}")
+            self._logged_trade_ids += 1
 
         # Get additional fields using field mapping helper
         price = self._get_trade_field(trade, "price", "")

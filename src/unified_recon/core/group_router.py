@@ -159,7 +159,7 @@ class UnifiedTradeRouter:
             # Re-raise validation errors with file context
             raise
         except Exception as e:
-            logger.error(f"Error loading JSON from {json_path}: {e}")
+            logger.exception(f"Error loading JSON from {json_path}")
             raise DataValidationError(f"Failed to load JSON data from file: {e}") from e
 
     def load_and_validate_json_dict(
@@ -282,7 +282,7 @@ class UnifiedTradeRouter:
             return trader_df, exchange_df
 
         except Exception as e:
-            logger.error(f"Error processing JSON data: {e}")
+            logger.exception("Error processing JSON data")
             raise DataValidationError(f"Failed to process JSON data: {e}") from e
 
     def group_trades_by_exchange_group(
