@@ -109,7 +109,6 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
                 [crack_trade],
                 pool_manager,
                 aggregation_fields,
-                crack_trade,
             )
 
             for aggregated_trades, single_trade in aggregations:
@@ -134,7 +133,6 @@ class AggregatedCrackMatcher(AggregationBaseMatcher):
         one_source: list[Trade],
         pool_manager: UnmatchedPoolManager,
         aggregation_fields: list[str],
-        reference_trade: Trade,
     ) -> list[tuple[list[Trade], Trade]]:
         """Find crack aggregations with unit conversion validation.
 

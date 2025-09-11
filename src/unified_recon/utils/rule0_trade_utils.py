@@ -161,7 +161,7 @@ def create_match_id_mapping(
     Returns:
         Dictionary mapping internal trade IDs to match IDs
     """
-    mapping = {}
+    mapping: dict[str, str] = {}
 
     for result in reconciliation_results:
         match_id = result.get("matchId")

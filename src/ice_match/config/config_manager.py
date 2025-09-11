@@ -271,10 +271,12 @@ class ConfigManager:
             Dictionary mapping buy/sell values to standardized B/S format
         """
         buy_sell_config = self._normalizer_config.get("buy_sell_mappings", {})
-        # ICE has a nested structure for buy_sell mappings
-        if isinstance(buy_sell_config, dict) and "mappings" in buy_sell_config:
-            mappings = buy_sell_config["mappings"]
-            return mappings if isinstance(mappings, dict) else {}
+        if isinstance(buy_sell_config, dict):
+            if "mappings" in buy_sell_config:
+                mappings = buy_sell_config["mappings"]
+                return mappings if isinstance(mappings, dict) else {}
+            # Also support simple dict[str, str] shape
+            return buy_sell_config  # type: ignore[return-value]
         return {}
 
     def update_config(self, **kwargs: Any) -> "ConfigManager":

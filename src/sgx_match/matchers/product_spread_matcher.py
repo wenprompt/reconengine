@@ -121,8 +121,15 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
             if pool_manager.is_unmatched(
                 trade.internal_trade_id, SGXTradeSource.TRADER
             ):
+                # Convert Decimal to float for consistent hashing
                 key = self.create_universal_signature(
-                    trade, [trade.contract_month, trade.quantityunit]
+                    trade,
+                    [
+                        trade.contract_month,
+                        float(trade.quantityunit)
+                        if trade.quantityunit is not None
+                        else None,
+                    ],
                 )
                 trade_groups[key].append(trade)
 
@@ -644,8 +651,15 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
                 trade.internal_trade_id, SGXTradeSource.TRADER
             ):
                 # Index by contract month, quantity, and universal fields (same as regular matching)
+                # Convert Decimal to float for consistent hashing
                 signature = self.create_universal_signature(
-                    trade, [trade.contract_month, trade.quantityunit]
+                    trade,
+                    [
+                        trade.contract_month,
+                        float(trade.quantityunit)
+                        if trade.quantityunit is not None
+                        else None,
+                    ],
                 )
                 index[signature].append(trade)
 
@@ -681,8 +695,15 @@ class ProductSpreadMatcher(MultiLegBaseMatcher):
         )
 
         # Create signature for finding matching trader trades
+        # Convert Decimal to float for consistent hashing
         signature = self.create_universal_signature(
-            exchange_trade, [exchange_trade.contract_month, exchange_trade.quantityunit]
+            exchange_trade,
+            [
+                exchange_trade.contract_month,
+                float(exchange_trade.quantityunit)
+                if exchange_trade.quantityunit is not None
+                else None,
+            ],
         )
 
         if signature not in trader_index:

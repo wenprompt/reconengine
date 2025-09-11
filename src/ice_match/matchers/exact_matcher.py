@@ -113,10 +113,13 @@ class ExactMatcher(BaseMatcher):
             Tuple representing the matching signature
         """
         # Rule 1 specific matching fields
+        # Convert Decimal to float for consistent hashing
         rule_specific_fields: list[SignatureValue] = [
             trade.product_name,
-            trade.quantity_mt,  # Always in MT for comparison
-            trade.price,
+            float(trade.quantity_mt)
+            if trade.quantity_mt is not None
+            else None,  # Always in MT for comparison
+            float(trade.price) if trade.price is not None else None,
             trade.contract_month,
             trade.buy_sell,
         ]

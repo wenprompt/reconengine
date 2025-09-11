@@ -8,11 +8,11 @@ from typing import Any, Callable
 from ..core.result_aggregator import UnifiedResult, SystemResult
 
 # Import existing display components and configs
-from src.ice_match.cli.display import MatchDisplayer
-from src.sgx_match.cli.sgx_display import SGXDisplay
-from src.cme_match.cli.cme_display import CMEDisplay
-from src.eex_match.cli.eex_display import EEXDisplay
-from src.ice_match.config.config_manager import ConfigManager
+from ...ice_match.cli.display import MatchDisplayer
+from ...sgx_match.cli.sgx_display import SGXDisplay
+from ...cme_match.cli.cme_display import CMEDisplay
+from ...eex_match.cli.eex_display import EEXDisplay
+from ...ice_match.config.config_manager import ConfigManager
 
 
 class UnifiedDisplay:

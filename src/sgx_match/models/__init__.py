@@ -1,13 +1,13 @@
 """SGX Match Models Module"""
 
 from typing import Union
-from decimal import Decimal
 
 from .trade import SGXTrade, SGXTradeSource
 from .match_result import SGXMatchResult, SGXMatchType
 
 # Type alias for matching signature components
-SignatureValue = Union[str, Decimal, int, None]
+# Using float instead of Decimal for signature compatibility (consistent hashing)
+SignatureValue = Union[str, float, int, None]
 
 __all__ = [
     "SGXTrade",

@@ -342,7 +342,11 @@ class ProductSpreadMatcher(BaseMatcher, ProductSpreadMixin):
 
     def _create_base_signature(self, trade: Trade) -> tuple[SignatureValue, ...]:
         """Create base signature for trade grouping (shared between trader and exchange)."""
-        rule_fields: list[SignatureValue] = [trade.contract_month, trade.quantity_mt]
+        # Convert Decimal to float for consistent hashing
+        rule_fields: list[SignatureValue] = [
+            trade.contract_month,
+            float(trade.quantity_mt) if trade.quantity_mt is not None else None,
+        ]
         return self.create_universal_signature(trade, rule_fields)
 
     def _find_product_spread_match(

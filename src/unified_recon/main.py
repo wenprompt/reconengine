@@ -19,10 +19,10 @@ from .utils.dataframe_output import (
 )
 
 # Import all matching engines at the top
-from src.ice_match.main import ICEMatchingEngine
-from src.sgx_match.main import SGXMatchingEngine
-from src.cme_match.main import CMEMatchingEngine
-from src.eex_match.main import EEXMatchingEngine
+from ..ice_match.main import ICEMatchingEngine
+from ..sgx_match.main import SGXMatchingEngine
+from ..cme_match.main import CMEMatchingEngine
+from ..eex_match.main import EEXMatchingEngine
 
 # Constants
 DEFAULT_TRADER_CSV = "sourceTraders.csv"

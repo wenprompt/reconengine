@@ -116,8 +116,15 @@ class AggregatedSpreadMatcher(MultiLegBaseMatcher):
             )
 
             # Create grouping key with universal fields using MultiLegBaseMatcher method
+            # Convert Decimal to float for consistent hashing
             group_key = self.create_universal_signature(
-                trade, [trade.product_name, quantity_for_grouping]
+                trade,
+                [
+                    trade.product_name,
+                    float(quantity_for_grouping)
+                    if quantity_for_grouping is not None
+                    else None,
+                ],
             )
             trade_groups[group_key].append(trade)
 

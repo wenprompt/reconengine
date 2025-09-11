@@ -86,8 +86,15 @@ class SpreadMatcher(MultiLegBaseMatcher):
                 )
 
                 # Create grouping key with universal fields using BaseMatcher method
+                # Convert Decimal to float for consistent hashing
                 key = self.create_universal_signature(
-                    trade, [trade.product_name, quantity_for_grouping]
+                    trade,
+                    [
+                        trade.product_name,
+                        float(quantity_for_grouping)
+                        if quantity_for_grouping is not None
+                        else None,
+                    ],
                 )
                 trade_groups[key].append(trade)
 
@@ -243,8 +250,15 @@ class SpreadMatcher(MultiLegBaseMatcher):
                     trade1, self.normalizer
                 )
 
+                # Convert Decimal to float for consistent hashing
                 group_key = self.create_universal_signature(
-                    trade1, [trade1.product_name, quantity_for_key]
+                    trade1,
+                    [
+                        trade1.product_name,
+                        float(quantity_for_key)
+                        if quantity_for_key is not None
+                        else None,
+                    ],
                 )
                 trade_groups[group_key].extend([trade1, trade2])
                 spread_pairs_found += 1
@@ -521,8 +535,15 @@ class SpreadMatcher(MultiLegBaseMatcher):
                                 quantity_for_key = self._get_quantity_for_grouping(
                                     trade1, self.normalizer
                                 )
+                                # Convert Decimal to float for consistent hashing
                                 group_key = self.create_universal_signature(
-                                    trade1, [trade1.product_name, quantity_for_key]
+                                    trade1,
+                                    [
+                                        trade1.product_name,
+                                        float(quantity_for_key)
+                                        if quantity_for_key is not None
+                                        else None,
+                                    ],
                                 )
                                 trade_groups[group_key].extend([trade1, trade2])
                                 spread_pairs_found += 1
@@ -738,8 +759,15 @@ class SpreadMatcher(MultiLegBaseMatcher):
             )
 
             # Create grouping key with universal fields using BaseMatcher method
+            # Convert Decimal to float for consistent hashing
             key = self.create_universal_signature(
-                trade, [trade.product_name, quantity_for_grouping]
+                trade,
+                [
+                    trade.product_name,
+                    float(quantity_for_grouping)
+                    if quantity_for_grouping is not None
+                    else None,
+                ],
             )
             trade_groups[key].append(trade)
 
@@ -778,8 +806,13 @@ class SpreadMatcher(MultiLegBaseMatcher):
         )
 
         # Create grouping key with universal fields (same as in grouping methods)
+        # Convert Decimal to float for consistent hashing
         group_key = self.create_universal_signature(
-            trader_trade1, [trader_trade1.product_name, quantity_for_key]
+            trader_trade1,
+            [
+                trader_trade1.product_name,
+                float(quantity_for_key) if quantity_for_key is not None else None,
+            ],
         )
 
         if group_key not in exchange_groups:
@@ -831,8 +864,13 @@ class SpreadMatcher(MultiLegBaseMatcher):
         )
 
         # Create grouping key with universal fields (same as in grouping methods)
+        # Convert Decimal to float for consistent hashing
         group_key = self.create_universal_signature(
-            trader_trade1, [trader_trade1.product_name, quantity_for_key]
+            trader_trade1,
+            [
+                trader_trade1.product_name,
+                float(quantity_for_key) if quantity_for_key is not None else None,
+            ],
         )
 
         if group_key not in exchange_groups:

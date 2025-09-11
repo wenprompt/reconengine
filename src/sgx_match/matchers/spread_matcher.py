@@ -3,10 +3,9 @@
 from typing import Optional, Union
 from decimal import Decimal
 import logging
-from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import SGXTrade, SGXMatchResult, SGXMatchType, SGXTradeSource
+from ..models import SGXTrade, SGXMatchResult, SGXMatchType, SGXTradeSource, SignatureValue
 from ..core import SGXUnmatchedPool
 from ..config import SGXConfigManager
 from ..normalizers import SGXTradeNormalizer
@@ -82,15 +81,22 @@ class SpreadMatcher(MultiLegBaseMatcher):
         spread_pairs: list[list[SGXTrade]] = []
 
         # Group trades by product and quantity
-        trade_groups: dict[tuple[str, ...], list[SGXTrade]] = defaultdict(list)
+        trade_groups: dict[tuple[SignatureValue, ...], list[SGXTrade]] = {}
         for trade in trader_trades:
             if pool_manager.is_unmatched(
                 trade.internal_trade_id, SGXTradeSource.TRADER
             ):
+                # Convert Decimal to float for consistent hashing
                 key = self.create_universal_signature(
-                    trade, [trade.product_name, trade.quantityunit]
+                    trade,
+                    [
+                        trade.product_name,
+                        float(trade.quantityunit)
+                        if trade.quantityunit is not None
+                        else None,
+                    ],
                 )
-                trade_groups[key].append(trade)
+                trade_groups.setdefault(key, []).append(trade)
 
         # Find pairs within each group
         for trades in trade_groups.values():
@@ -228,7 +234,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         spread_pairs: list[list[SGXTrade]] = []
 
         # Group trades by dealid
-        dealid_groups: dict[str, list[SGXTrade]] = defaultdict(list)
+        dealid_groups: dict[str, list[SGXTrade]] = {}
         for trade in exchange_trades:
             if not pool_manager.is_unmatched(
                 trade.internal_trade_id, SGXTradeSource.EXCHANGE
@@ -248,7 +254,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             ):
                 dealid_str = str(dealid).strip()
                 if dealid_str.lower() not in ["nan", "none", ""]:
-                    dealid_groups[dealid_str].append(trade)
+                    dealid_groups.setdefault(dealid_str, []).append(trade)
 
         # Find valid spread pairs within each dealid group
         for dealid_str, trades_in_group in dealid_groups.items():
@@ -373,7 +379,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
         Returns:
             dict mapping datetime strings to lists of trades with that exact datetime
         """
-        time_groups: dict[str, list[SGXTrade]] = defaultdict(list)
+        time_groups: dict[str, list[SGXTrade]] = {}
 
         for trade in exchange_trades:
             # Get the trade_time field directly from SGXTrade model
@@ -381,7 +387,7 @@ class SpreadMatcher(MultiLegBaseMatcher):
             if datetime_str and str(datetime_str).strip():
                 # Use the exact datetime string as the key (no parsing needed for grouping)
                 datetime_key = str(datetime_str).strip()
-                time_groups[datetime_key].append(trade)
+                time_groups.setdefault(datetime_key, []).append(trade)
 
         logger.debug(
             f"Grouped {len(exchange_trades)} exchange trades into {len(time_groups)} exact datetime groups"

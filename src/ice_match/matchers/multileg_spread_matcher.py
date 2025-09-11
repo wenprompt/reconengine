@@ -208,8 +208,15 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             quantity_for_grouping = self._get_quantity_for_grouping(
                 trade, self.normalizer
             )
+            # Convert Decimal to float for consistent hashing
             key = self.create_universal_signature(
-                trade, [trade.product_name, quantity_for_grouping]
+                trade,
+                [
+                    trade.product_name,
+                    float(quantity_for_grouping)
+                    if quantity_for_grouping is not None
+                    else None,
+                ],
             )
             grouped_trades[key].append(trade)
 

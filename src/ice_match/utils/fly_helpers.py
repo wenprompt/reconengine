@@ -1,7 +1,6 @@
 """Helper functions for fly pattern matching optimization."""
 
 from decimal import Decimal
-from collections import defaultdict
 
 from ..models import Trade
 
@@ -15,9 +14,9 @@ def group_trades_by_month(trades: list[Trade]) -> dict[str, list[Trade]]:
     Returns:
         dict mapping contract months to lists of trades
     """
-    groups: dict[str, list[Trade]] = defaultdict(list)
+    groups: dict[str, list[Trade]] = {}
     for trade in trades:
-        groups[trade.contract_month].append(trade)
+        groups.setdefault(trade.contract_month, []).append(trade)
     return groups
 
 
@@ -32,13 +31,13 @@ def build_month_quantity_lookups(
     Returns:
         dict mapping month -> quantity -> list of trades with that quantity
     """
-    lookups: dict[str, dict[Decimal, list[Trade]]] = {
-        month: defaultdict(list) for month in month_groups
-    }
-
+    lookups: dict[str, dict[Decimal, list[Trade]]] = {}
+    
     for month, trades_list in month_groups.items():
+        month_lookup: dict[Decimal, list[Trade]] = {}
         for trade in trades_list:
-            lookups[month][trade.quantity_mt].append(trade)
+            month_lookup.setdefault(trade.quantity_mt, []).append(trade)
+        lookups[month] = month_lookup
 
     return lookups
 

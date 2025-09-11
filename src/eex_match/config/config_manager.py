@@ -106,45 +106,87 @@ class EEXConfigManager:
 
         Returns:
             List of field names that must match across all rules
+
+        Raises:
+            KeyError: If required configuration keys are missing
         """
-        return self.normalizer_config["universal_matching_fields"]["required_fields"]
+        try:
+            universal = self.normalizer_config["universal_matching_fields"]
+            return universal["required_fields"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
 
     def get_universal_field_mappings(self) -> dict[str, str]:
         """Get mapping from config field names to Trade model attributes.
 
         Returns:
             dict mapping config field names to model attribute names
+
+        Raises:
+            KeyError: If required configuration keys are missing
         """
-        return self.normalizer_config["universal_matching_fields"]["field_mappings"]
+        try:
+            universal = self.normalizer_config["universal_matching_fields"]
+            return universal["field_mappings"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
 
     def get_product_mappings(self) -> dict[str, str]:
         """Get product name mappings from config.
 
         Returns:
             dict mapping raw product names to normalized names
+
+        Raises:
+            KeyError: If required configuration keys are missing
         """
-        return self.normalizer_config["product_mappings"]
+        try:
+            return self.normalizer_config["product_mappings"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
 
     def get_month_patterns(self) -> dict[str, str]:
         """Get month pattern mappings from config.
 
         Returns:
             dict mapping regex patterns to normalized month formats
+
+        Raises:
+            KeyError: If required configuration keys are missing
         """
-        return self.normalizer_config["month_patterns"]
+        try:
+            return self.normalizer_config["month_patterns"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
 
     def get_buy_sell_mappings(self) -> dict[str, str]:
         """Get buy/sell value mappings from config.
 
         Returns:
             dict mapping raw buy/sell values to normalized values
+            
+        Raises:
+            KeyError: If required configuration keys are missing
         """
-        buy_sell_config = self.normalizer_config["buy_sell_mappings"]
-        # Handle both simple dict and BuySellMappings structure
-        if isinstance(buy_sell_config, dict):
-            if "mappings" in buy_sell_config:
-                return buy_sell_config["mappings"]  # type: ignore[return-value]
-        return buy_sell_config  # type: ignore[return-value]
+        try:
+            buy_sell_config = self.normalizer_config["buy_sell_mappings"]
+            # Handle both simple dict and BuySellMappings structure
+            if isinstance(buy_sell_config, dict):
+                if "mappings" in buy_sell_config:
+                    return buy_sell_config["mappings"]  # type: ignore[return-value]
+            return buy_sell_config  # type: ignore[return-value]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
 
     def reload_config(self) -> None:
         """Reload configuration from files.

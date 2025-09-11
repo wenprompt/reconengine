@@ -180,10 +180,11 @@ class CrackMatcher(BaseMatcher):
             Tuple key for consistent matching
         """
         # Rule-specific fields
+        # Convert Decimal to float for consistent hashing
         rule_specific_fields: list[SignatureValue] = [
             trade.product_name,
             trade.contract_month,
-            trade.price,
+            float(trade.price) if trade.price is not None else None,
             trade.buy_sell,
         ]
 

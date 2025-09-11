@@ -5,52 +5,58 @@ from typing_extensions import NotRequired
 
 
 # Base trade data structures
-class ExchangeTradeData(TypedDict):
-    """Exchange trade data structure from JSON input."""
+# Using functional form of TypedDict to handle "b/s" key with slash
+ExchangeTradeData = TypedDict(
+    "ExchangeTradeData",
+    {
+        # Required fields
+        "internalTradeId": int,
+        "tradeDate": str,
+        "tradeTime": str,
+        "productName": str,
+        "quantityLot": int,
+        "quantityUnit": Union[int, float],
+        "unit": str,
+        "price": Union[int, float],
+        "contractMonth": str,
+        "exchangeGroupId": int,
+        "brokerGroupId": int,
+        "exchangeClearingAccountId": int,
+        "b/s": str,  # Required - "B" or "S"
+        # Optional fields
+        "dealId": NotRequired[str],
+        "tradeId": NotRequired[str],
+        "clearedAt": NotRequired[str],
+        "clearingStatus": NotRequired[str],
+        "tradingSession": NotRequired[str],
+        "traderId": NotRequired[int],
+        "source": NotRequired[str],
+        "strikePrice": NotRequired[Union[int, float]],
+        "optionType": NotRequired[str],  # "Put" or "Call"
+    },
+)
 
-    internalTradeId: int
-    tradeDate: str
-    tradeTime: str
-    productName: str
-    quantityLot: int
-    quantityUnit: Union[int, float]
-    unit: str
-    price: Union[int, float]
-    contractMonth: str
-    exchangeGroupId: int
-    brokerGroupId: int
-    exchangeClearingAccountId: int
-    # Optional fields
-    dealId: NotRequired[str]
-    tradeId: NotRequired[str]
-    clearedAt: NotRequired[str]
-    clearingStatus: NotRequired[str]
-    tradingSession: NotRequired[str]
-    traderId: NotRequired[int]
-    source: NotRequired[str]
-    strikePrice: NotRequired[Union[int, float]]
-    optionType: NotRequired[str]  # "Put" or "Call"
-    b_s: NotRequired[str]  # "B" or "S" - key with slash in JSON
-
-
-class TraderTradeData(TypedDict):
-    """Trader trade data structure from JSON input."""
-
-    internalTradeId: int
-    tradeDate: str
-    tradeTime: str
-    productName: str
-    quantityUnit: Union[int, float]
-    unit: str
-    price: Union[int, float]
-    contractMonth: str
-    exchangeGroupId: int
-    brokerGroupId: int
-    exchangeClearingAccountId: int
-    # Optional fields
-    spread: NotRequired[str]  # "S" for spread indicator
-    traderId: NotRequired[int]
-    b_s: NotRequired[str]  # "B" or "S" - key with slash in JSON
+TraderTradeData = TypedDict(
+    "TraderTradeData",
+    {
+        # Required fields
+        "internalTradeId": int,
+        "tradeDate": str,
+        "tradeTime": str,
+        "productName": str,
+        "quantityUnit": Union[int, float],
+        "unit": str,
+        "price": Union[int, float],
+        "contractMonth": str,
+        "exchangeGroupId": int,
+        "brokerGroupId": int,
+        "exchangeClearingAccountId": int,
+        "b/s": str,  # Required - "B" or "S"
+        # Optional fields
+        "spread": NotRequired[str],  # "S" for spread indicator
+        "traderId": NotRequired[int],
+    },
+)
 
 
 # JSON payload structure

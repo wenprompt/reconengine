@@ -59,7 +59,17 @@ class AggregationBaseMatcher(BaseMatcher):
             # Extract values for aggregation fields
             field_values = []
             for field_name in aggregation_fields:
-                field_values.append(getattr(trade, field_name))
+                value = getattr(trade, field_name)
+                # Convert Decimal to float for consistent hashing
+                if (
+                    field_name in ["price", "quantity_mt", "quantity_bbl"]
+                    and value is not None
+                ):
+                    from decimal import Decimal
+
+                    if isinstance(value, Decimal):
+                        value = float(value)
+                field_values.append(value)
 
             # Create aggregation signature with universal fields
             signature = self.create_universal_signature(trade, field_values)
@@ -121,8 +131,11 @@ class AggregationBaseMatcher(BaseMatcher):
             total_quantity = sum(trade.quantity_mt for trade in group_trades)
             logger.debug(f"  Total quantity: {total_quantity}")
 
-            # Look for matching single trade with this total quantity
-            match_signature = (*group_signature, total_quantity)
+            # Look for matching single trade with this total quantity (convert to float)
+            total_quantity_float = (
+                float(total_quantity) if total_quantity is not None else None
+            )
+            match_signature = (*group_signature, total_quantity_float)
             logger.debug(f"  Looking for match signature: {match_signature}")
 
             if match_signature in one_index:
@@ -296,12 +309,25 @@ class AggregationBaseMatcher(BaseMatcher):
             # Create base signature
             field_values = []
             for field_name in base_fields:
-                field_values.append(getattr(trade, field_name))
+                value = getattr(trade, field_name)
+                # Convert Decimal to float for consistent hashing
+                if (
+                    field_name in ["price", "quantity_mt", "quantity_bbl"]
+                    and value is not None
+                ):
+                    from decimal import Decimal
+
+                    if isinstance(value, Decimal):
+                        value = float(value)
+                field_values.append(value)
 
             base_signature = self.create_universal_signature(trade, field_values)
 
-            # Add quantity to create full signature
-            full_signature = (*base_signature, trade.quantity_mt)
+            # Add quantity to create full signature (convert Decimal to float)
+            quantity_float = (
+                float(trade.quantity_mt) if trade.quantity_mt is not None else None
+            )
+            full_signature = (*base_signature, quantity_float)
             index[full_signature].append(trade)
 
         logger.debug(f"Created trade index with {len(index)} unique full signatures")

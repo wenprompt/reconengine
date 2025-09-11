@@ -144,14 +144,17 @@ class ExactMatcher(BaseMatcher):
             Tuple representing the exact match signature
         """
         # Rule-specific fields for exact matching
+        # Convert Decimal to float for consistent hashing
         rule_fields = [
             trade.product_name,
             trade.contract_month,
-            trade.quantityunit,
-            trade.price,
+            float(trade.quantityunit) if trade.quantityunit is not None else None,
+            float(trade.price) if trade.price is not None else None,
             trade.buy_sell,
             # Include options fields to ensure options match only with options
-            trade.strike,  # Will be None for futures
+            float(trade.strike)
+            if trade.strike is not None
+            else None,  # Will be None for futures
             trade.put_call,  # Will be None for futures
         ]
 
