@@ -42,6 +42,7 @@
   },
   "traders_product_unit_defaults": {
     "brent swap": "bbl",
+    "92ron": "bbl",
     "default": "mt"
   },
   "universal_matching_fields": {

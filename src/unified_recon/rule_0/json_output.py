@@ -45,7 +45,7 @@ class TradeDetailJSON:
             "contractMonth": self.contract_month,
             "source": self.source,
             "internalId": self.internal_id,
-            "quantity": self.quantity,
+            "quantity": round(self.quantity, 2),  # Round to 2 decimal places
             "unit": self.unit,
             "price": self.price,
             "brokerGroupId": self.broker_group_id,
@@ -72,9 +72,9 @@ class PositionSummaryJSON:
         """Convert to dictionary."""
         return {
             "contractMonth": self.contract_month,
-            "traderQuantity": self.trader_quantity,
-            "exchangeQuantity": self.exchange_quantity,
-            "difference": self.difference,
+            "traderQuantity": round(self.trader_quantity, 2),  # Round to 2 decimal places
+            "exchangeQuantity": round(self.exchange_quantity, 2),  # Round to 2 decimal places
+            "difference": round(self.difference, 2),  # Round to 2 decimal places
             "unit": self.unit,
             "status": self.status,
             "traderTradeCount": self.trader_trade_count,
