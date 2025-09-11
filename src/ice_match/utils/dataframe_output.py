@@ -1,7 +1,6 @@
 """DataFrame output utilities for standardized reconciliation reporting."""
 
 from datetime import datetime
-from typing import List
 from decimal import Decimal
 import pandas as pd
 from rich.console import Console
@@ -61,7 +60,7 @@ def get_total_quantity(match_result: MatchResult) -> Decimal:
 
 
 def create_reconciliation_dataframe(
-    matches: List[MatchResult],
+    matches: list[MatchResult],
     unmatched_pool: UnmatchedPoolManager,
     execution_time: datetime,
 ) -> pd.DataFrame:

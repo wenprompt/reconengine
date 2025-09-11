@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Optional, Any, Set
 
 import pandas as pd
 
@@ -25,7 +25,7 @@ class Position:
     quantity_bbl: Optional[Decimal] = None  # None for non-brent products
     trade_count: int = 0
     is_synthetic: bool = False  # True if derived from decomposition
-    trade_details: List[Dict[str, Any]] = field(
+    trade_details: list[dict[str, Any]] = field(
         default_factory=list
     )  # Track individual trade contributions
 
@@ -40,7 +40,7 @@ class PositionMatrix:
     """Matrix of positions organized by contract month and product."""
 
     # Key: (contract_month, product) -> Position
-    positions: Dict[Tuple[str, str], Position] = field(default_factory=dict)
+    positions: dict[tuple[str, str], Position] = field(default_factory=dict)
     contract_months: Set[str] = field(default_factory=set)
     products: Set[str] = field(default_factory=set)
     source: TradeSource = TradeSource.TRADER
@@ -52,7 +52,7 @@ class PositionMatrix:
         quantity_mt: Optional[Decimal],
         quantity_bbl: Optional[Decimal],
         is_synthetic: bool = False,
-        trade_detail: Optional[Dict[str, Any]] = None,
+        trade_detail: Optional[dict[str, Any]] = None,
     ) -> None:
         """Add or update a position in the matrix.
 
@@ -136,12 +136,12 @@ class PositionMatrixBuilder:
         self.decomposer = ProductDecomposer()
         self.conversion_ratios = self._load_conversion_ratios(config_path)
         # Declare private attributes for mypy
-        self._trade_keys_cache: Dict[int, Dict[str, str]] = {}
+        self._trade_keys_cache: dict[int, dict[str, str]] = {}
         self._logged_first = False
 
     def _load_conversion_ratios(
         self, config_path: Optional[Path] = None
-    ) -> Dict[str, Decimal]:
+    ) -> dict[str, Decimal]:
         """Load product-specific conversion ratios from config.
 
         Args:
@@ -189,7 +189,7 @@ class PositionMatrixBuilder:
         # Default ratio from config
         return self.conversion_ratios["default"]
 
-    def build_matrix(self, trades: List[Trade]) -> PositionMatrix:
+    def build_matrix(self, trades: list[Trade]) -> PositionMatrix:
         """Build a position matrix from a list of trades.
 
         Args:
@@ -307,7 +307,7 @@ class PositionMatrixBuilder:
         component: DecomposedProduct,
         quantity_mt: Optional[Decimal],
         quantity_bbl: Optional[Decimal],
-    ) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+    ) -> tuple[Optional[Decimal], Optional[Decimal]]:
         """Apply direction logic for synthetic components from cracks/spreads.
 
         Args:
@@ -375,7 +375,7 @@ class PositionMatrixBuilder:
 
         return quantity_mt, quantity_bbl
 
-    def merge_matrices(self, matrices: List[PositionMatrix]) -> PositionMatrix:
+    def merge_matrices(self, matrices: list[PositionMatrix]) -> PositionMatrix:
         """Merge multiple position matrices into one.
 
         Args:

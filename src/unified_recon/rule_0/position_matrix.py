@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from decimal import Decimal, DecimalException
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Optional, Any, Set
 
 import pandas as pd
 
@@ -24,7 +24,7 @@ class Position:
     unit: Optional[str] = None  # MT, BBL, LOTS, DAYS, MW, etc.
     trade_count: int = 0
     is_synthetic: bool = False
-    trade_details: List[Dict[str, Any]] = field(default_factory=list)
+    trade_details: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def display_quantity(self) -> str:
@@ -38,7 +38,7 @@ class Position:
 class PositionMatrix:
     """Matrix of positions organized by contract month and product."""
 
-    positions: Dict[Tuple[str, str], Position] = field(default_factory=dict)
+    positions: dict[tuple[str, str], Position] = field(default_factory=dict)
     contract_months: Set[str] = field(default_factory=set)
     products: Set[str] = field(default_factory=set)
     exchange: str = ""
@@ -51,7 +51,7 @@ class PositionMatrix:
         quantity: Decimal,
         unit: Optional[str] = None,
         is_synthetic: bool = False,
-        trade_detail: Optional[Dict[str, Any]] = None,
+        trade_detail: Optional[dict[str, Any]] = None,
     ) -> None:
         """Add or update a position in the matrix."""
         key = (contract_month, product)
@@ -107,8 +107,8 @@ class UnifiedPositionMatrixBuilder:
     def __init__(
         self,
         exchange: str,
-        config: Dict[str, Any],
-        field_mappings: Optional[Dict[str, List[str]]] = None,
+        config: dict[str, Any],
+        field_mappings: Optional[dict[str, list[str]]] = None,
     ):
         """Initialize the matrix builder for a specific exchange.
 
@@ -184,16 +184,18 @@ class UnifiedPositionMatrixBuilder:
             # Check if product has specific unit default
             product_lower = product.lower()
             if product_lower in self.unit_defaults:
-                return self.unit_defaults[product_lower].upper()
+                unit_value: str = str(self.unit_defaults[product_lower]).upper()
+                return unit_value
             # Use default unit if specified
             elif "default" in self.unit_defaults:
-                return self.unit_defaults["default"].upper()
+                default_unit: str = str(self.unit_defaults["default"]).upper()
+                return default_unit
 
         # No unit from data or config - return empty
         return ""
 
     def build_matrix(
-        self, trades: List[Dict[str, Any]], source: str = "trader"
+        self, trades: list[dict[str, Any]], source: str = "trader"
     ) -> PositionMatrix:
         """Build a position matrix from a list of trades.
 
@@ -248,7 +250,7 @@ class UnifiedPositionMatrixBuilder:
         return matrix
 
     def _get_trade_field(
-        self, trade: Dict[str, Any], field_key: str, default: Any = ""
+        self, trade: dict[str, Any], field_key: str, default: Any = ""
     ) -> Any:
         """Get a field value from trade data, handling case variations.
 
@@ -263,7 +265,7 @@ class UnifiedPositionMatrixBuilder:
         # Create a lowercase mapping of all keys for case-insensitive lookup
         # Cache this if not already done
         if not hasattr(self, "_trade_keys_cache"):
-            self._trade_keys_cache: Dict[int, Dict[str, str]] = {}
+            self._trade_keys_cache: dict[int, dict[str, str]] = {}
 
         trade_id = id(trade)
         if trade_id not in self._trade_keys_cache:
@@ -286,7 +288,7 @@ class UnifiedPositionMatrixBuilder:
 
         return default
 
-    def _extract_trade_fields(self, trade: Dict[str, Any]) -> Tuple[str, str, str]:
+    def _extract_trade_fields(self, trade: dict[str, Any]) -> tuple[str, str, str]:
         """Extract and normalize basic trade fields.
 
         Args:
@@ -310,7 +312,7 @@ class UnifiedPositionMatrixBuilder:
 
         return product_name, contract_month, buy_sell
 
-    def _extract_quantity_and_unit(self, trade: Dict[str, Any]) -> Tuple[Decimal, str]:
+    def _extract_quantity_and_unit(self, trade: dict[str, Any]) -> tuple[Decimal, str]:
         """Extract quantity and unit based on exchange configuration.
 
         Args:
@@ -343,12 +345,12 @@ class UnifiedPositionMatrixBuilder:
 
     def _create_trade_detail(
         self,
-        trade: Dict[str, Any],
+        trade: dict[str, Any],
         component: Any,
         final_quantity: Decimal,
         unit: str,
         product_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create trade detail dictionary for tracking.
 
         Args:
@@ -406,7 +408,7 @@ class UnifiedPositionMatrixBuilder:
         }
 
     def _process_trade(
-        self, trade: Dict[str, Any], matrix: PositionMatrix, source: str
+        self, trade: dict[str, Any], matrix: PositionMatrix, source: str
     ) -> None:
         """Process a single trade and add to the matrix."""
         # Extract basic trade fields

@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.WARNING, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 
-def get_reconciliation_match_ids(json_data: Dict[str, Any]) -> Optional[Dict[str, str]]:
+def get_reconciliation_match_ids(json_data: dict[str, Any]) -> Optional[dict[str, str]]:
     """
     Get match IDs from reconciliation engine (reusing PosMatchService logic).
 
@@ -83,7 +83,7 @@ def get_reconciliation_match_ids(json_data: Dict[str, Any]) -> Optional[Dict[str
         return None
 
 
-def load_config(exchange: str) -> Tuple[Dict[str, Any], Dict[str, List[str]]]:
+def load_config(exchange: str) -> tuple[dict[str, Any], dict[str, list[str]]]:
     """Load configuration for the specified exchange.
 
     Args:
@@ -109,7 +109,7 @@ def load_config(exchange: str) -> Tuple[Dict[str, Any], Dict[str, List[str]]]:
     return rule_0_config[exchange], field_mappings
 
 
-def load_csv_data(file_path: str) -> List[Dict[str, Any]]:
+def load_csv_data(file_path: str) -> list[dict[str, Any]]:
     """Load trade data from CSV file.
 
     Args:
@@ -127,15 +127,15 @@ def load_csv_data(file_path: str) -> List[Dict[str, Any]]:
     trades_raw = df.to_dict("records")
 
     # Convert to proper type by ensuring all keys are strings
-    trades: List[Dict[str, Any]] = []
+    trades: list[dict[str, Any]] = []
     for trade_raw in trades_raw:
-        trade: Dict[str, Any] = {str(k): v for k, v in trade_raw.items()}
+        trade: dict[str, Any] = {str(k): v for k, v in trade_raw.items()}
         trades.append(trade)
 
     return trades
 
 
-def load_json_data(file_path: str) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def load_json_data(file_path: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Load trade data from JSON file.
 
     Args:
@@ -199,8 +199,8 @@ def get_default_data_paths(exchange: str) -> tuple[Path, Path]:
 
 
 def get_tolerances(
-    exchange: str, config: Dict[str, Any]
-) -> tuple[Decimal, Dict[str, float]]:
+    exchange: str, config: dict[str, Any]
+) -> tuple[Decimal, dict[str, float]]:
     """Get tolerance values for the exchange.
 
     Args:
@@ -210,7 +210,7 @@ def get_tolerances(
     Returns:
         Tuple of (default_tolerance for comparisons, tolerance_dict for matching)
     """
-    tolerance_dict: Dict[str, float] = {}
+    tolerance_dict: dict[str, float] = {}
     default_tolerance = Decimal("0.01")
 
     # Load normalizer config if available
@@ -229,7 +229,7 @@ def get_tolerances(
     return default_tolerance, tolerance_dict
 
 
-def load_unified_config() -> Dict[str, Any]:
+def load_unified_config() -> dict[str, Any]:
     """Load the unified configuration file.
 
     Returns:
@@ -242,7 +242,8 @@ def load_unified_config() -> Dict[str, Any]:
 
     try:
         with open(config_path, "r") as f:
-            return json.load(f)
+            config_data: dict[str, Any] = json.load(f)
+            return config_data
     except FileNotFoundError:
         logger.error(f"Configuration file not found: {config_path}")
         sys.exit(1)
@@ -255,8 +256,8 @@ def load_unified_config() -> Dict[str, Any]:
 
 
 def load_trade_data(
-    args: argparse.Namespace, unified_config: Dict[str, Any]
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    args: argparse.Namespace, unified_config: dict[str, Any]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Load trade data from JSON or CSV files.
 
     Args:
@@ -312,11 +313,11 @@ def load_trade_data(
 
 def detect_exchanges_to_process(
     args: argparse.Namespace,
-    trader_trades: List[Dict[str, Any]],
-    exchange_trades: List[Dict[str, Any]],
-    unified_config: Dict[str, Any],
-    exchange_map: Dict[str, str],
-) -> List[str]:
+    trader_trades: list[dict[str, Any]],
+    exchange_trades: list[dict[str, Any]],
+    unified_config: dict[str, Any],
+    exchange_map: dict[str, str],
+) -> list[str]:
     """Determine which exchanges to process based on arguments or data.
 
     Args:
@@ -360,10 +361,10 @@ def detect_exchanges_to_process(
 
 
 def save_json_output(
-    exchange_results: Dict[str, Any],
-    unified_config: Dict[str, Any],
+    exchange_results: dict[str, Any],
+    unified_config: dict[str, Any],
     debug_mode: bool = False,
-    external_match_ids: Optional[Dict[str, str]] = None,
+    external_match_ids: Optional[dict[str, str]] = None,
 ) -> None:
     """Save results to JSON file.
 
@@ -418,12 +419,12 @@ def save_json_output(
 
 def process_exchange(
     exchange_name: str,
-    trader_trades: List[Dict[str, Any]],
-    exchange_trades: List[Dict[str, Any]],
+    trader_trades: list[dict[str, Any]],
+    exchange_trades: list[dict[str, Any]],
     show_details: bool,
     return_data: bool = False,
-    external_match_ids: Optional[Dict[str, str]] = None,
-) -> Optional[Dict[str, Any]]:
+    external_match_ids: Optional[dict[str, str]] = None,
+) -> Optional[dict[str, Any]]:
     """Process a single exchange's trades.
 
     Args:
@@ -496,13 +497,13 @@ def process_exchange(
 
 
 def process_exchanges(
-    exchanges_to_process: List[str],
-    trader_trades: List[Dict[str, Any]],
-    exchange_trades: List[Dict[str, Any]],
-    unified_config: Dict[str, Any],
+    exchanges_to_process: list[str],
+    trader_trades: list[dict[str, Any]],
+    exchange_trades: list[dict[str, Any]],
+    unified_config: dict[str, Any],
     args: argparse.Namespace,
-    external_match_ids: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
+    external_match_ids: Optional[dict[str, str]] = None,
+) -> dict[str, Any]:
     """Process all exchanges and collect results.
 
     Args:
@@ -583,7 +584,7 @@ def process_exchanges(
     return exchange_results
 
 
-def main():
+def main() -> int:
     """Main entry point for unified Rule 0."""
     # Load configuration first
     unified_config = load_unified_config()
@@ -698,12 +699,12 @@ def main():
         # Exit 0 for successful processing
         # Rule 0's job is to analyze and report positions from the input data
         # Discrepancies are expected analytical output, not processing errors
-        sys.exit(0)
+        return 0
 
     except Exception:
         logger.exception("Error in main")
-        sys.exit(1)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

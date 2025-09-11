@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Optional, Union, Mapping, Hashable
 from decimal import Decimal
 import logging
 
@@ -27,7 +27,7 @@ class ICETradeFactory:
         """
         self.normalizer = normalizer
 
-    def from_dataframe(self, df: pd.DataFrame, source: TradeSource) -> List[Trade]:
+    def from_dataframe(self, df: pd.DataFrame, source: TradeSource) -> list[Trade]:
         """Create trades from a pandas DataFrame.
 
         Args:
@@ -75,7 +75,7 @@ class ICETradeFactory:
         logger.info(f"Successfully created {len(trades)} {source.value} trades")
         return trades
 
-    def from_csv(self, csv_path: Path, source: TradeSource) -> List[Trade]:
+    def from_csv(self, csv_path: Path, source: TradeSource) -> list[Trade]:
         """Create trades from a CSV file (backward compatibility).
 
         Args:
@@ -98,7 +98,7 @@ class ICETradeFactory:
 
         try:
             # Force ID columns to be read as strings to prevent scientific notation
-            dtype_spec: Any = {"dealid": "str", "tradeid": "str"}
+            dtype_spec: Mapping[Hashable, str] = {"dealid": "str", "tradeid": "str"}
             df = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=dtype_spec)
             logger.info(f"Loaded {len(df)} rows from {source.value} CSV")
 
@@ -109,8 +109,10 @@ class ICETradeFactory:
             raise ValueError(f"Failed to load {source.value} CSV: {e}") from e
 
     def from_json(
-        self, json_data: List[Dict[str, Any]], source: TradeSource
-    ) -> List[Trade]:
+        self,
+        json_data: list[dict[str, Union[str, int, float, None]]],
+        source: TradeSource,
+    ) -> list[Trade]:
         """Create trades directly from JSON data.
 
         Args:
@@ -131,7 +133,9 @@ class ICETradeFactory:
         return self.from_dataframe(df, source)
 
     def _json_to_dataframe(
-        self, json_data: List[Dict], source: TradeSource
+        self,
+        json_data: list[dict[str, Union[str, int, float, None]]],
+        source: TradeSource,
     ) -> pd.DataFrame:
         """Convert JSON data to DataFrame with field normalization.
 
@@ -156,7 +160,9 @@ class ICETradeFactory:
 
         return pd.DataFrame(normalized_records)
 
-    def _normalize_json_fields(self, record: Dict) -> Dict:
+    def _normalize_json_fields(
+        self, record: dict[str, Union[str, int, float, None]]
+    ) -> dict[str, Union[str, int, float, None]]:
         """Convert JSON field names from camelCase to snake_case.
 
         Args:
@@ -191,7 +197,9 @@ class ICETradeFactory:
 
         return normalized
 
-    def _ensure_all_fields(self, record: Dict, source: TradeSource) -> Dict:
+    def _ensure_all_fields(
+        self, record: dict[str, Union[str, int, float, None]], source: TradeSource
+    ) -> dict[str, Union[str, int, float, None]]:
         """Ensure all required and optional fields exist in the record.
 
         Args:
@@ -222,7 +230,7 @@ class ICETradeFactory:
 
         return record
 
-    def _get_required_fields(self, source: TradeSource) -> List[str]:
+    def _get_required_fields(self, source: TradeSource) -> list[str]:
         """Get required fields for the given source type."""
         # Common required fields (including universal matching fields)
         required = [
@@ -242,7 +250,7 @@ class ICETradeFactory:
 
         return required
 
-    def _get_optional_fields(self, source: TradeSource) -> List[str]:
+    def _get_optional_fields(self, source: TradeSource) -> list[str]:
         """Get optional fields for the given source type."""
         optional = [
             "tradedate",
@@ -438,13 +446,13 @@ class ICETradeFactory:
             logger.error(f"Error creating exchange trade from row {index}: {e}")
             return None
 
-    def _safe_str(self, value: Any) -> str:
+    def _safe_str(self, value: Union[str, int, float, None]) -> str:
         """Safely convert value to string, handling NaN and None."""
         if pd.isna(value) or value is None:
             return ""
         return str(value).strip()
 
-    def _safe_int(self, value: Any) -> Optional[int]:
+    def _safe_int(self, value: Union[str, int, float, None]) -> Optional[int]:
         """Safely convert value to int, returning None for invalid values."""
         if pd.isna(value) or value is None or value == "":
             return None

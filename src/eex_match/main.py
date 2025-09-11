@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional, Any, Tuple, Dict
+from typing import Optional, Any
 import argparse
 import sys
 import pandas as pd
@@ -31,7 +31,7 @@ class EEXMatchingEngine:
     trade_factory: EEXTradeFactory
     display: EEXDisplay
     exact_matcher: ExactMatcher
-    matchers: Dict[int, ExactMatcher]
+    matchers: dict[int, ExactMatcher]
 
     def __init__(self, config_manager: Optional[EEXConfigManager] = None):
         """Initialize EEX matching engine.
@@ -57,7 +57,7 @@ class EEXMatchingEngine:
         trader_csv_path: Path,
         exchange_csv_path: Path,
         show_unmatched: bool = False,
-    ) -> List[EEXMatchResult]:
+    ) -> list[EEXMatchResult]:
         """Run the complete EEX matching process.
 
         Args:
@@ -121,7 +121,7 @@ class EEXMatchingEngine:
             self.display.show_error(f"{e!s}")
             return []
 
-    def _get_matcher_for_rule(self, rule_number: int):
+    def _get_matcher_for_rule(self, rule_number: int) -> Any:
         """Get matcher for specific rule number.
 
         Args:
@@ -134,7 +134,7 @@ class EEXMatchingEngine:
 
     def run_matching_from_dataframes(
         self, trader_df: pd.DataFrame, exchange_df: pd.DataFrame
-    ) -> Tuple[List[EEXMatchResult], dict[str, Any]]:
+    ) -> tuple[list[EEXMatchResult], dict[str, Any]]:
         """Run EEX matching process directly from DataFrames without CSV files.
 
         Args:

@@ -1,11 +1,14 @@
 """Base matcher with universal field handling for SGX trades."""
 
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Any
+from typing import Any, TYPE_CHECKING
 import uuid
 import logging
 from ..models import SGXTrade
 from ..config import SGXConfigManager
+
+if TYPE_CHECKING:
+    from ..core.sgx_pool import SGXUnmatchedPool
 
 # Constants
 UUID_LENGTH = 8  # Length of UUID suffix for match IDs (must be 1-32)
@@ -22,8 +25,8 @@ class BaseMatcher(ABC):
         self.config_manager = config_manager
 
     def create_universal_signature(
-        self, trade: SGXTrade, rule_specific_fields: List[Any]
-    ) -> Tuple:
+        self, trade: SGXTrade, rule_specific_fields: list[Any]
+    ) -> tuple[Any, ...]:
         """Create matching signature by combining rule-specific fields with universal fields.
 
         Args:
@@ -45,8 +48,8 @@ class BaseMatcher(ABC):
         return tuple(signature_parts)
 
     def get_universal_matched_fields(
-        self, rule_specific_fields: List[str]
-    ) -> List[str]:
+        self, rule_specific_fields: list[str]
+    ) -> list[str]:
         """Get complete matched fields list with universal fields added.
 
         Args:
@@ -181,7 +184,7 @@ class BaseMatcher(ABC):
         return match_id
 
     @abstractmethod
-    def find_matches(self, pool_manager) -> List:
+    def find_matches(self, pool_manager: "SGXUnmatchedPool") -> list[Any]:
         """Find matches using this matcher's rule. Must be implemented by subclasses.
 
         Args:

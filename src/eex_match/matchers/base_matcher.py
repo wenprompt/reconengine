@@ -1,6 +1,6 @@
 """Base matcher providing universal field validation for EEX trades."""
 
-from typing import List, Dict, Tuple
+from typing import Any, Union
 import uuid
 import logging
 from abc import ABC, abstractmethod
@@ -70,8 +70,8 @@ class BaseMatcher(ABC):
         return True
 
     def create_universal_signature(
-        self, trade: EEXTrade, rule_specific_fields: List
-    ) -> Tuple:
+        self, trade: EEXTrade, rule_specific_fields: list[Any]
+    ) -> tuple[Any, ...]:
         """Create a matching signature including universal fields.
 
         Args:
@@ -88,11 +88,12 @@ class BaseMatcher(ABC):
             trade_attribute = self.field_mappings.get(config_field)
             if trade_attribute:
                 value = getattr(trade, trade_attribute, None)
-                signature_parts.append(value)
+                if value is not None:  # Only append non-None values
+                    signature_parts.append(value)
 
         return tuple(signature_parts)
 
-    def get_universal_matched_fields(self, rule_fields: List[str]) -> List[str]:
+    def get_universal_matched_fields(self, rule_fields: list[str]) -> list[str]:
         """Get combined list of matched fields (rule-specific + universal).
 
         Args:
@@ -121,7 +122,7 @@ class BaseMatcher(ABC):
         return f"EEX_{rule_number}_{unique_id}"
 
     @abstractmethod
-    def find_matches(self, pool_manager: EEXUnmatchedPool) -> List[EEXMatchResult]:
+    def find_matches(self, pool_manager: EEXUnmatchedPool) -> list[EEXMatchResult]:
         """Find matches using this rule's logic.
 
         Must be implemented by each specific matcher.
@@ -135,7 +136,7 @@ class BaseMatcher(ABC):
         pass
 
     @abstractmethod
-    def get_rule_info(self) -> Dict:
+    def get_rule_info(self) -> dict[str, Union[str, int, float, list[str]]]:
         """Get information about this matching rule.
 
         Returns:

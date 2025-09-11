@@ -2,10 +2,29 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Literal, TypedDict, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class DateRange(TypedDict):
+    """Date range with start and end dates."""
+
+    start: str
+    end: str
+
+
+class GroupDataQuality(TypedDict):
+    """Data quality statistics for a specific exchange group."""
+
+    group_id: int
+    data_type: Literal["exchange", "trader"]
+    total_rows: int
+    null_prices: int
+    zero_prices: int
+    unique_products: int
+    date_range: Optional[DateRange]
 
 
 class DataValidationError(Exception):
@@ -17,7 +36,7 @@ class DataValidationError(Exception):
 class DataValidator:
     """Validates CSV data for unified reconciliation processing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize validator."""
         pass
 
@@ -80,7 +99,7 @@ class DataValidator:
 
     def validate_exchange_groups(
         self, df: pd.DataFrame, file_path: Path
-    ) -> Tuple[List[int], Dict[int, int]]:
+    ) -> tuple[list[int], dict[int, int]]:
         """Validate and analyze exchange groups in data.
 
         Args:
@@ -118,7 +137,7 @@ class DataValidator:
         return sorted(unique_groups), group_counts
 
     def validate_data_consistency(
-        self, trader_groups: List[int], exchange_groups: List[int]
+        self, trader_groups: list[int], exchange_groups: list[int]
     ) -> bool:
         """Validate that trader and exchange data have consistent exchange groups.
 
@@ -160,8 +179,8 @@ class DataValidator:
         return True
 
     def validate_group_data_quality(
-        self, df: pd.DataFrame, group_id: int, data_type: str
-    ) -> Dict[str, Any]:
+        self, df: pd.DataFrame, group_id: int, data_type: Literal["exchange", "trader"]
+    ) -> GroupDataQuality:
         """Validate data quality for a specific exchange group.
 
         Args:
@@ -170,21 +189,21 @@ class DataValidator:
             data_type: Type of data ('exchange' or 'trader')
 
         Returns:
-            Dict with validation results and statistics
+            GroupDataQuality with validation results and statistics
         """
         group_data = df[df["exchangegroupid"] == group_id]
 
-        stats = {
+        stats: GroupDataQuality = {
             "group_id": group_id,
             "data_type": data_type,
             "total_rows": len(group_data),
-            "null_prices": group_data["price"].isnull().sum()
+            "null_prices": int(group_data["price"].isnull().sum())
             if "price" in group_data.columns
             else 0,
-            "zero_prices": (group_data["price"] == 0).sum()
+            "zero_prices": int((group_data["price"] == 0).sum())
             if "price" in group_data.columns
             else 0,
-            "unique_products": group_data["productname"].nunique()
+            "unique_products": int(group_data["productname"].nunique())
             if "productname" in group_data.columns
             else 0,
             "date_range": None,
@@ -196,10 +215,11 @@ class DataValidator:
                 dates = pd.to_datetime(group_data["tradedate"], errors="coerce")
                 valid_dates = dates.dropna()
                 if not valid_dates.empty:
-                    stats["date_range"] = {
+                    date_range: DateRange = {
                         "start": valid_dates.min().strftime("%Y-%m-%d"),
                         "end": valid_dates.max().strftime("%Y-%m-%d"),
                     }
+                    stats["date_range"] = date_range
             except (AttributeError, TypeError, ValueError, KeyError):
                 # Date parsing failed, skip date range statistics
                 pass

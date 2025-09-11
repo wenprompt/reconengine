@@ -3,16 +3,16 @@
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from typing import Dict, List, Any, Callable
+from typing import Any, Callable
 
 from ..core.result_aggregator import UnifiedResult, SystemResult
 
 # Import existing display components and configs
-from src.ice_match.cli.display import MatchDisplayer
-from src.sgx_match.cli.sgx_display import SGXDisplay
-from src.cme_match.cli.cme_display import CMEDisplay
-from src.eex_match.cli.eex_display import EEXDisplay
-from src.ice_match.config.config_manager import ConfigManager
+from ...ice_match.cli.display import MatchDisplayer
+from ...sgx_match.cli.sgx_display import SGXDisplay
+from ...cme_match.cli.cme_display import CMEDisplay
+from ...eex_match.cli.eex_display import EEXDisplay
+from ...ice_match.config.config_manager import ConfigManager
 
 
 class UnifiedDisplay:
@@ -46,8 +46,8 @@ class UnifiedDisplay:
         self,
         result: SystemResult,
         show_unmatched: bool,
-        trader_display_func: Callable[[List[Any]], None],
-        exchange_display_func: Callable[[List[Any]], None],
+        trader_display_func: Callable[[list[Any]], None],
+        exchange_display_func: Callable[[list[Any]], None],
     ) -> None:
         """Generic method to display unmatched trades.
 
@@ -66,7 +66,7 @@ class UnifiedDisplay:
             if unmatched_exchange:
                 exchange_display_func(unmatched_exchange)
 
-    def display_startup_info(self, config: Dict[str, Any]) -> None:
+    def display_startup_info(self, config: dict[str, Any]) -> None:
         """Display startup information and configuration."""
         title = Text("🔄 UNIFIED RECONCILIATION SYSTEM", style="bold blue")
 
@@ -97,7 +97,7 @@ class UnifiedDisplay:
         self,
         total_trader_count: int,
         total_exchange_count: int,
-        group_distribution: Dict[str, Dict[str, Any]],
+        group_distribution: dict[str, dict[str, Any]],
     ) -> None:
         """Display data loading and grouping information."""
         # Data loading summary
@@ -120,7 +120,7 @@ class UnifiedDisplay:
 
     def display_group_results(
         self,
-        results: List[SystemResult],
+        results: list[SystemResult],
         show_details: bool = True,
         show_unmatched: bool = True,
     ) -> None:

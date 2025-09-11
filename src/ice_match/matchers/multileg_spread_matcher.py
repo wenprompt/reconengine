@@ -1,6 +1,6 @@
 """Multileg spread matching implementation for Rule 9."""
 
-from typing import List, Optional, Dict, Tuple
+from typing import Optional, Any, TypedDict
 from decimal import Decimal
 import logging
 from collections import defaultdict
@@ -19,6 +19,15 @@ from ..utils.trade_helpers import get_month_order_tuple
 logger = logging.getLogger(__name__)
 
 
+class TraderSpreadInfo(TypedDict):
+    """Type for trader spread information."""
+
+    earlier_leg: Trade
+    later_leg: Trade
+    spread_price: Decimal
+    quantity: Decimal
+
+
 @dataclass(frozen=True)
 class ExchangeSpread:
     """Represents a validated 2-leg spread from exchange trades for efficient combination matching."""
@@ -26,7 +35,7 @@ class ExchangeSpread:
     leg1: Trade  # Earlier month leg
     leg2: Trade  # Later month leg
     spread_price: Decimal  # leg1.price - leg2.price (earlier - later)
-    spread_months: Tuple[str, str]  # (earlier_month, later_month)
+    spread_months: tuple[str, str]  # (earlier_month, later_month)
     dealid: Optional[str]  # DealID if from dealid grouping, None if from other grouping
 
     @property
@@ -53,7 +62,7 @@ class ExchangeSpread:
         return self.leg1.exch_clearing_acct_id
 
     @property
-    def all_trades(self) -> List[Trade]:
+    def all_trades(self) -> list[Trade]:
         """Get all trades in this spread."""
         return [self.leg1, self.leg2]
 
@@ -66,7 +75,7 @@ class ExchangeSpread:
 
     def calculate_net_spread_with(
         self, other: "ExchangeSpread"
-    ) -> Optional[Tuple[str, str, Decimal]]:
+    ) -> Optional[tuple[str, str, Decimal]]:
         """Calculate net spread when combined with another spread.
 
         Returns:
@@ -104,7 +113,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             f"Initialized MultilegSpreadMatcher with {self.confidence}% confidence"
         )
 
-    def get_rule_info(self) -> dict:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get rule information for display purposes."""
         return {
             "rule_number": self.rule_number,
@@ -135,7 +144,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             },
         }
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find all multileg spread matches."""
         logger.info("Starting multileg spread matching (Rule 9)")
         matches = []
@@ -181,8 +190,8 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         return matches
 
     def _group_trader_spread_pairs(
-        self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[List[Trade]]:
+        self, trader_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[list[Trade]]:
         """Group trader trades into spread pairs for multileg matching.
 
         Looks for trader spread pattern: one leg with price, one leg with price 0.00
@@ -199,8 +208,15 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
             quantity_for_grouping = self._get_quantity_for_grouping(
                 trade, self.normalizer
             )
+            # Convert Decimal to float for consistent hashing
             key = self.create_universal_signature(
-                trade, [trade.product_name, quantity_for_grouping]
+                trade,
+                [
+                    trade.product_name,
+                    float(quantity_for_grouping)
+                    if quantity_for_grouping is not None
+                    else None,
+                ],
             )
             grouped_trades[key].append(trade)
 
@@ -230,7 +246,9 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
 
         return True
 
-    def _get_trader_spread_info(self, trader_pair: List[Trade]) -> Optional[Dict]:
+    def _get_trader_spread_info(
+        self, trader_pair: list[Trade]
+    ) -> Optional[TraderSpreadInfo]:
         """Extract spread info from trader pair, organizing legs chronologically."""
         if len(trader_pair) != 2:
             return None
@@ -274,8 +292,8 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         }
 
     def _pre_identify_exchange_spreads(
-        self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[ExchangeSpread]:
+        self, exchange_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[ExchangeSpread]:
         """Pre-identify valid 2-leg spreads using complete SpreadMatcher 3-tier infrastructure."""
         logger.debug(
             f"Pre-identifying exchange spreads from {len(exchange_trades)} trades"
@@ -380,8 +398,8 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
 
     def _find_multileg_match(
         self,
-        trader_pair: List[Trade],
-        exchange_trades: List[Trade],
+        trader_pair: list[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find multileg spread match using optimized spread-based approach."""
@@ -425,9 +443,9 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
 
     def _find_tier1_netting_combination(
         self,
-        trader_pair: List[Trade],
-        trader_spread_info: Dict,
-        exchange_spreads: List[ExchangeSpread],
+        trader_pair: list[Trade],
+        trader_spread_info: TraderSpreadInfo,
+        exchange_spreads: list[ExchangeSpread],
     ) -> Optional[MatchResult]:
         """Tier 1: Find 2 exchange spreads that net to match the trader spread."""
         trader_earlier_leg = trader_spread_info["earlier_leg"]
@@ -507,9 +525,9 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
 
     def _find_tier2_netting_combination(
         self,
-        trader_pair: List[Trade],
-        trader_spread_info: Dict,
-        exchange_spreads: List[ExchangeSpread],
+        trader_pair: list[Trade],
+        trader_spread_info: TraderSpreadInfo,
+        exchange_spreads: list[ExchangeSpread],
     ) -> Optional[MatchResult]:
         """Tier 2: Find 3 exchange spreads forming consecutive chain to match trader spread."""
         trader_earlier_leg = trader_spread_info["earlier_leg"]
@@ -568,7 +586,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
 
     def _validate_tier2_spread_netting(
         self,
-        spreads: List[ExchangeSpread],
+        spreads: list[ExchangeSpread],
         trader_earlier_leg: Trade,
         trader_later_leg: Trade,
         target_price: Decimal,
@@ -625,7 +643,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         inter_later: Trade,
         inter_price: Decimal,
         third_spread: ExchangeSpread,
-    ) -> Optional[Tuple[Trade, Trade, Decimal]]:
+    ) -> Optional[tuple[Trade, Trade, Decimal]]:
         """Helper to chain an intermediate spread with a third spread."""
         # Case 1: Third spread starts where intermediate ends (A/C + C/D = A/D)
         if inter_later.contract_month == third_spread.leg1.contract_month:
@@ -644,7 +662,7 @@ class MultilegSpreadMatcher(MultiLegBaseMatcher):
         return None
 
     def _create_match_result_from_spreads(
-        self, trader_pair: List[Trade], exchange_spreads: List[ExchangeSpread]
+        self, trader_pair: list[Trade], exchange_spreads: list[ExchangeSpread]
     ) -> MatchResult:
         """Create match result from trader pair and exchange spreads."""
         # Collect all exchange trades from the spreads

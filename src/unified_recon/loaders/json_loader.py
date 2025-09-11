@@ -3,7 +3,7 @@
 import json
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class UnifiedJSONLoader:
     """Loader for JSON data with field mapping for different exchange groups."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the JSON loader."""
         # Define field mappings for JSON to CSV conversion
         # These handle differences between JSON field names and CSV column names
@@ -76,7 +76,7 @@ class UnifiedJSONLoader:
         self.all_trader_fields = set(self.trader_field_mappings.values())
         self.all_exchange_fields = set(self.exchange_field_mappings.values())
 
-    def load_json(self, json_path: Path) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def load_json(self, json_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Load JSON file and return trader and exchange DataFrames.
 
         Args:
@@ -131,7 +131,7 @@ class UnifiedJSONLoader:
             raise
 
     def _json_to_dataframe(
-        self, records: List[Dict[str, Any]], record_type: str
+        self, records: list[dict[str, Any]], record_type: str
     ) -> pd.DataFrame:
         """Convert JSON records to DataFrame with field mapping.
 
@@ -181,7 +181,7 @@ class UnifiedJSONLoader:
 
     def load_and_group_by_exchange(
         self, json_path: Path
-    ) -> Dict[int, Tuple[pd.DataFrame, pd.DataFrame]]:
+    ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Load JSON and group by exchange group ID.
 
         Args:

@@ -1,6 +1,6 @@
 """DataFrame output utilities for unified reconciliation system."""
 
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 from datetime import datetime
 import pandas as pd
 import json
@@ -132,7 +132,7 @@ def create_unified_dataframe(unified_result: Any) -> pd.DataFrame:
     )
 
 
-def _normalize_to_dict(item: Any) -> Dict[str, Any]:
+def _normalize_to_dict(item: Any) -> dict[str, Any]:
     """
     Normalize an item (object or dict) to dictionary format.
 
@@ -185,7 +185,7 @@ def _normalize_to_dict(item: Any) -> Dict[str, Any]:
     return result
 
 
-def _extract_trade_ids(data: Dict, trade_type: str) -> List[int]:
+def _extract_trade_ids(data: dict[str, Any], trade_type: str) -> list[int]:
     """
     Extract and convert trade IDs to numbers from a normalized dictionary.
 

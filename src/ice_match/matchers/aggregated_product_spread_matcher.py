@@ -2,7 +2,7 @@
 
 import logging
 from decimal import Decimal
-from typing import List, Tuple, Dict, Optional, Any
+from typing import Optional, Any
 from collections import defaultdict
 
 from ...unified_recon.models.recon_status import ReconStatus
@@ -63,7 +63,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             f"Initialized AggregatedProductSpreadMatcher with {self.confidence}% confidence"
         )
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find aggregated product spread matches between trader and exchange data.
 
         Args:
@@ -74,7 +74,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         """
         logger.info("Starting aggregated product spread matching (Rule 13)")
 
-        matches: List[MatchResult] = []
+        matches: list[MatchResult] = []
         trader_trades = pool_manager.get_unmatched_trader_trades()
         exchange_trades = pool_manager.get_unmatched_exchange_trades()
 
@@ -98,10 +98,10 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _find_aggregated_exchange_to_trader_matches(
         self,
-        trader_trades: List[Trade],
-        exchange_trades: List[Trade],
+        trader_trades: list[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
-    ) -> List[MatchResult]:
+    ) -> list[MatchResult]:
         """Find matches where multiple exchange trades aggregate to trader spread pairs.
 
         Args:
@@ -112,7 +112,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         Returns:
             List of matches found for aggregated exchange → trader spreads
         """
-        matches: List[MatchResult] = []
+        matches: list[MatchResult] = []
 
         # Find trader spread pairs (price/0.00 pattern)
         trader_spread_pairs = self._find_trader_spread_pairs(
@@ -194,10 +194,10 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _find_aggregated_trader_to_exchange_matches(
         self,
-        trader_trades: List[Trade],
-        exchange_trades: List[Trade],
+        trader_trades: list[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
-    ) -> List[MatchResult]:
+    ) -> list[MatchResult]:
         """Find matches where multiple trader trades per leg aggregate to exchange spreads.
 
         Args:
@@ -208,7 +208,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         Returns:
             List of matches found for aggregated trader → exchange spreads
         """
-        matches: List[MatchResult] = []
+        matches: list[MatchResult] = []
 
         # Find exchange spread trades (both hyphenated and 2-leg)
         exchange_spreads = self._find_exchange_spread_trades(
@@ -246,8 +246,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         return matches
 
     def _find_trader_spread_pairs(
-        self, trader_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[Tuple[Trade, Trade]]:
+        self, trader_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[tuple[Trade, Trade]]:
         """Find trader spread pairs (price/0.00 pattern with opposite B/S)."""
         spread_pairs = []
 
@@ -288,8 +288,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         return spread_pairs
 
     def _find_exchange_spread_trades(
-        self, exchange_trades: List[Trade], pool_manager: UnmatchedPoolManager
-    ) -> List[Trade]:
+        self, exchange_trades: list[Trade], pool_manager: UnmatchedPoolManager
+    ) -> list[Trade]:
         """Find exchange spread trades (hyphenated products and 2-leg spreads)."""
         spread_trades = []
 
@@ -310,8 +310,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _find_cross_spread_aggregation_match(
         self,
-        trader_spread_pairs: List[Tuple[Trade, Trade]],
-        exchange_trades: List[Trade],
+        trader_spread_pairs: list[tuple[Trade, Trade]],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find match by aggregating trader spread components across multiple spread pairs.
@@ -348,7 +348,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             )
 
             # Check if any trades in this month group are already matched
-            month_trades: List[Trade] = []
+            month_trades: list[Trade] = []
             for spread_pair in month_spread_pairs:
                 month_trades.extend(spread_pair)
 
@@ -369,8 +369,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _attempt_cross_spread_aggregation(
         self,
-        trader_spread_pairs: List[Tuple[Trade, Trade]],
-        exchange_trades: List[Trade],
+        trader_spread_pairs: list[tuple[Trade, Trade]],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
         contract_month: str,
     ) -> Optional[MatchResult]:
@@ -455,7 +455,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         self,
         reference_trade: Trade,
         target_quantity: Decimal,
-        exchange_trades: List[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
         contract_month: str,
     ) -> Optional[Trade]:
@@ -481,7 +481,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         )
         return None
 
-    def _validate_product_group_consistency(self, trades: List[Trade]) -> bool:
+    def _validate_product_group_consistency(self, trades: list[Trade]) -> bool:
         """Validate that all trades in a product group have consistent characteristics.
 
         For cross-spread aggregation, we only require matching product, contract month,
@@ -525,7 +525,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         self,
         reference_trade: Trade,
         target_quantity: Decimal,
-        exchange_trades: List[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[Trade]:
         """Find exchange trade that matches the aggregated trader component."""
@@ -552,8 +552,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _validate_cross_spread_direction_logic(
         self,
-        product1_trades: List[Trade],
-        product2_trades: List[Trade],
+        product1_trades: list[Trade],
+        product2_trades: list[Trade],
         product1_exchange: Trade,
         product2_exchange: Trade,
     ) -> bool:
@@ -578,14 +578,14 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _create_cross_spread_match_result(
         self,
-        trader_spread_pairs: List[Tuple[Trade, Trade]],
+        trader_spread_pairs: list[tuple[Trade, Trade]],
         product1_exchange: Trade,
         product2_exchange: Trade,
     ) -> MatchResult:
         """Create match result for cross-spread aggregation."""
 
         # Flatten all trader trades
-        all_trader_trades: List[Trade] = []
+        all_trader_trades: list[Trade] = []
         for spread_pair in trader_spread_pairs:
             all_trader_trades.extend(spread_pair)
 
@@ -636,8 +636,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _find_exchange_aggregation_for_trader_spread(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        exchange_trades: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find aggregated exchange trades that match trader spread pair.
@@ -725,8 +725,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _find_hyphenated_exchange_aggregation_for_trader_spread(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        exchange_trades: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find aggregated hyphenated exchange spreads that match trader spread pair.
@@ -809,8 +809,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
         )
 
     def _group_hyphenated_trades_for_aggregation(
-        self, candidates: List[Trade], expected_pattern: str
-    ) -> List[List[Trade]]:
+        self, candidates: list[Trade], expected_pattern: str
+    ) -> list[list[Trade]]:
         """Group hyphenated exchange trades by identical characteristics for aggregation."""
         # Group by aggregation characteristics (price, buy_sell, universal fields already validated)
         aggregation_groups = defaultdict(list)
@@ -836,8 +836,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _validate_hyphenated_aggregation_match(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        exchange_aggregation: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        exchange_aggregation: list[Trade],
         hyphenated_pattern: str,
     ) -> bool:
         """Validate that aggregated hyphenated exchange trades match trader spread pair."""
@@ -920,8 +920,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _create_hyphenated_aggregation_match_result(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        aggregated_exchange_trades: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        aggregated_exchange_trades: list[Trade],
         hyphenated_pattern: str,
     ) -> MatchResult:
         """Create match result for Tier 4 hyphenated exchange aggregation → trader spread pair."""
@@ -973,8 +973,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
     # ============ HELPER METHODS ============
 
     def _find_exchange_quantity_aggregation(
-        self, candidates: List[Trade], target_quantity: Decimal
-    ) -> Optional[List[Trade]]:
+        self, candidates: list[Trade], target_quantity: Decimal
+    ) -> Optional[list[Trade]]:
         """Find combination of exchange trades that sum to target quantity.
 
         Uses a greedy approach to find trades that aggregate to the exact target quantity.
@@ -1020,9 +1020,9 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _validate_exchange_aggregated_spread_price(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        product1_aggregation: List[Trade],
-        product2_aggregation: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        product1_aggregation: list[Trade],
+        product2_aggregation: list[Trade],
     ) -> bool:
         """Validate that aggregated exchange trades maintain the correct spread price relationship."""
         if not product1_aggregation or not product2_aggregation:
@@ -1073,9 +1073,9 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _create_exchange_aggregated_spread_match_result(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        product1_aggregation: List[Trade],
-        product2_aggregation: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        product1_aggregation: list[Trade],
+        product2_aggregation: list[Trade],
     ) -> MatchResult:
         """Create match result for aggregated exchange → trader spread (Scenario A)."""
 
@@ -1127,7 +1127,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
     def _find_trader_aggregation_for_exchange_spread(
         self,
         exchange_spread: Trade,
-        trader_trades: List[Trade],
+        trader_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find aggregated trader trades that match exchange spread."""
@@ -1186,10 +1186,10 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _find_component_aggregation(
         self,
-        candidates: List[Trade],
+        candidates: list[Trade],
         target_trade: Trade,
         pool_manager: UnmatchedPoolManager,
-    ) -> Optional[List[Trade]]:
+    ) -> Optional[list[Trade]]:
         """Find aggregation of exchange trades that matches target trader trade."""
 
         # Define aggregation fields for product spread components
@@ -1213,10 +1213,10 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _find_trader_component_aggregation(
         self,
-        candidates: List[Trade],
+        candidates: list[Trade],
         target_exchange: Trade,
         pool_manager: UnmatchedPoolManager,
-    ) -> Optional[List[Trade]]:
+    ) -> Optional[list[Trade]]:
         """Find aggregation of trader trades for exchange component."""
 
         # Group candidates by aggregation characteristics
@@ -1250,9 +1250,9 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _validate_aggregated_spread_match(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        price_aggregation: List[Trade],
-        zero_aggregation: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        price_aggregation: list[Trade],
+        zero_aggregation: list[Trade],
     ) -> bool:
         """Validate aggregated exchange trades match trader spread pair."""
         price_trade, zero_trade = trader_spread_pair
@@ -1290,8 +1290,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
     def _validate_trader_aggregated_spread_match(
         self,
         exchange_spread: Trade,
-        first_aggregation: List[Trade],
-        second_aggregation: List[Trade],
+        first_aggregation: list[Trade],
+        second_aggregation: list[Trade],
     ) -> bool:
         """Validate aggregated trader trades match exchange spread."""
         if not first_aggregation or not second_aggregation:
@@ -1350,9 +1350,9 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
 
     def _create_aggregated_spread_match_result(
         self,
-        trader_spread_pair: Tuple[Trade, Trade],
-        price_aggregation: List[Trade],
-        zero_aggregation: List[Trade],
+        trader_spread_pair: tuple[Trade, Trade],
+        price_aggregation: list[Trade],
+        zero_aggregation: list[Trade],
     ) -> MatchResult:
         """Create match result for aggregated exchange → trader spread."""
 
@@ -1403,8 +1403,8 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
     def _create_trader_aggregated_spread_match_result(
         self,
         exchange_spread: Trade,
-        first_aggregation: List[Trade],
-        second_aggregation: List[Trade],
+        first_aggregation: list[Trade],
+        second_aggregation: list[Trade],
     ) -> MatchResult:
         """Create match result for aggregated trader → exchange spread."""
 
@@ -1448,7 +1448,7 @@ class AggregatedProductSpreadMatcher(AggregationBaseMatcher, ProductSpreadMixin)
             rule_order=self.rule_number,
         )
 
-    def get_rule_info(self) -> Dict[str, Any]:
+    def get_rule_info(self) -> dict[str, Any]:
         """Get information about this matching rule."""
         return {
             "rule_number": self.rule_number,

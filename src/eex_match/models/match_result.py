@@ -3,7 +3,8 @@
 from decimal import Decimal
 from datetime import datetime
 from enum import Enum
-from typing import List
+
+# All List types converted to built-in list type
 from pydantic import BaseModel, Field, ConfigDict
 from ...unified_recon.models.recon_status import ReconStatus
 from .trade import EEXTrade
@@ -47,17 +48,17 @@ class EEXMatchResult(BaseModel):
     )
 
     # Additional trades for complex matches (future use)
-    additional_trader_trades: List[EEXTrade] = Field(
+    additional_trader_trades: list[EEXTrade] = Field(
         default_factory=list,
         description="Additional trader trades for multi-leg matches",
     )
-    additional_exchange_trades: List[EEXTrade] = Field(
+    additional_exchange_trades: list[EEXTrade] = Field(
         default_factory=list,
         description="Additional exchange trades for multi-leg matches",
     )
 
     # Match metadata
-    matched_fields: List[str] = Field(
+    matched_fields: list[str] = Field(
         default_factory=list, description="List of fields that matched exactly"
     )
 
@@ -120,7 +121,7 @@ class EEXMatchResult(BaseModel):
             f"Confidence: {self.confidence}%"
         )
 
-    def get_all_trades(self) -> List[EEXTrade]:
+    def get_all_trades(self) -> list[EEXTrade]:
         """Get all trades involved in this match."""
         return [
             self.trader_trade,
@@ -129,11 +130,11 @@ class EEXMatchResult(BaseModel):
             *self.additional_exchange_trades,
         ]
 
-    def get_trader_trades(self) -> List[EEXTrade]:
+    def get_trader_trades(self) -> list[EEXTrade]:
         """Get all trader trades in this match."""
         return [self.trader_trade, *self.additional_trader_trades]
 
-    def get_exchange_trades(self) -> List[EEXTrade]:
+    def get_exchange_trades(self) -> list[EEXTrade]:
         """Get all exchange trades in this match."""
         return [self.exchange_trade, *self.additional_exchange_trades]
 

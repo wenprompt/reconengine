@@ -1,6 +1,6 @@
 """Result collection and aggregation for unified reconciliation system."""
 
-from typing import Dict, List, Any, Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 import logging
 
@@ -17,10 +17,10 @@ class SystemResult:
     trader_count: int
     exchange_count: int
     match_rate: float
-    system_config: Dict[str, Any]
+    system_config: dict[str, Any]
     processing_time: Optional[float] = None
     detailed_results: Optional[Any] = None  # System-specific result format
-    statistics: Optional[Dict[str, Any]] = None
+    statistics: Optional[dict[str, Any]] = None
 
 
 @dataclass
@@ -32,8 +32,8 @@ class UnifiedResult:
     total_trader_trades: int
     total_exchange_trades: int
     overall_match_rate: float
-    system_results: List[SystemResult]
-    processing_summary: Dict[str, Any]
+    system_results: list[SystemResult]
+    processing_summary: dict[str, Any]
 
 
 class ResultAggregator:
@@ -41,7 +41,7 @@ class ResultAggregator:
 
     def __init__(self) -> None:
         """Initialize result aggregator."""
-        self.system_results: List[SystemResult] = []
+        self.system_results: list[SystemResult] = []
 
     def add_system_result(
         self,
@@ -50,10 +50,10 @@ class ResultAggregator:
         matches_found: int,
         trader_count: int,
         exchange_count: int,
-        system_config: Dict[str, Any],
+        system_config: dict[str, Any],
         processing_time: Optional[float] = None,
         detailed_results: Optional[Any] = None,
-        statistics: Optional[Dict[str, Any]] = None,
+        statistics: Optional[dict[str, Any]] = None,
         match_rate: Optional[float] = None,
     ) -> None:
         """Add results from a matching system.
@@ -178,7 +178,7 @@ class ResultAggregator:
             processing_summary=processing_summary,
         )
 
-    def get_results_by_system(self, system_name: str) -> List[SystemResult]:
+    def get_results_by_system(self, system_name: str) -> list[SystemResult]:
         """Get results for a specific system.
 
         Args:

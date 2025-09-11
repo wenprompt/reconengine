@@ -2,7 +2,7 @@
 
 import logging
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -19,12 +19,12 @@ class PositionDisplay:
     """Display position analysis results using Rich terminal formatting."""
 
     console: Console
-    bbl_products: List[str]
+    bbl_products: list[str]
 
     def __init__(
         self,
         console: Optional[Console] = None,
-        bbl_products: Optional[List[str]] = None,
+        bbl_products: Optional[list[str]] = None,
     ):
         """Initialize the display.
 
@@ -51,7 +51,7 @@ class PositionDisplay:
 
     def show_position_matrix(
         self,
-        comparisons: List[PositionComparison],
+        comparisons: list[PositionComparison],
         contract_month: Optional[str] = None,
     ) -> None:
         """Display position comparison matrix with products as tables.
@@ -65,7 +65,7 @@ class PositionDisplay:
             comparisons = [c for c in comparisons if c.contract_month == contract_month]
 
         # Group by product
-        by_product: Dict[str, List[PositionComparison]] = {}
+        by_product: dict[str, list[PositionComparison]] = {}
         for comp in comparisons:
             if comp.product not in by_product:
                 by_product[comp.product] = []
@@ -77,7 +77,7 @@ class PositionDisplay:
             self.console.print()
 
     def _display_product_matrix(
-        self, product: str, comparisons: List[PositionComparison]
+        self, product: str, comparisons: list[PositionComparison]
     ) -> None:
         """Display matrix for a single product across all months.
 
@@ -188,7 +188,7 @@ class PositionDisplay:
 
         self.console.print(table)
 
-    def show_summary_statistics(self, stats: Dict[str, Any]) -> None:
+    def show_summary_statistics(self, stats: dict[str, Any]) -> None:
         """Display summary statistics.
 
         Args:
@@ -224,7 +224,7 @@ class PositionDisplay:
         self.console.print()
 
     def show_discrepancies(
-        self, comparisons: List[PositionComparison], limit: Optional[int] = None
+        self, comparisons: list[PositionComparison], limit: Optional[int] = None
     ) -> None:
         """Display detailed discrepancies.
 
@@ -388,7 +388,7 @@ class PositionDisplay:
                     product, month, unit, trader_matrix, exchange_matrix
                 )
 
-    def _format_detail_string(self, detail: Dict[str, Any], unit: str) -> str:
+    def _format_detail_string(self, detail: dict[str, Any], unit: str) -> str:
         """Format a trade detail string for display.
 
         Args:
@@ -454,7 +454,7 @@ class PositionDisplay:
         exchange_details = exchange_pos.trade_details if exchange_pos else []
 
         # Sort by absolute quantity (largest first)
-        def get_absolute_quantity(detail: Dict[str, Any]) -> float:
+        def get_absolute_quantity(detail: dict[str, Any]) -> float:
             qty_field = "quantity_bbl" if unit == "BBL" else "quantity_mt"
             qty = detail.get(qty_field)
             if qty is None:

@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, ClassVar
+from typing import Optional, ClassVar, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -64,10 +64,12 @@ class Trade(BaseModel):
     spread: Optional[str] = Field(default=None, description="Spread information")
 
     # Raw data for audit trail
-    raw_data: dict = Field(default_factory=dict, description="Original raw data")
+    raw_data: dict[str, Any] = Field(
+        default_factory=dict, description="Original raw data"
+    )
 
     @classmethod
-    def set_conversion_ratio(cls, ratio: Decimal):
+    def set_conversion_ratio(cls, ratio: Decimal) -> None:
         """Set the BBL to MT conversion ratio for all Trade instances."""
         cls._bbl_to_mt_ratio = ratio
 

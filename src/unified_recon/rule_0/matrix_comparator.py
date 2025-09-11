@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Optional, Any, Set
 
 from src.unified_recon.rule_0.position_matrix import PositionMatrix
 
@@ -70,7 +70,7 @@ class UnifiedMatrixComparator:
 
     def compare_matrices(
         self, trader_matrix: PositionMatrix, exchange_matrix: PositionMatrix
-    ) -> List[PositionComparison]:
+    ) -> list[PositionComparison]:
         """Compare two position matrices and identify discrepancies.
 
         Args:
@@ -83,7 +83,7 @@ class UnifiedMatrixComparator:
         comparisons = []
 
         # Get all unique (contract_month, product) combinations
-        all_positions: Set[Tuple[str, str]] = set()
+        all_positions: Set[tuple[str, str]] = set()
         all_positions.update(trader_matrix.positions.keys())
         all_positions.update(exchange_matrix.positions.keys())
 
@@ -167,10 +167,10 @@ class UnifiedMatrixComparator:
         return MatchStatus.QUANTITY_MISMATCH
 
     def get_summary_statistics(
-        self, comparisons: List[PositionComparison]
-    ) -> Dict[str, Any]:
+        self, comparisons: list[PositionComparison]
+    ) -> dict[str, Any]:
         """Generate summary statistics from comparisons."""
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "exchange": self.exchange,
             "total_positions": len(comparisons),
             "matched_positions": 0,

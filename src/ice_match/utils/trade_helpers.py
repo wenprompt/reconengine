@@ -14,7 +14,7 @@ and enable better testing and reusability.
 """
 
 import re
-from typing import Optional, Tuple
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def extract_base_product(crack_product: str) -> Optional[str]:
     return None
 
 
-def extract_month_year(contract_month: str) -> Optional[Tuple[str, int]]:
+def extract_month_year(contract_month: str) -> Optional[tuple[str, int]]:
     """Extract month name and year from contract month.
 
     Parses normalized contract month strings into components for further processing.
@@ -82,7 +82,7 @@ def extract_month_year(contract_month: str) -> Optional[Tuple[str, int]]:
     return None
 
 
-def get_month_order_tuple(contract_month: str) -> Optional[Tuple[int, int]]:
+def get_month_order_tuple(contract_month: str) -> Optional[tuple[int, int]]:
     """Parse contract month into a comparable (year, month_order) tuple.
 
     Converts contract months into sortable tuples for chronological ordering.

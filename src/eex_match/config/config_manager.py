@@ -3,8 +3,9 @@
 import json
 from pathlib import Path
 from decimal import Decimal
-from typing import Dict, Optional, List
+from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
+from ...unified_recon.types.json_types import NormalizerConfig
 
 
 class EEXMatchingConfig(BaseModel):
@@ -20,7 +21,7 @@ class EEXMatchingConfig(BaseModel):
     )
 
     # Confidence levels for EEX matching rules - only exact matching
-    rule_confidence_levels: Dict[int, Decimal] = Field(
+    rule_confidence_levels: dict[int, Decimal] = Field(
         default={
             1: Decimal("100"),  # Exact match only
         },
@@ -28,7 +29,7 @@ class EEXMatchingConfig(BaseModel):
     )
 
     # Processing order for rules
-    processing_order: List[int] = Field(
+    processing_order: list[int] = Field(
         default=[1],  # Only Rule 1 (exact) for EEX
         description="Order in which rules should be processed",
     )
@@ -63,7 +64,11 @@ class EEXConfigManager:
         """Load normalizer configuration from JSON file."""
         try:
             with open(self.normalizer_config_path, "r", encoding="utf-8") as f:
-                self.normalizer_config = json.load(f)
+                data = json.load(f)
+                # Validate the structure matches NormalizerConfig
+                if not isinstance(data, dict):
+                    raise ValueError("Normalizer config must be a dictionary")
+                self.normalizer_config: NormalizerConfig = data  # type: ignore[assignment]
         except FileNotFoundError as e:
             raise FileNotFoundError(
                 f"Normalizer config not found at {self.normalizer_config_path}"
@@ -88,7 +93,7 @@ class EEXConfigManager:
             raise ValueError(f"No confidence level configured for rule {rule_number}")
         return confidence
 
-    def get_processing_order(self) -> List[int]:
+    def get_processing_order(self) -> list[int]:
         """Get the order in which rules should be processed.
 
         Returns:
@@ -96,47 +101,92 @@ class EEXConfigManager:
         """
         return list(self.matching_config.processing_order)
 
-    def get_universal_matching_fields(self) -> List[str]:
+    def get_universal_matching_fields(self) -> list[str]:
         """Get list of universal matching field names from config.
 
         Returns:
             List of field names that must match across all rules
-        """
-        universal_config = self.normalizer_config.get("universal_matching_fields", {})
-        return universal_config.get("required_fields", [])
 
-    def get_universal_field_mappings(self) -> Dict[str, str]:
+        Raises:
+            KeyError: If required configuration keys are missing
+        """
+        try:
+            universal = self.normalizer_config["universal_matching_fields"]
+            return universal["required_fields"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
+
+    def get_universal_field_mappings(self) -> dict[str, str]:
         """Get mapping from config field names to Trade model attributes.
 
         Returns:
-            Dict mapping config field names to model attribute names
-        """
-        universal_config = self.normalizer_config.get("universal_matching_fields", {})
-        return universal_config.get("field_mappings", {})
+            dict mapping config field names to model attribute names
 
-    def get_product_mappings(self) -> Dict[str, str]:
+        Raises:
+            KeyError: If required configuration keys are missing
+        """
+        try:
+            universal = self.normalizer_config["universal_matching_fields"]
+            return universal["field_mappings"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
+
+    def get_product_mappings(self) -> dict[str, str]:
         """Get product name mappings from config.
 
         Returns:
-            Dict mapping raw product names to normalized names
-        """
-        return self.normalizer_config.get("product_mappings", {})
+            dict mapping raw product names to normalized names
 
-    def get_month_patterns(self) -> Dict[str, str]:
+        Raises:
+            KeyError: If required configuration keys are missing
+        """
+        try:
+            return self.normalizer_config["product_mappings"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
+
+    def get_month_patterns(self) -> dict[str, str]:
         """Get month pattern mappings from config.
 
         Returns:
-            Dict mapping regex patterns to normalized month formats
-        """
-        return self.normalizer_config.get("month_patterns", {})
+            dict mapping regex patterns to normalized month formats
 
-    def get_buy_sell_mappings(self) -> Dict[str, str]:
+        Raises:
+            KeyError: If required configuration keys are missing
+        """
+        try:
+            return self.normalizer_config["month_patterns"]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
+
+    def get_buy_sell_mappings(self) -> dict[str, str]:
         """Get buy/sell value mappings from config.
 
         Returns:
-            Dict mapping raw buy/sell values to normalized values
+            dict mapping raw buy/sell values to normalized values
+            
+        Raises:
+            KeyError: If required configuration keys are missing
         """
-        return self.normalizer_config.get("buy_sell_mappings", {})
+        try:
+            buy_sell_config = self.normalizer_config["buy_sell_mappings"]
+            # Handle both simple dict and BuySellMappings structure
+            if isinstance(buy_sell_config, dict):
+                if "mappings" in buy_sell_config:
+                    return buy_sell_config["mappings"]  # type: ignore[return-value]
+            return buy_sell_config  # type: ignore[return-value]
+        except KeyError as e:
+            raise KeyError(
+                f"Missing required key in normalizer_config.json: {e}"
+            ) from e
 
     def reload_config(self) -> None:
         """Reload configuration from files.

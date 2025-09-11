@@ -1,10 +1,10 @@
 """Base matcher with universal field handling."""
 
 from abc import ABC
-from typing import List, Tuple, Any
+from typing import Any
 import uuid
 import logging
-from ..models import Trade
+from ..models import Trade, SignatureValue
 from ..config import ConfigManager
 
 # Constants
@@ -22,8 +22,8 @@ class BaseMatcher(ABC):
         self.config_manager = config_manager
 
     def create_universal_signature(
-        self, trade: Trade, rule_specific_fields: List[Any]
-    ) -> Tuple:
+        self, trade: Trade, rule_specific_fields: list[SignatureValue]
+    ) -> tuple[SignatureValue, ...]:
         """Create matching signature by combining rule-specific fields with universal fields.
 
         Args:
@@ -45,8 +45,8 @@ class BaseMatcher(ABC):
         return tuple(signature_parts)
 
     def get_universal_matched_fields(
-        self, rule_specific_fields: List[str]
-    ) -> List[str]:
+        self, rule_specific_fields: list[str]
+    ) -> list[str]:
         """Get complete matched fields list with universal fields added.
 
         Args:

@@ -5,7 +5,7 @@ import logging
 import sys
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from rich.console import Console
 
@@ -134,7 +134,7 @@ class Rule0Analyzer:
             logger.exception("Unexpected error in Rule 0 analysis")
             sys.exit(1)
 
-    def _load_trades(self, filepath: Path, source: TradeSource) -> List[Trade]:
+    def _load_trades(self, filepath: Path, source: TradeSource) -> list[Trade]:
         """Load trades from CSV file.
 
         Args:

@@ -3,10 +3,10 @@
 import json
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
 
 
-def load_normalizer_config(config_path: str) -> Optional[Dict[str, Any]]:
+def load_normalizer_config(config_path: str) -> Optional[dict[str, Any]]:
     """Load normalizer configuration from file.
 
     Args:
@@ -18,13 +18,14 @@ def load_normalizer_config(config_path: str) -> Optional[Dict[str, Any]]:
     path = Path(config_path)
     if path.exists():
         with open(path, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            return data if isinstance(data, dict) else None
     return None
 
 
 def extract_tolerances_from_config(
-    normalizer_config: Dict[str, Any],
-) -> Dict[str, float]:
+    normalizer_config: dict[str, Any],
+) -> dict[str, float]:
     """Extract tolerance values from normalizer config.
 
     Args:
@@ -33,7 +34,7 @@ def extract_tolerances_from_config(
     Returns:
         Dictionary of tolerance values
     """
-    tolerance_dict: Dict[str, float] = {}
+    tolerance_dict: dict[str, float] = {}
     tolerances = normalizer_config.get("universal_tolerances", {})
 
     if tolerances:
@@ -45,7 +46,7 @@ def extract_tolerances_from_config(
     return tolerance_dict
 
 
-def determine_default_tolerance(tolerances: Dict[str, Any]) -> Decimal:
+def determine_default_tolerance(tolerances: dict[str, Any]) -> Decimal:
     """Determine default tolerance from tolerance dictionary.
 
     Args:
@@ -75,8 +76,8 @@ def determine_default_tolerance(tolerances: Dict[str, Any]) -> Decimal:
 
 
 def get_exchange_groups_for_exchange(
-    exchange_name: str, exchange_mappings: Dict[str, str]
-) -> List[int]:
+    exchange_name: str, exchange_mappings: dict[str, str]
+) -> list[int]:
     """Get exchange group IDs for an exchange.
 
     Args:
@@ -94,7 +95,7 @@ def get_exchange_groups_for_exchange(
 
 
 def get_active_exchange_groups(
-    trades: List[Dict[str, Any]], valid_groups: List[int]
+    trades: list[dict[str, Any]], valid_groups: list[int]
 ) -> set[int]:
     """Get active exchange groups from trades.
 
@@ -117,7 +118,7 @@ def get_active_exchange_groups(
     return active_groups
 
 
-def build_exchange_cli_map(rule0_config: Dict[str, Any]) -> Dict[str, str]:
+def build_exchange_cli_map(rule0_config: dict[str, Any]) -> dict[str, str]:
     """Build mapping from CLI names to exchange names.
 
     Args:
@@ -133,7 +134,7 @@ def build_exchange_cli_map(rule0_config: Dict[str, Any]) -> Dict[str, str]:
     return exchange_map
 
 
-def get_available_exchanges(rule0_config: Dict[str, Any]) -> List[str]:
+def get_available_exchanges(rule0_config: dict[str, Any]) -> list[str]:
     """Get list of available exchanges for CLI choices.
 
     Args:

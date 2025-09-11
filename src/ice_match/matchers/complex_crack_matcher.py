@@ -1,10 +1,10 @@
 """Complex crack matcher for 2-leg crack trades (base product + brent swap)."""
 
 import logging
-from typing import List, Tuple, Optional
+from typing import Optional
 
 from ...unified_recon.models.recon_status import ReconStatus
-from ..models import Trade, MatchResult, MatchType
+from ..models import Trade, MatchResult, MatchType, SignatureValue
 from ..normalizers import TradeNormalizer
 from ..config import ConfigManager  # Added import
 from ..core import UnmatchedPoolManager  # Added import
@@ -44,9 +44,9 @@ class ComplexCrackMatcher(BaseMatcher):
             config_manager.get_universal_tolerance_bbl()
         )  # Dynamic BBL tolerance from config
 
-        self.matches_found: List[MatchResult] = []  # Added type annotation
+        self.matches_found: list[MatchResult] = []  # Added type annotation
 
-    def find_matches(self, pool_manager: UnmatchedPoolManager) -> List[MatchResult]:
+    def find_matches(self, pool_manager: UnmatchedPoolManager) -> list[MatchResult]:
         """Find complex crack matches between trader and exchange data.
 
         Args:
@@ -92,7 +92,7 @@ class ComplexCrackMatcher(BaseMatcher):
     def _find_complex_crack_match(
         self,
         crack_trade: Trade,
-        exchange_trades: List[Trade],
+        exchange_trades: list[Trade],
         pool_manager: UnmatchedPoolManager,
     ) -> Optional[MatchResult]:
         """Find matching base product + brent swap pair for a crack trade."""
@@ -171,10 +171,10 @@ class ComplexCrackMatcher(BaseMatcher):
 
         return None
 
-    def _build_crack_match_key(self, trade: Trade) -> Tuple:
+    def _build_crack_match_key(self, trade: Trade) -> tuple[SignatureValue, ...]:
         """Build match key for crack trade with universal fields."""
         # Rule-specific fields
-        rule_specific_fields = [
+        rule_specific_fields: list[SignatureValue] = [
             trade.product_name.lower(),
             trade.contract_month,
             trade.buy_sell,
@@ -183,10 +183,10 @@ class ComplexCrackMatcher(BaseMatcher):
         # Use BaseMatcher method to add universal fields
         return self.create_universal_signature(trade, rule_specific_fields)
 
-    def _build_exchange_match_key(self, trade: Trade) -> Tuple:
+    def _build_exchange_match_key(self, trade: Trade) -> tuple[SignatureValue, ...]:
         """Build match key for exchange trade with universal fields."""
         # Rule-specific fields
-        rule_specific_fields = [
+        rule_specific_fields: list[SignatureValue] = [
             trade.product_name.lower(),
             trade.contract_month,
             trade.buy_sell,

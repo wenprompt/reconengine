@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Optional, Union, Mapping, Hashable
 from decimal import Decimal
 import logging
 
@@ -29,7 +29,7 @@ class EEXTradeFactory:
 
     def from_dataframe(
         self, df: pd.DataFrame, source: EEXTradeSource
-    ) -> List[EEXTrade]:
+    ) -> list[EEXTrade]:
         """Create trades from a pandas DataFrame.
 
         Args:
@@ -77,7 +77,7 @@ class EEXTradeFactory:
         logger.info(f"Successfully created {len(trades)} {source.value} trades")
         return trades
 
-    def from_csv(self, csv_path: Path, source: EEXTradeSource) -> List[EEXTrade]:
+    def from_csv(self, csv_path: Path, source: EEXTradeSource) -> list[EEXTrade]:
         """Create trades from a CSV file (backward compatibility).
 
         Args:
@@ -100,7 +100,7 @@ class EEXTradeFactory:
 
         try:
             # Force ID columns to be read as strings to prevent scientific notation
-            dtype_spec: Any = {"dealid": "str", "tradeid": "str"}
+            dtype_spec: Mapping[Hashable, str] = {"dealid": "str", "tradeid": "str"}
             df = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=dtype_spec)
 
             # Remove empty rows (where all required fields are null)
@@ -115,8 +115,10 @@ class EEXTradeFactory:
             raise ValueError(f"Failed to load {source.value} CSV: {e}") from e
 
     def from_json(
-        self, json_data: List[Dict[str, Any]], source: EEXTradeSource
-    ) -> List[EEXTrade]:
+        self,
+        json_data: list[dict[str, Union[str, int, float, None]]],
+        source: EEXTradeSource,
+    ) -> list[EEXTrade]:
         """Create trades directly from JSON data.
 
         Args:
@@ -137,7 +139,9 @@ class EEXTradeFactory:
         return self.from_dataframe(df, source)
 
     def _json_to_dataframe(
-        self, json_data: List[Dict], source: EEXTradeSource
+        self,
+        json_data: list[dict[str, Union[str, int, float, None]]],
+        source: EEXTradeSource,
     ) -> pd.DataFrame:
         """Convert JSON data to DataFrame with field normalization.
 
@@ -162,7 +166,9 @@ class EEXTradeFactory:
 
         return pd.DataFrame(normalized_records)
 
-    def _normalize_json_fields(self, record: Dict) -> Dict:
+    def _normalize_json_fields(
+        self, record: dict[str, Union[str, int, float, None]]
+    ) -> dict[str, Union[str, int, float, None]]:
         """Convert JSON field names from camelCase to snake_case.
 
         Args:
@@ -197,7 +203,9 @@ class EEXTradeFactory:
 
         return normalized
 
-    def _ensure_all_fields(self, record: Dict, source: EEXTradeSource) -> Dict:
+    def _ensure_all_fields(
+        self, record: dict[str, Union[str, int, float, None]], source: EEXTradeSource
+    ) -> dict[str, Union[str, int, float, None]]:
         """Ensure all required and optional fields exist in the record.
 
         Args:
@@ -228,7 +236,7 @@ class EEXTradeFactory:
 
         return record
 
-    def _get_required_fields(self, source: EEXTradeSource) -> List[str]:
+    def _get_required_fields(self, source: EEXTradeSource) -> list[str]:
         """Get required fields for the given source type."""
         # Common required fields - EEX uses quantityunit as required
         required = [
@@ -248,7 +256,7 @@ class EEXTradeFactory:
 
         return required
 
-    def _get_optional_fields(self, source: EEXTradeSource) -> List[str]:
+    def _get_optional_fields(self, source: EEXTradeSource) -> list[str]:
         """Get optional fields for the given source type."""
         optional = [
             "tradedate",
@@ -457,13 +465,13 @@ class EEXTradeFactory:
             logger.error(f"Error creating exchange trade from row {index}: {e}")
             return None
 
-    def _safe_str(self, value: Any) -> str:
+    def _safe_str(self, value: Union[str, int, float, None]) -> str:
         """Safely convert value to string, handling NaN and None."""
         if pd.isna(value) or value is None:
             return ""
         return str(value).strip()
 
-    def _safe_int(self, value: Any) -> Optional[int]:
+    def _safe_int(self, value: Union[str, int, float, None]) -> Optional[int]:
         """Safely convert value to int, returning None for invalid values."""
         if pd.isna(value) or value is None or value == "":
             return None
@@ -472,7 +480,7 @@ class EEXTradeFactory:
         except (ValueError, TypeError):
             return None
 
-    def _safe_decimal(self, value: Any) -> Optional[Decimal]:
+    def _safe_decimal(self, value: Union[str, int, float, None]) -> Optional[Decimal]:
         """Safely convert value to Decimal, returning None for invalid values."""
         if pd.isna(value) or value is None or value == "":
             return None

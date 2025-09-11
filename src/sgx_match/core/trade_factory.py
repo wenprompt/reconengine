@@ -2,7 +2,7 @@
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Optional, Union, Mapping, Hashable
 from decimal import Decimal
 import logging
 
@@ -29,7 +29,7 @@ class SGXTradeFactory:
 
     def from_dataframe(
         self, df: pd.DataFrame, source: SGXTradeSource
-    ) -> List[SGXTrade]:
+    ) -> list[SGXTrade]:
         """Create trades from a pandas DataFrame.
 
         Args:
@@ -77,7 +77,7 @@ class SGXTradeFactory:
         logger.info(f"Successfully created {len(trades)} {source.value} trades")
         return trades
 
-    def from_csv(self, csv_path: Path, source: SGXTradeSource) -> List[SGXTrade]:
+    def from_csv(self, csv_path: Path, source: SGXTradeSource) -> list[SGXTrade]:
         """Create trades from a CSV file (backward compatibility).
 
         Args:
@@ -100,7 +100,7 @@ class SGXTradeFactory:
 
         try:
             # Force ID columns to be read as strings to prevent scientific notation
-            dtype_spec: Any = {"dealid": "str", "tradeid": "str"}
+            dtype_spec: Mapping[Hashable, str] = {"dealid": "str", "tradeid": "str"}
             df = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=dtype_spec)
             logger.info(f"Loaded {len(df)} rows from {source.value} CSV")
 
@@ -111,8 +111,10 @@ class SGXTradeFactory:
             raise ValueError(f"Failed to load {source.value} CSV: {e}") from e
 
     def from_json(
-        self, json_data: List[Dict[str, Any]], source: SGXTradeSource
-    ) -> List[SGXTrade]:
+        self,
+        json_data: list[dict[str, Union[str, int, float, None]]],
+        source: SGXTradeSource,
+    ) -> list[SGXTrade]:
         """Create trades directly from JSON data.
 
         Args:
@@ -133,7 +135,9 @@ class SGXTradeFactory:
         return self.from_dataframe(df, source)
 
     def _json_to_dataframe(
-        self, json_data: List[Dict], source: SGXTradeSource
+        self,
+        json_data: list[dict[str, Union[str, int, float, None]]],
+        source: SGXTradeSource,
     ) -> pd.DataFrame:
         """Convert JSON data to DataFrame with field normalization.
 
@@ -158,7 +162,9 @@ class SGXTradeFactory:
 
         return pd.DataFrame(normalized_records)
 
-    def _normalize_json_fields(self, record: Dict) -> Dict:
+    def _normalize_json_fields(
+        self, record: dict[str, Union[str, int, float, None]]
+    ) -> dict[str, Union[str, int, float, None]]:
         """Convert JSON field names from camelCase to snake_case.
 
         Args:
@@ -194,7 +200,9 @@ class SGXTradeFactory:
 
         return normalized
 
-    def _ensure_all_fields(self, record: Dict, source: SGXTradeSource) -> Dict:
+    def _ensure_all_fields(
+        self, record: dict[str, Union[str, int, float, None]], source: SGXTradeSource
+    ) -> dict[str, Union[str, int, float, None]]:
         """Ensure all required and optional fields exist in the record.
 
         Args:
@@ -225,7 +233,7 @@ class SGXTradeFactory:
 
         return record
 
-    def _get_required_fields(self, source: SGXTradeSource) -> List[str]:
+    def _get_required_fields(self, source: SGXTradeSource) -> list[str]:
         """Get required fields for the given source type."""
         # Common required fields - SGX uses quantityunit as required
         required = [
@@ -245,7 +253,7 @@ class SGXTradeFactory:
 
         return required
 
-    def _get_optional_fields(self, source: SGXTradeSource) -> List[str]:
+    def _get_optional_fields(self, source: SGXTradeSource) -> list[str]:
         """Get optional fields for the given source type."""
         optional = [
             "tradedate",
@@ -467,13 +475,13 @@ class SGXTradeFactory:
             logger.error(f"Error creating exchange trade from row {index}: {e}")
             return None
 
-    def _safe_str(self, value: Any) -> str:
+    def _safe_str(self, value: Union[str, int, float, None]) -> str:
         """Safely convert value to string, handling NaN and None."""
         if pd.isna(value) or value is None:
             return ""
         return str(value).strip()
 
-    def _safe_int(self, value: Any) -> Optional[int]:
+    def _safe_int(self, value: Union[str, int, float, None]) -> Optional[int]:
         """Safely convert value to int, returning None for invalid values."""
         if pd.isna(value) or value is None or value == "":
             return None
@@ -482,7 +490,7 @@ class SGXTradeFactory:
         except (ValueError, TypeError):
             return None
 
-    def _safe_decimal(self, value: Any) -> Optional[Decimal]:
+    def _safe_decimal(self, value: Union[str, int, float, None]) -> Optional[Decimal]:
         """Safely convert value to Decimal, returning None for invalid values."""
         if pd.isna(value) or value is None or value == "":
             return None
